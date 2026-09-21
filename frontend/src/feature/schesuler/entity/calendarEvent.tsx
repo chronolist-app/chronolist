@@ -179,7 +179,7 @@ class CalendarEvent {
             allDay: this.kind == "ALL_DAY",
             start: s.toISOString(),
             // Fullcalendarの終了日時は、指定日の翌日を指定する仕様
-            end: nextDate(e).toISOString(),
+            end: (this.kind == "ALL_DAY" ? nextDate(e) : e).toISOString(),
             borderColor: this.color,
             textColor: this.color,
         }
