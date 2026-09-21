@@ -64,7 +64,6 @@ const LoginPage = () => {
                     <label>パスワード</label>
                     <input type="password" name="password" value={password} required onChange={(e) => setPassword(e.target.value)} />
                 </div>
-                <Button variant="primary" type="submit">フォームログイン</Button>
                 <Button type={"button"} variant="success" onClick={handleLogin}>APIログイン</Button>
             </form>
         </>
