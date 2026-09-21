@@ -5,14 +5,13 @@ import CalendarEventsContext from "./components/contexts/calendar-events-context
 import SelectedCalendarEventContext from "./components/contexts/selected-event"
 import Calendar from "./components/calendar";
 
-import { getCalendarEvents } from "./api/get";
 import { Box, Stack } from "@mui/material";
 import SidePanel from "./components/SidePanel/SidePanel";
 
 
 const SchedulerPage = () => {
 
-    const [events, setEvents] = useState<CalendarEvent[]>(getCalendarEvents("", ""));
+    const [events, setEvents] = useState<CalendarEvent[]>([]);
     const updateEvent = (clientId: string, updatedEvent: CalendarEvent | ((updatedEvent: CalendarEvent) => CalendarEvent), callApi?: boolean) => {
         const oldEvent = events.find(e => e.clientId === clientId);
         if (!oldEvent) throw new Error("Event not found.");

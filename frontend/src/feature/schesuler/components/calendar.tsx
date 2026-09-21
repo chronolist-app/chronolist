@@ -17,14 +17,16 @@ const Calendar = () => {
     const { setEventClientId: setSelectedEventId } = useContext(SelectedCalendarEventContext);
 
     // 初期化時や月変更時に呼び出される関数
-    const handleDatesSet = useCallback((arg: DatesSetArg) => {
+    const handleDatesSet = useCallback(async (arg: DatesSetArg) => {
         const start = arg.start;
         const end = prevDate(arg.end);
-        setEvents(getCalendarEvents(start, end));
+        const events = await getCalendarEvents(start, end);
+        setEvents(events);
 
         // テスト出力
         console.log("handleDatesSet");
-        console.log(start, end);
+        console.log(start.toISOString(), "|", end.toISOString());
+        console.log("events: ", events);
     }, [setEvents]);
 
     // イベントラベル選択時に呼び出される関数
