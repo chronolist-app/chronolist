@@ -52,7 +52,7 @@ const EditableDateText: FC<EditableDateTextProps> = ({ value, variant, style, sx
         <Input
             value={date.toLocaleDateString()}
             autoFocus
-            type={"time"}
+            type={"date"}
             onChange={handleOnChange}
             onKeyDown={(e) => {handleKeyDown(e);}}
             onBlur={handleFinishEdit}
