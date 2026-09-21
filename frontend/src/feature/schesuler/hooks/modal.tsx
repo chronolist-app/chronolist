@@ -16,7 +16,7 @@ import SelectedCalendarEventContext from "../components/contexts/selected-event"
 
 const useRegisterEventModal = () => {
     const [ values, setValues ] = useState(initialModalFormValues());
-    const { events, setEvents } = useContext(CalendarEventsContext);
+    const { setEvents } = useContext(CalendarEventsContext);
     const { setEventClientId: setSelectedEventId } = useContext(SelectedCalendarEventContext);
 
     const StartDateTimeField = () => {
