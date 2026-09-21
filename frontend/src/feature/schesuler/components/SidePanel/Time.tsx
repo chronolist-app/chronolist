@@ -25,7 +25,7 @@ type AllDayCheckBoxProps = {
 type DateTimeBox = {
     kind: ScheduleKind,
     time: Date,
-    onChangeTime: (time: Date) => void,
+    onChange: (time: Date) => void,
 }
 
 const Time: FC<TimeProps> = ({
@@ -64,9 +64,9 @@ const Time: FC<TimeProps> = ({
         <>
             <Stack direction={"column"} alignItems={"center"} spacing={2}>
                 <AllDayCheckBox kind={kind} onChangeKind={handleChangeKind} />
-                <DateTimeBox kind={kind} time={start} onChangeTime={handleChangeStartTime} />
+                <DateTimeBox kind={kind} time={start} onChange={handleChangeStartTime} />
                 <ArrowDownwardIcon />
-                <DateTimeBox kind={kind} time={end} onChangeTime={handleChangeEndTime} />
+                <DateTimeBox kind={kind} time={end} onChange={handleChangeEndTime} />
             </Stack>
         </>
     )
@@ -83,16 +83,26 @@ const AllDayCheckBox: FC<AllDayCheckBoxProps> = ({kind, onChangeKind}) => {
     );
 }
 
-const DateTimeBox: FC<DateTimeBox> = ({kind, time, onChangeTime}) => {
+const DateTimeBox: FC<DateTimeBox> = ({kind, time, onChange}) => {
     const isAllDay = kind === "ALL_DAY";
-    const AllDayFC = <EditableDateText value={time} onChange={onChangeTime} />;
-    const DatedFC = (
+
+    if (isAllDay) return <EditableDateText value={time} onChange={onChange} />;
+
+    const onChangeDate = (date: Date) => {
+        const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), time.getHours(), time.getMinutes());
+        onChange(d);
+    }
+    const onChangeTime = (newTime: MyTime) => {
+        const d = new Date(time.getFullYear(), time.getMonth(), time.getDate(), newTime.hour, newTime.minute);
+        onChange(d);
+    }
+
+    return (
         <Stack direction={"row"} spacing={2}>
-            <EditableDateText value={time} onChange={onChangeTime} />
-            <EditableTimeText value={new MyTime(time)} onChange={(time) => onChangeTime(new Date(time.toString()))} />
+            <EditableDateText value={time} onChange={onChangeDate} />
+            <EditableTimeText value={new MyTime(time)} onChange={(time) => onChangeTime(time)} />
         </Stack>
     );
-    return isAllDay ? AllDayFC : DatedFC;
 }
 
 export default Time;
