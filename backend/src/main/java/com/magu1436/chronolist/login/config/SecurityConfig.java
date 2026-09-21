@@ -22,6 +22,7 @@ import com.magu1436.chronolist.login.JsonLoginFilter;
 import com.magu1436.chronolist.login.Handler.CustomFailureHandler;
 import com.magu1436.chronolist.login.Handler.CustomSuccessHandler;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -51,21 +52,21 @@ public class SecurityConfig {
             // フィルターの追加
             .addFilterAt(jsonLoginFilter(), UsernamePasswordAuthenticationFilter.class)
 
+            // 未認証の時点で認証が必要なページへのアクセスが行われた際のレスポンス
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            })
+        )
+
             .authorizeHttpRequests(auth -> auth
                 // 各ページへのアクセス許可設定
-                .requestMatchers( "/login", "/public/**", "/error", "/").permitAll()
-                .requestMatchers("/general/**", "/api/**").authenticated()
+                .requestMatchers( "/api/signup").permitAll()
+                .requestMatchers( "/api/**").authenticated()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
-            .formLogin(form -> form
-                .loginPage("/login")
-                // ログイン成功時のリダイレクト先を指定
-                .defaultSuccessUrl("/")
-                // ログイン失敗時のリダイレクト先を指定
-                .failureUrl("/login?error")
-                .permitAll()
-            )
+
             .logout(logout -> logout
                 .logoutSuccessUrl("/login?logout")
                 .invalidateHttpSession(true)
@@ -97,7 +98,7 @@ public class SecurityConfig {
         configuration.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/api/**", configuration);
         return source;
     }
 

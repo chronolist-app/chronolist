@@ -55,7 +55,7 @@ const LoginPage = () => {
             {hasError && (<div style={{color: "red"}}>usernameまたはpasswordが違います</div>)}
             {hasLogout && (<div style={{color: "blue"}}>ログアウトしました</div>)}
 
-            <form action="http://localhost:8080/login" method="post">
+            <form>
                 <div>
                     <label>ログインID</label>
                     <input type="text" name="login_id" value={loginId} required onChange={(e) => setLoginId(e.target.value)} />
@@ -64,7 +64,6 @@ const LoginPage = () => {
                     <label>パスワード</label>
                     <input type="password" name="password" value={password} required onChange={(e) => setPassword(e.target.value)} />
                 </div>
-                <Button variant="primary" type="submit">フォームログイン</Button>
                 <Button type={"button"} variant="success" onClick={handleLogin}>APIログイン</Button>
             </form>
         </>

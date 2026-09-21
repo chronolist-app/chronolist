@@ -7,8 +7,8 @@ import { useNavigate } from "react-router-dom";
 
 const SingnUpPage= () => {
 
-    const loginId = useRef<string>("");
-    const password = useRef<string>("");
+    const [loginId, setLoginId] = useState<string>("");
+    const [password, setPassword] = useState<string>("");
 
     const nav = useNavigate();
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -31,7 +31,7 @@ const SingnUpPage= () => {
         } catch (err) {
             if (axios.isAxiosError(err)) {
                 const status = err.response?.status;
-                setErrorMsg(`Some error happened! status: ${status}`);
+                setErrorMsg(`Some error happened! status: ${status} code: ${err.response?.data}`);
             } else {
                 setErrorMsg("Some unknown error happened!");
             }
@@ -47,11 +47,11 @@ const SingnUpPage= () => {
 
             <div>
                 <label>ログインID</label>
-                <input type="text" value={loginId.current} onChange={(e) => loginId.current = e.target.value} />
+                <input type="text" value={loginId} onChange={(e) => setLoginId(e.target.value)} />
             </div>
             <div>
                 <label>パスワード</label>
-                <input type="password" value={password.current} onChange={(e) => password.current = e.target.value} />
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             <Button variant="primary" onClick={handleSignUp}>サインアップ</Button>
         </>
