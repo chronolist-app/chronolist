@@ -50,7 +50,7 @@ const EditableDateText: FC<EditableDateTextProps> = ({ value, variant, style, sx
     );
     const editNode = (
         <Input
-            value={date.toLocaleDateString()}
+            value={date.toISOString().split("T")[0]}
             autoFocus
             type={"date"}
             onChange={handleOnChange}
