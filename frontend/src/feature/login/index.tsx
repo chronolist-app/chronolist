@@ -55,7 +55,7 @@ const LoginPage = () => {
             {hasError && (<div style={{color: "red"}}>usernameまたはpasswordが違います</div>)}
             {hasLogout && (<div style={{color: "blue"}}>ログアウトしました</div>)}
 
-            <form action="http://localhost:8080/login" method="post">
+            <form>
                 <div>
                     <label>ログインID</label>
                     <input type="text" name="login_id" value={loginId} required onChange={(e) => setLoginId(e.target.value)} />
