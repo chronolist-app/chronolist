@@ -1,7 +1,7 @@
 -- usersテーブルへの初期データ登録
 INSERT INTO users (login_id, password, role)
 VALUES
-('admin', 'password', 'GENERAL');
+('admin', '$2a$10$onA5jAPMZOislXd8/X27ue1EaJiI35PcX0aZZtY5YaGcaaeH2ytlW', 'GENERAL');
 
 -- scheduleテーブル, およびcalendar_eventテーブルへの初期データ登録
 INSERT INTO schedule (user_id, kind, start_at, end_at, start_date, end_date, title)
