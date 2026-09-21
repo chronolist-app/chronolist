@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleLoginIdInvalidChar() {
         return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
-            .body("LOGIN_ID_TOO_SHORT");
+            .body("LOGIN_ID_INVALID_CHARACTER");
     }
 
     @ExceptionHandler(LoginIdUsesReservedWordException.class)
