@@ -15,6 +15,7 @@ import com.magu1436.chronolist.login.exception.PasswordMissingRequiredCharTypeEx
 import com.magu1436.chronolist.login.exception.PasswordTooLongException;
 import com.magu1436.chronolist.login.exception.PasswordTooShortException;
 import com.magu1436.chronolist.login.exception.PasswordUsesNonAsciiCharException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 /**
  * サインアップ機能の例外ハンドラ
@@ -90,6 +91,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
             .body("PASSWORD_NON_ASCII_CHARACTER");
+    }
+    @ExceptionHandler (MethodArgumentNotValidException.class)
+    public ResponseEntity<?> handleMethodArgumentNotValid(){
+        return  ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body("FIELD_EMPTY");
     }
 
     @ExceptionHandler(Exception.class)

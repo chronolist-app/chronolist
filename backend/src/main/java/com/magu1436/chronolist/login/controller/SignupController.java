@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.magu1436.chronolist.login.entity.SignupRequest;
 import com.magu1436.chronolist.login.service.SignupService;
 
+import jakarta.validation.Valid;
+
 import lombok.RequiredArgsConstructor;
 
 
@@ -27,7 +29,7 @@ public class SignupController {
      * @author milk0924
      */
     @PostMapping("/signup")
-    public ResponseEntity<?> register(@RequestBody SignupRequest user){
+    public ResponseEntity<?> register(@Valid  @RequestBody SignupRequest user){
         signupService.register(user.getLoginId(), user.getPassword());
         return ResponseEntity.ok().build();
     }
