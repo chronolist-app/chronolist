@@ -15,7 +15,7 @@ type SubmitJSON = {
     memo: string | null
 }
 
-export const registerEvent = async (event: CalendarEvent): Promise<number> => {
+const registerEvent = async (event: CalendarEvent): Promise<number> => {
     const data: SubmitJSON = {
         kind: event.kind,
         startAt: event.startAt ? event.startAt.toISOString().split("T")[0] : null,
@@ -39,4 +39,6 @@ export const registerEvent = async (event: CalendarEvent): Promise<number> => {
         }
         throw err;
     }
-}
+};
+
+export default registerEvent;

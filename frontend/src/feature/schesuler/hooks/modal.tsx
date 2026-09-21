@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useContext, useState } from "react";
 import dayjs, { Dayjs } from 'dayjs';
 import type { ScheduleKind } from "../types/statics";
 import { Stack, TextField, Typography } from "@mui/material";
@@ -9,10 +9,15 @@ import PullDown from "@/components/pulldown";
 import useModal from "@/hooks/use-modal";
 import CalendarEvent from "../entity/calendarEvent";
 import CheckBox from "@/components/checkbox";
+import registerEvent from "../api/register";
+import CalendarEventsContext from "../components/contexts/calendar-events-context";
+import SelectedCalendarEventContext from "../components/contexts/selected-event";
 
 
 const useRegisterEventModal = () => {
     const [ values, setValues ] = useState(initialModalFormValues());
+    const { events, setEvents } = useContext(CalendarEventsContext);
+    const { setEventClientId: setSelectedEventId } = useContext(SelectedCalendarEventContext);
 
     const StartDateTimeField = () => {
         if (values.kind === "ALL_DAY") {
@@ -98,12 +103,20 @@ const useRegisterEventModal = () => {
         </Stack>
     );
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         // テスト出力
         console.log("submit");
         console.log(values);
 
-        // TODO: 予定登録APIを呼び出す
+        // API呼び出し
+        const event = values2event(values);
+        setEvents((events) => [...events, event]);
+        setSelectedEventId(event.clientId);
+        const id = await registerEvent(values2event(values));
+        // TODO: CalendarEvent の id を変更可能にし, ID を設定する
+
+        // テスト出力
+        console.log(`id: ${id}`);
     }
 
     const handleCancel = () => {
