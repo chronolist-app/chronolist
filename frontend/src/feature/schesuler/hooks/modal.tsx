@@ -125,7 +125,13 @@ const useRegisterEventModal = () => {
         children: renderModalBody(),
     });
 
-    return { modal, toggleModalShow };
+    const setDates = useCallback((start: Date, end: Date) => setValues((v) => ({
+        ...v,
+        startDate: dayjs(start),
+        endDate: dayjs(end),
+    })), [setValues]);
+
+    return { modal, toggleModalShow, setDates };
 }
 
 interface ModalFormValues {

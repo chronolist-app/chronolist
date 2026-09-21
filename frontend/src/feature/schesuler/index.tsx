@@ -5,11 +5,10 @@ import CalendarEventsContext from "./components/contexts/calendar-events-context
 import SelectedCalendarEventContext from "./components/contexts/selected-event"
 import Calendar from "./components/calendar";
 
-import { Box, Button, Stack } from "@mui/material";
+import { Box, Stack } from "@mui/material";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import SidePanel from "./components/SidePanel/SidePanel";
-import useRegisterEventModal from "./hooks/modal";
 
 
 const SchedulerPage = () => {
@@ -39,15 +38,13 @@ const SchedulerPage = () => {
             </Box>
         </>
     )
-    const { modal, toggleModalShow } = useRegisterEventModal();
+
     return (
         <>
             <CalendarEventsContext value={{events, setEvents, updateEvent}} >
                 <SelectedCalendarEventContext value={{eventClientId: selectedEventId, setEventClientId: setSelectedEventId}} >
                     <LocalizationProvider dateAdapter={AdapterDayjs}>
                         <Stack sx={{height: "100vh", width: "100vw", border: "1px solid red", alignItems: "stretch"}} direction={"row"}>
-                            {modal}
-                            <Button onClick={() => toggleModalShow()}>Open Modal</Button>
                             {DynamicCalendar}
                             {DynamicSidePanel}
                         </Stack>
