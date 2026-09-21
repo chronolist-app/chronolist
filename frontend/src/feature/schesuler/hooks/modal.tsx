@@ -19,52 +19,72 @@ const useRegisterEventModal = () => {
     const { setEvents } = useContext(CalendarEventsContext);
     const { setEventClientId: setSelectedEventId } = useContext(SelectedCalendarEventContext);
 
+    const [ errorMessages, setErrorMessages ] = useState<{
+        title: string | null;
+        start: string | null;
+        end: string | null;
+    }>({
+        title: null,
+        start: null,
+        end: null
+    });
+
     const StartDateTimeField = () => {
+        const props = {
+            value: values.start,
+            slotProps: {
+                textField: {
+                    helperText: errorMessages.start,
+                },
+            },
+            onChange: (newValue: Dayjs | null) => {
+                setValues((v) => ({ ...v, start: newValue }));
+                errorMessages.start = null;
+            }
+        }
         if (values.kind === "ALL_DAY") {
             return (
                 <DatePicker
                     label="Start Date"
-                    value={values.startDate}
-                    onChange={(newValue) => setValues((v) => ({ ...v, startDate: newValue }))}
+                    {...props}
                 />
             );
         }
         return (
             <DateTimePicker 
                 label="Start Date & Time"
-                value={values.startAt}
-                onChange={(newValue) => setValues((v) => ({ ...v, startAt: newValue }))}
+                {...props}
             />
         )
     }
     const EndDateTimeField = () => {
+        const props = {
+            value: values.end,
+            slotProps: {
+                textField: {
+                    helperText: errorMessages.end,
+                },
+            },
+            onChange: (newValue: Dayjs | null) => {
+                setValues((v) => ({ ...v, end: newValue }));
+                errorMessages.end = null;
+            }
+        }
         if (values.kind === "ALL_DAY") {
             return (
                 <DatePicker
                     label="End Date"
-                    value={values.endDate}
-                    onChange={(newValue) => setValues((v) => ({ ...v, endDate: newValue }))}
+                    {...props}
                 />
             );
         }
         return (
             <DateTimePicker 
                 label="End Date & Time"
-                value={values.endAt}
-                onChange={(newValue) => setValues((v) => ({ ...v, endAt: newValue }))}
+                {...props}
             />
         )
     }
-    const onChangeKind = useCallback((kind: ScheduleKind) => setValues(
-        (v) => ({
-            ...v,
-            kind,
-            startAt: kind === "ALL_DAY" ? null : v.startDate,
-            endAt: kind === "ALL_DAY" ? null : v.endDate,
-            startDate: kind === "ALL_DAY" ? v.startAt : null,
-            endDate: kind === "ALL_DAY" ? v.endAt : null
-        })
-    ), [setValues]);
 
     const renderModalBody = () => (
         <Stack direction={"column"} alignItems={"center"} spacing={2}>
@@ -72,13 +92,17 @@ const useRegisterEventModal = () => {
                 label="Title"
                 variant="outlined"
                 value={values.title}
-                onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))}
+                onChange={(e) => {
+                    setValues((v) => ({ ...v, title: e.target.value }));
+                    setErrorMessages((v) => ({ ...v, title: null }));
+                }}
                 fullWidth
+                helperText={errorMessages.title}
             />
             <Stack direction={"column"} alignItems={"end"} spacing={1}>
                 <Stack direction={"row"}>
                     <Typography>終日</Typography>
-                    <CheckBox defaultChecked={values.kind === "ALL_DAY"} onChange={(checked) => onChangeKind(checked ? "ALL_DAY" : "DATED")} />
+                    <CheckBox defaultChecked={values.kind === "ALL_DAY"} onChange={(checked) => setValues((v) => ({ ...v, kind: checked ? "ALL_DAY" : "DATED" }))} />
                 </Stack>
                 <Stack direction={"column"} spacing={1} alignItems={"center"}>
                     <StartDateTimeField />
@@ -150,10 +174,8 @@ const useRegisterEventModal = () => {
 interface ModalFormValues {
     title: string;
     kind: ScheduleKind;
-    startAt: Dayjs | null;
-    endAt: Dayjs | null;
-    startDate: Dayjs | null;
-    endDate: Dayjs | null;
+    start: Dayjs | null;
+    end: Dayjs | null;
     color: string;
     memo: string;
 };
@@ -162,21 +184,20 @@ const initialModalFormValues = (): ModalFormValues => {
     return {
         title: "",
         kind: "ALL_DAY",
-        startAt: null,
-        endAt: null,
-        startDate: dayjs(),
-        endDate: dayjs(),
+        start: dayjs(),
+        end: dayjs(),
         color: "BLACK",
         memo: "",
     }
 };
 
 const values2event = (v: ModalFormValues): CalendarEvent => {
+    if (!v.start || !v.end) throw new Error("Invalid date.");
     const e = new CalendarEvent(
         0,
         v.kind,
-        v.startAt?.toDate() || v.startDate?.toDate() || new Date(),
-        v.endAt?.toDate() || v.endDate?.toDate() || new Date(),
+        v.start.toDate(),
+        v.end.toDate(),
         v.title,
         v.color,
     );
