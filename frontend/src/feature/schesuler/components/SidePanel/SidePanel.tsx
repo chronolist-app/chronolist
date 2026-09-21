@@ -8,6 +8,7 @@ import Header from "./header";
 import Time from "./Time";
 import Color from "./Color";
 import Memo from "./Memo";
+import type { ScheduleKind } from "../../types/statics";
 
 /**
  * カレンダーイベントの詳細を表示・編集可能にするサイドパネル
@@ -16,7 +17,7 @@ type SidePanelProps = {}
 
 const SidePanel: FC<SidePanelProps> = () => {
     
-    const [ calendarEvent, setCalendarEvent ] = useState<CalendarEvent | null>(null);
+    const [ targetCalendarEvent, setTargetCalendarEvent ] = useState<CalendarEvent | null>(null);
 
     const {
         events,
@@ -34,37 +35,60 @@ const SidePanel: FC<SidePanelProps> = () => {
         if (!eventClientId) return;
         const event = events.find(e => e.clientId === eventClientId);
         if (!event) throw new Error("Event not found.");
-        setCalendarEvent(event);
-    }, [eventClientId, setCalendarEvent]);
+        setTargetCalendarEvent(event);
+    }, [eventClientId, setTargetCalendarEvent]);
 
+    // 選択中のカレンダーイベントの更新を行い, カレンダーにも反映させる
+    const changeCalendarEvent = (calendarEvent: CalendarEvent) => {
+        setTargetCalendarEvent(calendarEvent);
+        updateEvent(calendarEvent.clientId, calendarEvent, false);
+    };
+    
     const handleChangeTitle = (title: string) => {
-        if (!calendarEvent) return;
-        calendarEvent.title = title;
-        setCalendarEvent(calendarEvent);
-        updateEvent(calendarEvent.clientId, calendarEvent, true);
+        if (!targetCalendarEvent) return;
+        targetCalendarEvent.title = title;
+        changeCalendarEvent(targetCalendarEvent);
     };
 
-    const hangeDelete = () => {
-        if (!calendarEvent) return;
+    const handleDelete = () => {
+        if (!targetCalendarEvent) return;
         // クライアント側の削除
-        setEvents(events.filter(e => e.clientId !== calendarEvent.clientId));
+        setEvents(events.filter(e => e.clientId !== targetCalendarEvent.clientId));
         setEventClientId(null);
         // サーバー側の削除
         // deleteApi(calendarEvent.id);
     }
 
+    const handleChangeStart = (start: Date) => {
+        if (!targetCalendarEvent) return;
+        if (targetCalendarEvent.kind === "ALL_DAY") targetCalendarEvent.startDate = start;
+        else targetCalendarEvent.startAt = start;
+        changeCalendarEvent(targetCalendarEvent);
+    }
+
+    const handleChangeEnd = (end: Date) => {
+        if (!targetCalendarEvent) return;
+        if (targetCalendarEvent.kind === "ALL_DAY") targetCalendarEvent.endDate = end;
+        else targetCalendarEvent.endAt = end;
+        changeCalendarEvent(targetCalendarEvent);
+    }
+
+    const handleChangeKind = (kind: ScheduleKind) => {
+        if (!targetCalendarEvent) return;
+        targetCalendarEvent.kind = kind;
+        changeCalendarEvent(targetCalendarEvent);
+    }
+
     const handleChangeColor = (color: string) => {
-        if (!calendarEvent) return;
-        calendarEvent.color = color;
-        setCalendarEvent(calendarEvent);
-        updateEvent(calendarEvent.clientId, calendarEvent, true);
+        if (!targetCalendarEvent) return;
+        targetCalendarEvent.color = color;
+        changeCalendarEvent(targetCalendarEvent);
     };
 
     const handleChangeMemo = (memo: string) => {
-        if (!calendarEvent) return;
-        calendarEvent.memo = memo;
-        setCalendarEvent(calendarEvent);
-        updateEvent( calendarEvent.clientId, calendarEvent, true);
+        if (!targetCalendarEvent) return;
+        targetCalendarEvent.memo = memo;
+        changeCalendarEvent(targetCalendarEvent);
     };
 
     const dividerSx = {
@@ -80,22 +104,24 @@ const SidePanel: FC<SidePanelProps> = () => {
                 spacing={3}
             >
                 <Header
-                    title={calendarEvent?.title || ""}
+                    title={targetCalendarEvent?.title || ""}
                     setTitle={handleChangeTitle}
-                    onDelete={hangeDelete}
+                    onDelete={handleDelete}
                 />
                 <Time
-                    kind={calendarEvent?.kind || "DATED"}
-                    start={calendarEvent?.startAt || calendarEvent?.startDate || new Date()}
-                    end={calendarEvent?.endAt || calendarEvent?.endDate || new Date()}
-                    setCalendarEvent={setCalendarEvent}
+                    kind={targetCalendarEvent?.kind || "DATED"}
+                    start={targetCalendarEvent?.startAt || targetCalendarEvent?.startDate || new Date()}
+                    end={targetCalendarEvent?.endAt || targetCalendarEvent?.endDate || new Date()}
+                    onChangeStart={handleChangeStart}
+                    onChangeEnd={handleChangeEnd}
+                    onChangeKind={handleChangeKind}
                 />
                 <Color
-                    color={calendarEvent?.color || "RED"}
+                    color={targetCalendarEvent?.color || "RED"}
                     onChange={handleChangeColor}
                 />
                 <Memo
-                    memo={calendarEvent?.memo || ""}
+                    memo={targetCalendarEvent?.memo || ""}
                     onChange={handleChangeMemo}
                 />
             </Stack>
