@@ -37,6 +37,7 @@ const useRegisterEventModal = () => {
                     helperText: errorMessages.start,
                 },
             },
+            error: errorMessages.start !== null,
             onChange: (newValue: Dayjs | null) => {
                 setValues((v) => ({ ...v, start: newValue }));
                 errorMessages.start = null;
@@ -65,6 +66,7 @@ const useRegisterEventModal = () => {
                     helperText: errorMessages.end,
                 },
             },
+            error: errorMessages.end !== null,
             onChange: (newValue: Dayjs | null) => {
                 setValues((v) => ({ ...v, end: newValue }));
                 errorMessages.end = null;
@@ -98,6 +100,7 @@ const useRegisterEventModal = () => {
                 }}
                 fullWidth
                 helperText={errorMessages.title}
+                error={errorMessages.title !== null}
             />
             <Stack direction={"column"} alignItems={"end"} spacing={1}>
                 <Stack direction={"row"}>
@@ -127,10 +130,30 @@ const useRegisterEventModal = () => {
         </Stack>
     );
 
+    const validate = () => {
+        if (values.title === "") {
+            setErrorMessages((v) => ({ ...v, title: "タイトルを入力してください" }));
+            return false;
+        }
+        if (values.start === null) {
+            setErrorMessages((v) => ({ ...v, start: "開始日時を入力してください" }));
+            return false;
+        }
+        if (values.end === null) {
+            setErrorMessages((v) => ({ ...v, end: "終了日時を入力してください" }));
+            return false;
+        }
+        return true;
+    }
+
     const handleSubmit = async () => {
         // テスト出力
         console.log("submit");
         console.log(values);
+
+        if (!validate()) {
+            return;
+        }
 
         // API呼び出し
         const event = values2event(values);
@@ -141,14 +164,17 @@ const useRegisterEventModal = () => {
 
         // テスト出力
         console.log(`id: ${id}`);
+
+        handleCancel();
     }
 
     const handleCancel = () => {
         setValues(initialModalFormValues());
-    }
-
-    const handleClose = () => {
-        setValues(initialModalFormValues());
+        setErrorMessages({
+            title: null,
+            start: null,
+            end: null
+        });
     }
 
     const { modal, toggleModalShow } = useModal({
@@ -158,7 +184,6 @@ const useRegisterEventModal = () => {
         onAccept: handleSubmit,
         cancelButtonlabel: "Cancel",
         onCancel: handleCancel,
-        onClose: handleClose,
         children: renderModalBody(),
     });
 
