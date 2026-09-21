@@ -25,7 +25,8 @@ const Calendar = () => {
 
         // テスト出力
         console.log("handleDatesSet");
-        console.log(start, end);
+        console.log(start.toISOString(), "|", end.toISOString());
+        console.log("events: ", events);
     }, [setEvents]);
 
     // イベントラベル選択時に呼び出される関数
