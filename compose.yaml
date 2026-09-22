@@ -21,6 +21,17 @@ services:
     environment:
       VITE_API_BASE_URL: http://localhost:8080
   
+  devcontainer:
+    build:
+      context: .
+      dockerfile: ./.devcontainer/Dockerfile
+
+    volumes:
+      - ./:/workspace
+      - gradle_cache:/root/.gradle
+
+    command: sleep infinity
+  
 volumes:
   gradle_cache:
   frontend_node_modules:
