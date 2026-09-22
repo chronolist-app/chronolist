@@ -2,6 +2,7 @@ package com.magu1436.chronolist.login.Handler;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -97,6 +98,12 @@ public class GlobalExceptionHandler {
         return  ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
             .body("FIELD_EMPTY");
+    }
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<?> handleHttpMessageNotReadable() {
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body("INVALID_REQUEST_BODY");
     }
 
     @ExceptionHandler(Exception.class)

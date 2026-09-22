@@ -4,8 +4,8 @@
     <select id="getAllTasks" resultType="com.magu1436.chronolist.todolist.entity.ToDoTask">
         SELECT id, title, priority, due_kind, due_date, due_time, is_completed, memo
         FROM todo_tasks
-        ORDER BY id
         WHERE user_id = #{userId}
+        ORDER BY id
     </select>
 
     <select id="getTaskById" resultType="com.magu1436.chronolist.todolist.entity.ToDoTask">
