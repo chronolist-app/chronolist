@@ -23,7 +23,6 @@ const useModal = (props: ModalProps) => {
     };
 
     const handleAccept = () => {
-        toggleModalShow(false);
         props.onAccept?.();
     }
 

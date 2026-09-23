@@ -1,5 +1,6 @@
 import { Input, Typography, type SxProps, type TypographyVariant } from "@mui/material";
 import { useCallback, useEffect, useState, type FC } from "react";
+import { fromDateString, toDateString } from "@/utils/date";
 
 
 type EditableDateTextProps = {
@@ -24,7 +25,7 @@ const EditableDateText: FC<EditableDateTextProps> = ({ value, variant, style, sx
 
     const handleOnChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const result = e.target.value.trim();
-        setDate(new Date(result));
+        setDate(fromDateString(result));
     }, [setDate]);
 
     // 入力が確定されたときの処理
@@ -50,7 +51,7 @@ const EditableDateText: FC<EditableDateTextProps> = ({ value, variant, style, sx
     );
     const editNode = (
         <Input
-            value={date.toISOString().split("T")[0]}
+            value={toDateString(date)}
             autoFocus
             type={"date"}
             onChange={handleOnChange}

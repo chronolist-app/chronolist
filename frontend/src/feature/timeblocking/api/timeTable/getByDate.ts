@@ -3,9 +3,10 @@ import { toTimeTableSource } from "../../mapper/timeTableMapper";
 import type { TimeTableApi } from "../../types/api";
 import { AxiosError } from "axios";
 import { ApiError, NotFoundError } from "@/error/common";
+import type { DateString } from "@/types/date";
 
 
-const getByDate = async (date: string) => {
+const getByDate = async (date: DateString) => {
     try {
         const response = await customizedFetch<TimeTableApi>({
             url: `/timeblocking/timeTable/getByDate/${date}`,

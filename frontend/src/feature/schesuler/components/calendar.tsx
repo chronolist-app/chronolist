@@ -1,7 +1,7 @@
 import FullCalendar from "@fullcalendar/react";
 import type { EventClickArg, DatesSetArg, EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
+import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import { useCallback, useContext } from "react";
 
@@ -11,10 +11,12 @@ import { getCalendarEvents } from "../api/get";
 import { prevDate } from "@/utils/date";
 import { formattedTime } from "@/utils/time";
 import { Box } from "@mui/material";
+import useRegisterEventModal from "../hooks/modal";
 
 const Calendar = () => {
     const { events, setEvents } = useContext(CalendarEventsContext);
     const { setEventClientId: setSelectedEventId } = useContext(SelectedCalendarEventContext);
+    const { modal, toggleModalShow, setDates } = useRegisterEventModal();
 
     // 初期化時や月変更時に呼び出される関数
     const handleDatesSet = useCallback(async (arg: DatesSetArg) => {
@@ -59,8 +61,20 @@ const Calendar = () => {
         )
     }, []);
 
+    // イベントがない空白部をクリックされたときに呼び出される関数
+    const handleDateClick = useCallback((info: DateClickArg) => {
+        if (info.jsEvent.detail === 2) handleDateDoubleClick(info);
+    }, [])
+
+    // ダブルクリック時に予定作成モーダルを表示
+    const handleDateDoubleClick = useCallback((info: DateClickArg) => {
+        setDates(info.date, info.date);
+        toggleModalShow(true);
+    }, [setDates, toggleModalShow]);
+
     return (
         <Box sx={{height: "100%", width: "100%"}}>
+            {modal}
             <FullCalendar
                 plugins={[dayGridPlugin, interactionPlugin, timeGridPlugin]}
                 initialView="dayGridMonth"
@@ -76,6 +90,7 @@ const Calendar = () => {
                 datesSet={handleDatesSet}
                 eventClick={handleEventClick}
                 eventContent={handleEventContent}
+                dateClick={handleDateClick}
                 height={"100%"}
             />
         </Box>

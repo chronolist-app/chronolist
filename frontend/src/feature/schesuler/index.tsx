@@ -6,6 +6,8 @@ import SelectedCalendarEventContext from "./components/contexts/selected-event"
 import Calendar from "./components/calendar";
 
 import { Box, Stack } from "@mui/material";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import SidePanel from "./components/SidePanel/SidePanel";
 
 
@@ -41,10 +43,12 @@ const SchedulerPage = () => {
         <>
             <CalendarEventsContext value={{events, setEvents, updateEvent}} >
                 <SelectedCalendarEventContext value={{eventClientId: selectedEventId, setEventClientId: setSelectedEventId}} >
-                    <Stack sx={{height: "100vh", width: "100vw", border: "1px solid red", alignItems: "stretch"}} direction={"row"}>
-                        {DynamicCalendar}
-                        {DynamicSidePanel}
-                    </Stack>
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <Stack sx={{height: "100vh", width: "100vw", border: "1px solid red", alignItems: "stretch"}} direction={"row"}>
+                            {DynamicCalendar}
+                            {DynamicSidePanel}
+                        </Stack>
+                    </LocalizationProvider>
                 </SelectedCalendarEventContext>
             </CalendarEventsContext>
         </>

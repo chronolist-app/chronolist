@@ -1,7 +1,8 @@
 import { customizedFetch } from "@/utils/fetch"
+import type { DateString } from "@/types/date";
 
 
-const createAt = async (date: string) => {
+const createAt = async (date: DateString) => {
     try {
         const res = await customizedFetch<number>({
             url: "/timeblocking/timeTable/createAt",

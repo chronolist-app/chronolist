@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import type { CalendarEventApi } from "../types/api";
 import type { ScheduleKind } from "../types/statics";
 import { nextDate } from "@/utils/date";
+import { fromDateString, fromDateTimeString } from "@/utils/date";
 
 /**
  * カレンダーイベントに必要な情報を持つデータクラス.  
@@ -147,15 +148,15 @@ class CalendarEvent {
      * @returns 作成した `CalendarEvent` オブジェクト
      */
     static createFromApiObject(api: CalendarEventApi){
-        const s = api.startAt || api.startDate;
-        const e = api.endAt || api.endDate;
+        const s = api.kind === "ALL_DAY" ? api.startDate : api.startAt;
+        const e = api.kind === "ALL_DAY" ? api.endDate : api.endAt;
         if (!s) throw new Error("'startAt' or 'startDate' value is invalid.");
         if (!e) throw new Error("'endAt' or 'endDate' value is invalid.");
         return new CalendarEvent(
             api.id,
             api.kind,
-            new Date(s),
-            new Date(e),
+            api.kind === "ALL_DAY" ? fromDateString(s) : fromDateTimeString(s),
+            api.kind === "ALL_DAY" ? fromDateString(e) : fromDateTimeString(e),
             api.title,
             api.color,
             api.scheduleId || undefined,
@@ -177,9 +178,9 @@ class CalendarEvent {
             id: this.clientId,
             title: this.title,
             allDay: this.kind == "ALL_DAY",
-            start: s.toISOString(),
+            start: s,
             // Fullcalendarの終了日時は、指定日の翌日を指定する仕様
-            end: (this.kind == "ALL_DAY" ? nextDate(e) : e).toISOString(),
+            end: this.kind == "ALL_DAY" ? nextDate(e) : e,
             borderColor: this.color,
             textColor: this.color,
         }
