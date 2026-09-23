@@ -1,10 +1,11 @@
 import type { DueKind, Priority } from "@/feature/todolist/types/statics";
+import type { DateString } from "@/types/date";
 
 export type ToDoTaskApiFormat = {
     id: number,
     title: string,
     dueKind: DueKind,
-    dueDate: string | null,
+    dueDate: DateString | null,
     dueTime: string | null,
     priority: Priority,
     isCompleted: boolean,

@@ -1,6 +1,7 @@
 import type { TimeTableApi } from "../types/api";
 import type { TimeTableSource } from "../types/timeTableSource";
 import { toTimeBlockSource } from "./blockMapper";
+import { fromDateString } from "@/utils/date";
 
 
 /**
@@ -13,7 +14,7 @@ export const toTimeTableSource = (api: TimeTableApi): TimeTableSource => {
     console.log(api.timeBlocks?.map(block => toTimeBlockSource(block)))
     return {
         id: api.id,
-        date: new Date(api.date),
+        date: fromDateString(api.date),
         blocks: api.timeBlocks?.map(block => toTimeBlockSource(block)) || [],
     };
 };

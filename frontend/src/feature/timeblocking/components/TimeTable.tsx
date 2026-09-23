@@ -14,6 +14,7 @@ import { createAt, getByDate } from "../api/timeTableApi";
 import type { TimeTableSource } from "../types/timeTableSource";
 import { AxiosError } from "axios";
 import { NotFoundError } from "@/error/common";
+import { toDateString } from "@/utils/date";
 
 /**
  * タイムテーブル本体を描画するコンポーネント.
@@ -148,7 +149,7 @@ const TimeTable: FC = () => {
         const date = 
             (location.state?.date as (string | undefined)) || 
             query.get("date") ||
-            new Date().toISOString().split("T")[0];
+            toDateString(new Date());
 
         // テスト用ログ
         console.log("date: ", date);
@@ -182,7 +183,7 @@ const TimeTable: FC = () => {
                 border: 1,
             }}
         >
-            <Typography sx={{fontSize: 30}}>{table?.date.toISOString().split("T")[0]}</Typography>
+            <Typography sx={{fontSize: 30}}>{table && toDateString(table.date)}</Typography>
             <Stack
                 direction={"row"}
                 alignItems={"flex-start"}
