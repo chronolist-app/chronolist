@@ -43,10 +43,17 @@
 
     <update id="updateTask" parameterType="com.magu1436.chronolist.todolist.entity.ToDoTask">
         UPDATE todo_tasks SET title=#{title}, priority=#{priority}, due_kind=#{dueKind}, due_date=#{dueDate}, due_time=#{dueTime}, is_completed=#{isCompleted}, memo=#{memo}
-        WHERE id = #{id}
+        WHERE id = #{id} AND user_id = #{userId}
     </update>
 
-    <delete id="deleteTask" parameterType="int">
-        DELETE FROM todo_tasks WHERE id = #{id}
+    <update id="updateTaskStatus">
+        UPDATE todo_tasks SET is_completed = #{isCompleted}
+        WHERE id = #{id} AND user_id = #{userId}
+    </update>
+
+    <delete id="deleteTask">
+        DELETE FROM todo_tasks
+        WHERE id = #{id}
+        AND user_id = #{userId}
     </delete>
 </mapper>

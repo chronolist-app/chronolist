@@ -34,12 +34,11 @@ public class ToDoListServiceImpl implements ToDoListService {
 
     @Override
     public boolean updateTask(int userId, ToDoTask task) {
-        if (!checkTaskExisting(task.getId(), userId)) {
-            return false;
-        }
+        task.setUserId(userId);
 
-        mapper.updateTask(task);
-        return true;
+        int updatedRows = mapper.updateTask(task);
+
+        return updatedRows == 1;
     }
 
     @Override
@@ -48,27 +47,21 @@ public class ToDoListServiceImpl implements ToDoListService {
         int taskId,
         boolean isCompleted
     ) {
-        ToDoTask existingTask =
-            mapper.getTaskById(taskId, userId);
+        int updatedRows = mapper.updateTaskStatus(
+            taskId,
+            isCompleted,
+            userId
+        );
 
-        if (existingTask == null) {
-            return false;
-        }
-
-        existingTask.setCompleted(isCompleted);
-        mapper.updateTask(existingTask);
-
-        return true;
+        return updatedRows == 1;
     }
 
     @Override
     public boolean deleteTask(int userId, int taskId) {
-        if (!checkTaskExisting(taskId, userId)) {
-            return false;
-        }
+        int deletedRows =
+            mapper.deleteTask(taskId, userId);
 
-        mapper.deleteTask(taskId);
-        return true;
+        return deletedRows == 1;
     }
 
     @Override
@@ -76,24 +69,15 @@ public class ToDoListServiceImpl implements ToDoListService {
         int userId,
         List<Integer> taskIds
     ) {
-        // 削除前に全タスクの存在と所有者を確認する
         for (Integer taskId : taskIds) {
-            if (!checkTaskExisting(taskId, userId)) {
+            int deletedRows =
+                mapper.deleteTask(taskId, userId);
+
+            if (deletedRows != 1) {
                 return false;
             }
         }
 
-        for (Integer taskId : taskIds) {
-            mapper.deleteTask(taskId);
-        }
-
         return true;
-    }
-
-    private boolean checkTaskExisting(
-        int taskId,
-        int userId
-    ) {
-        return mapper.getTaskById(taskId, userId) != null;
     }
 }

@@ -33,7 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class ToDoListController {
     
     /**
-     * 使うマッパー
+     * 使用するサービス
      */
     private final ToDoListService service;
 

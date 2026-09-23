@@ -12,11 +12,6 @@ import com.magu1436.chronolist.todolist.entity.ToDoTask;
 public interface ToDoMapper {
     /** 指定のユーザーIDをもつToDoTaskを全件取得 */
     List<ToDoTask> getAllTasks(int userId);
-    /** idを元にToDoTaskを取得 */
-    ToDoTask getTaskById(
-        @Param("id") int id,
-        @Param("userId") int userId
-    );
     /** ユーザーIDとpriorityを元にToDoTaskを取得 */
     List<ToDoTask> getTasksByPriority(@Param("userId") int userId, @Param("priority") String priority);
     /** ユーザーIDと期日を元にToDoTaskを取得 */
@@ -30,7 +25,16 @@ public interface ToDoMapper {
     /** タスクの新規登録 */
     int insertTask(ToDoTask todotask);
     /** 指定したタスクの更新 */
-    void updateTask(ToDoTask todotask);
+    int updateTask(ToDoTask todotask);
+
+    int updateTaskStatus(
+        @Param("id") int id,
+        @Param("isCompleted") boolean isCompleted,
+        @Param("userId") int userId
+    );
     /** idを元にタスクを削除 */
-    void deleteTask(int id);
+    int deleteTask(
+        @Param("id") int id,
+        @Param("userId") int userId
+    );
 }
