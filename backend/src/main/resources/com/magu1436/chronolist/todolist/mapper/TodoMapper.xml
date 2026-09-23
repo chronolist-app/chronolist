@@ -11,7 +11,7 @@
     <select id="getTaskById" resultType="com.magu1436.chronolist.todolist.entity.ToDoTask">
         SELECT id, title, priority, due_kind, due_date, due_time, is_completed, memo
         FROM todo_tasks
-        WHERE id = #{id} AND user_id = {userId}
+        WHERE id = #{id} AND user_id = #{userId}
     </select>
 
     <select id="getTasksByPriority" resultType="com.magu1436.chronolist.todolist.entity.ToDoTask">

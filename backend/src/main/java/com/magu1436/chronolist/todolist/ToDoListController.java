@@ -108,7 +108,7 @@ public class ToDoListController {
         /**
          *  IDが存在しない場合に404を返す
          */
-        if(checkTaskExisting(task.getId(), loginuser.getId())){
+        if(existingTask != null){
 
             /**
              *  受け取ったjsonのboolを入力 
