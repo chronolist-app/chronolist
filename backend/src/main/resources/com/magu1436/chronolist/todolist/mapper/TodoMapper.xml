@@ -14,6 +14,12 @@
         WHERE id = #{id}
     </select>
 
+    <select id="getUserIdByTaskId" resultType="java.lang.Integer">
+        SELECT user_id
+        FROM todo_tasks
+        WHERE id = #{id}
+    </select>
+
     <select id="getTasksByPriority" resultType="com.magu1436.chronolist.todolist.entity.ToDoTask">
         SELECT id, title, priority, due_kind, due_date, due_time, is_completed, memo
         FROM todo_tasks

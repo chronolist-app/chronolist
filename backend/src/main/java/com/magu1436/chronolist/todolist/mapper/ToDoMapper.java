@@ -14,6 +14,7 @@ public interface ToDoMapper {
     List<ToDoTask> getAllTasks(int userId);
     /** idを元にToDoTaskを取得 */
     ToDoTask getTaskById(int id);
+    Integer getUserIdByTaskId(int id);
     /** ユーザーIDとpriorityを元にToDoTaskを取得 */
     List<ToDoTask> getTasksByPriority(@Param("userId") int userId, @Param("priority") String priority);
     /** ユーザーIDと期日を元にToDoTaskを取得 */
