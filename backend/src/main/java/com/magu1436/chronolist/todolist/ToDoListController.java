@@ -72,12 +72,14 @@ public class ToDoListController {
      * @author milk0924
      */
     @PutMapping("update")
-    public ResponseEntity<Void> update(@RequestBody ToDoTask task){
+    public ResponseEntity<Void> update(
+        @AuthenticationPrincipal LoginUser loginuser,
+        @RequestBody ToDoTask task){
 
         /** 
          * IDが存在しない場合に404を返す 
          */
-        if(checkTaskExisting(task.getId())){
+        if(checkTaskExisting(task.getId(), loginuser.getId())){
 
         /** 
          * タスクの更新を返す 
@@ -97,13 +99,16 @@ public class ToDoListController {
      * @author milk0924
      */
     @PutMapping("update/status")
-    public ResponseEntity<Void> updateStatus(@RequestBody ToDoTask task) {
-        ToDoTask existingTask = mapper.getTaskById(task.getId());
+    public ResponseEntity<Void> updateStatus(
+        @AuthenticationPrincipal LoginUser loginuser,
+        @RequestBody ToDoTask task) {
+
+        ToDoTask existingTask = mapper.getTaskById(task.getId(), loginuser.getId());
 
         /**
          *  IDが存在しない場合に404を返す
          */
-        if(checkTaskExisting(task.getId())){
+        if(checkTaskExisting(task.getId(), loginuser.getId())){
 
             /**
              *  受け取ったjsonのboolを入力 
@@ -130,6 +135,7 @@ public class ToDoListController {
      */
     @DeleteMapping("delete")
     public ResponseEntity<Void> delete(
+        @AuthenticationPrincipal LoginUser loginuser, 
         /** 
          * Listで受け取ることができる形 
          */
@@ -138,7 +144,7 @@ public class ToDoListController {
         if(body.containsKey("id")){
             Integer id = (Integer)body.get("id");
 
-            if(checkTaskExisting(id)){
+            if(checkTaskExisting(id, loginuser.getId())){
                 mapper.deleteTask(id);
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
@@ -167,7 +173,7 @@ public class ToDoListController {
              * 中身の値一つ一つで削除機能を行う 
              */
             for(Integer eachId : ids){
-                if(checkTaskExisting(eachId)){
+                if(checkTaskExisting(eachId, loginuser.getId())){
                     mapper.deleteTask(eachId);
                 } else{
                     return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
@@ -190,8 +196,8 @@ public class ToDoListController {
      * @param id
      * @return boolean
      */
-    private boolean checkTaskExisting(int id){
-        ToDoTask existingTasksId = mapper.getTaskById(id);
+    private boolean checkTaskExisting(int id, int userId){
+        ToDoTask existingTasksId = mapper.getTaskById(id, userId);
         return existingTasksId != null;
     }
 
