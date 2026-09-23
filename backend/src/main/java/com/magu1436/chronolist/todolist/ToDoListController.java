@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.magu1436.chronolist.login.LoginUser;
 import com.magu1436.chronolist.todolist.entity.ToDoTask;
-import com.magu1436.chronolist.todolist.mapper.ToDoMapper;
+import com.magu1436.chronolist.todolist.service.ToDoListService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,9 +33,9 @@ import lombok.RequiredArgsConstructor;
 public class ToDoListController {
     
     /**
-     * 使うマッパー
+     * 使用するサービス
      */
-    private final ToDoMapper mapper;
+    private final ToDoListService service;
 
     /**
      * タスクを全取得するAPIの定義.
@@ -45,7 +45,7 @@ public class ToDoListController {
      */
     @GetMapping("getAll")
     public ResponseEntity<List<ToDoTask>> getall(@AuthenticationPrincipal LoginUser loginUser){
-        List<ToDoTask> tasks = mapper.getAllTasks(loginUser.getId());
+        List<ToDoTask> tasks = service.getAllTasks(loginUser.getId());
         return ResponseEntity.ok(tasks);
     }
 
@@ -58,9 +58,7 @@ public class ToDoListController {
      */
     @PostMapping("register")
     public ResponseEntity<Integer> register(@AuthenticationPrincipal LoginUser loginUser, @RequestBody ToDoTask task){
-        task.setUserId(loginUser.getId());
-        mapper.insertTask(task);
-        Integer id = task.getId();
+        Integer id = service.registerTask(loginUser.getId(), task);
         return ResponseEntity.ok(id);
     }
 
@@ -76,19 +74,14 @@ public class ToDoListController {
         @AuthenticationPrincipal LoginUser loginUser,
         @RequestBody ToDoTask task){
 
+        boolean updated = service.updateTask(loginUser.getId(), task);
         /** 
          * IDが存在しない場合に404を返す 
          */
-        if(checkTaskExisting(task.getId())
-            && checkTaskOwner(task.getId(), loginUser.getId())){
-
-        /** 
-         * タスクの更新を返す 
-         */
-        mapper.updateTask(task);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
-        } else {
+        if (!updated){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } else {
+            return ResponseEntity.status(HttpStatus.CREATED).build();
         }
     }
 
@@ -101,30 +94,24 @@ public class ToDoListController {
      */
     @PutMapping("update/status")
     public ResponseEntity<Void> updateStatus(
-        @AuthenticationPrincipal LoginUser loginUser,
-        @RequestBody ToDoTask task) {
-        ToDoTask existingTask = mapper.getTaskById(task.getId());
+            @AuthenticationPrincipal LoginUser loginUser,
+            @RequestBody ToDoTask task
+    ) {
+        boolean updated = service.updateTaskStatus(
+            loginUser.getId(),
+            task.getId(),
+            task.isCompleted()
+        );
 
-        /**
-         *  IDが存在しない場合に404を返す
-         */
-        if(existingTask != null
-            && checkTaskOwner(task.getId(), loginUser.getId())){
-
-            /**
-             *  受け取ったjsonのboolを入力 
-             */
-            existingTask.setCompleted(task.isCompleted());
-            /** 
-             * データベースの更新 
-             */
-            mapper.updateTask(existingTask);
-            
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        if (!updated) {
+            return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .build();
         }
 
+        return ResponseEntity
+            .status(HttpStatus.NO_CONTENT)
+            .build();
     }
 
     /** 
@@ -136,82 +123,56 @@ public class ToDoListController {
      */
     @DeleteMapping("delete")
     public ResponseEntity<Void> delete(
-        @AuthenticationPrincipal LoginUser loginUser,
-        /** 
-         * Listで受け取ることができる形 
-         */
-        @RequestBody Map<String, Object> body
-    ){
-        if(body.containsKey("id")){
-            Integer id = (Integer)body.get("id");
+            @AuthenticationPrincipal LoginUser loginUser,
+            @RequestBody Map<String, Object> body
+    ) {
+        if (body.containsKey("id")) {
+            Integer id = (Integer) body.get("id");
 
-            if(checkTaskExisting(id)
-                && checkTaskOwner(id, loginUser.getId())){
-                mapper.deleteTask(id);
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            boolean deleted =
+                service.deleteTask(loginUser.getId(), id);
+
+            if (!deleted) {
+                return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .build();
             }
-            
-        } else if(body.containsKey("ids")){
-            /** 
-             * 値を受け取ったときの動き 
-             */
+
+        } else if (body.containsKey("ids")) {
             List<Integer> ids;
-            /** 
-             * 変な方に変換しないためのチェック 
-             */
+
             try {
-                ids = (List<Integer>)body.get("ids");
+                ids = (List<Integer>) body.get("ids");
             } catch (ClassCastException e) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+                return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .build();
             }
-            /** 
-             * 渡されたidsのリストが空だった時 
-             */
-            if(ids.isEmpty()){
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+
+            if (ids.isEmpty()) {
+                return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .build();
             }
-            /** 
-             * 中身の値一つ一つで削除機能を行う 
-             */
-            for(Integer eachId : ids){
-                if(checkTaskExisting(eachId)
-                    && checkTaskOwner(eachId, loginUser.getId())){
-                    mapper.deleteTask(eachId);
-                } else{
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-                }
+
+            boolean deleted =
+                service.deleteTasks(loginUser.getId(), ids);
+
+            if (!deleted) {
+                return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .build();
             }
-        /** 
-         * なんも投げられてないときまたはids以外が投げられたときの処理 
-         */
+
         } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }    
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+            return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .build();
+        }
 
-        // idとidsの共通化（id->idsのリスト化）をして共通処理
-
-    }
-
-    /**
-     * タスクの存在を確かめるメソッド
-     * @param id
-     * @return boolean
-     */
-    private boolean checkTaskExisting(int id){
-        ToDoTask existingTasksId = mapper.getTaskById(id);
-        return existingTasksId != null;
-    }
-
-    /**
-     * 指定されたタスクがログインユーザーの所有物か確認する
-     */
-    private boolean checkTaskOwner(int taskId, int loginUserId) {
-        Integer ownerUserId = mapper.getUserIdByTaskId(taskId);
-
-        return ownerUserId != null
-            && ownerUserId == loginUserId;
+        return ResponseEntity
+            .status(HttpStatus.NO_CONTENT)
+            .build();
     }
 
 }
