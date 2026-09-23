@@ -9,6 +9,7 @@ import { Box, Stack } from "@mui/material";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import SidePanel from "./components/SidePanel/SidePanel";
+import updateCalendarEvent from "./api/update";
 
 
 const SchedulerPage = () => {
@@ -19,7 +20,7 @@ const SchedulerPage = () => {
         if (!oldEvent) throw new Error("Event not found.");
         const newEvent = typeof updatedEvent === "function" ? updatedEvent(oldEvent) : updatedEvent;
         setEvents(events.map(event => event.clientId === newEvent.clientId ? newEvent : event));
-        // if (callApi) updateEventApi(updatedEvent);
+        updateCalendarEvent(newEvent);
     };
 
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
