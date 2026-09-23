@@ -30,7 +30,16 @@ public interface ToDoMapper {
     /** タスクの新規登録 */
     int insertTask(ToDoTask todotask);
     /** 指定したタスクの更新 */
-    void updateTask(ToDoTask todotask);
+    int updateTask(ToDoTask todotask);
+
+    int updateTaskStatus(
+        @Param("id") int id,
+        @Param("isCompleted") boolean isCompleted,
+        @Param("userId") int userId
+    );
     /** idを元にタスクを削除 */
-    void deleteTask(int id);
+    int deleteTask(
+        @Param("id") int id,
+        @Param("userId") int userId
+    );
 }

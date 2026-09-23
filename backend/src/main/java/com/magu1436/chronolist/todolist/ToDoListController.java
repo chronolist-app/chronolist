@@ -73,22 +73,23 @@ public class ToDoListController {
      */
     @PutMapping("update")
     public ResponseEntity<Void> update(
-        @AuthenticationPrincipal LoginUser loginuser,
-        @RequestBody ToDoTask task){
+        @AuthenticationPrincipal LoginUser loginUser,
+        @RequestBody ToDoTask task
+    ) {
+        // リクエスト内のuserIdは信用せず、ログインユーザーIDで上書きする
+        task.setUserId(loginUser.getId());
 
-        /** 
-         * IDが存在しない場合に404を返す 
-         */
-        if(checkTaskExisting(task.getId(), loginuser.getId())){
+        int updatedRows = mapper.updateTask(task);
 
-        /** 
-         * タスクの更新を返す 
-         */
-        mapper.updateTask(task);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        if (updatedRows != 1) {
+            return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .build();
         }
+
+        return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .build();
     }
 
     /** 
@@ -100,30 +101,24 @@ public class ToDoListController {
      */
     @PutMapping("update/status")
     public ResponseEntity<Void> updateStatus(
-        @AuthenticationPrincipal LoginUser loginuser,
-        @RequestBody ToDoTask task) {
+        @AuthenticationPrincipal LoginUser loginUser,
+        @RequestBody ToDoTask task
+    ) {
+        int updatedRows = mapper.updateTaskStatus(
+            task.getId(),
+            task.isCompleted(),
+            loginUser.getId()
+        );
 
-        ToDoTask existingTask = mapper.getTaskById(task.getId(), loginuser.getId());
-
-        /**
-         *  IDが存在しない場合に404を返す
-         */
-        if(existingTask != null){
-
-            /**
-             *  受け取ったjsonのboolを入力 
-             */
-            existingTask.setCompleted(task.isCompleted());
-            /** 
-             * データベースの更新 
-             */
-            mapper.updateTask(existingTask);
-            
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        if (updatedRows != 1) {
+            return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .build();
         }
 
+        return ResponseEntity
+            .status(HttpStatus.NO_CONTENT)
+            .build();
     }
 
     /** 
@@ -135,70 +130,59 @@ public class ToDoListController {
      */
     @DeleteMapping("delete")
     public ResponseEntity<Void> delete(
-        @AuthenticationPrincipal LoginUser loginuser, 
-        /** 
-         * Listで受け取ることができる形 
-         */
+        @AuthenticationPrincipal LoginUser loginUser,
         @RequestBody Map<String, Object> body
-    ){
-        if(body.containsKey("id")){
-            Integer id = (Integer)body.get("id");
+    ) {
+        if (body.containsKey("id")) {
+            Integer id = (Integer) body.get("id");
 
-            if(checkTaskExisting(id, loginuser.getId())){
-                mapper.deleteTask(id);
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            int deletedRows =
+                mapper.deleteTask(id, loginUser.getId());
+
+            if (deletedRows != 1) {
+                return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .build();
             }
-            
-        } else if(body.containsKey("ids")){
-            /** 
-             * 値を受け取ったときの動き 
-             */
+
+        } else if (body.containsKey("ids")) {
             List<Integer> ids;
-            /** 
-             * 変な方に変換しないためのチェック 
-             */
+
             try {
-                ids = (List<Integer>)body.get("ids");
+                ids = (List<Integer>) body.get("ids");
             } catch (ClassCastException e) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+                return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .build();
             }
-            /** 
-             * 渡されたidsのリストが空だった時 
-             */
-            if(ids.isEmpty()){
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+
+            if (ids.isEmpty()) {
+                return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .build();
             }
-            /** 
-             * 中身の値一つ一つで削除機能を行う 
-             */
-            for(Integer eachId : ids){
-                if(checkTaskExisting(eachId, loginuser.getId())){
-                    mapper.deleteTask(eachId);
-                } else{
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+
+            for (Integer id : ids) {
+                int deletedRows =
+                    mapper.deleteTask(id, loginUser.getId());
+
+                if (deletedRows != 1) {
+                    return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .build();
                 }
             }
-        /** 
-         * なんも投げられてないときまたはids以外が投げられたときの処理 
-         */
+
         } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }    
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+            return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .build();
+        }
 
-        // idとidsの共通化（id->idsのリスト化）をして共通処理
-
+        return ResponseEntity
+            .status(HttpStatus.NO_CONTENT)
+            .build();
     }
 
-    /**
-     * タスクの存在を確かめるメソッド
-     * @param id
-     * @return boolean
-     */
-    private boolean checkTaskExisting(int id, int userId){
-        ToDoTask existingTasksId = mapper.getTaskById(id, userId);
-        return existingTasksId != null;
-    }
 
 }
