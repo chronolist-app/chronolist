@@ -6,8 +6,9 @@ services:
       - "8080:8080"
     volumes:
       - ./backend:/app
-      - gradle_cache:/root/.gradle
-  
+      - backend_gradle_cache:/root/.gradle
+      - backend_project_gradle_cache:/app/.gradle
+
   frontend:
     build:
       context: ./frontend
@@ -20,7 +21,7 @@ services:
       - backend
     environment:
       VITE_API_BASE_URL: http://localhost:8080
-  
+
   devcontainer:
     build:
       context: .
@@ -28,10 +29,15 @@ services:
 
     volumes:
       - ./:/workspace
-      - gradle_cache:/root/.gradle
+      - devcontainer_gradle_cache:/root/.gradle
+      - devcontainer_project_gradle_cache:/workspace/backend/.gradle
+      - frontend_node_modules:/workspace/frontend/node_modules
 
     command: sleep infinity
-  
+
 volumes:
-  gradle_cache:
+  backend_gradle_cache:
+  backend_project_gradle_cache:
   frontend_node_modules:
+  devcontainer_gradle_cache:
+  devcontainer_project_gradle_cache:
