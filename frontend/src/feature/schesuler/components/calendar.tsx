@@ -61,16 +61,16 @@ const Calendar = () => {
         )
     }, []);
 
-    // イベントがない空白部をクリックされたときに呼び出される関数
-    const handleDateClick = useCallback((info: DateClickArg) => {
-        if (info.jsEvent.detail === 2) handleDateDoubleClick(info);
-    }, [])
-
     // ダブルクリック時に予定作成モーダルを表示
     const handleDateDoubleClick = useCallback((info: DateClickArg) => {
         setDates(info.date, info.date);
         toggleModalShow(true);
     }, [setDates, toggleModalShow]);
+
+    // イベントがない空白部をクリックされたときに呼び出される関数
+    const handleDateClick = useCallback((info: DateClickArg) => {
+        if (info.jsEvent.detail === 2) handleDateDoubleClick(info);
+    }, [handleDateDoubleClick]);
 
     return (
         <Box sx={{height: "100%", width: "100%"}}>
