@@ -3,13 +3,15 @@ import type CalendarEvent from "../entity/calendarEvent";
 import type { ScheduleKind } from "../types/statics";
 import { AxiosError } from "axios";
 import { ApiError } from "@/error/common";
+import { toDateString, toDateTimeString } from "@/utils/date";
+import type { DateString, DateTimeString } from "@/types/date";
 
 type SubmitJSON = {
     kind: ScheduleKind,
-    startAt: string | null,
-    endAt: string | null,
-    startDate: string | null,
-    endDate: string | null,
+    startAt: DateTimeString | null,
+    endAt: DateTimeString | null,
+    startDate: DateString | null,
+    endDate: DateString | null,
     title: string,
     color: string,
     memo: string | null
@@ -18,10 +20,10 @@ type SubmitJSON = {
 const registerEvent = async (event: CalendarEvent): Promise<number> => {
     const data: SubmitJSON = {
         kind: event.kind,
-        startAt: event.startAt ? event.startAt.toISOString().split("T")[0] : null,
-        endAt: event.endAt ? event.endAt.toISOString().split("T")[0] : null,
-        startDate: event.startDate ? event.startDate.toISOString().split("T")[0] : null,
-        endDate: event.endDate ? event.endDate.toISOString().split("T")[0] : null,
+        startAt: event.startAt ? toDateTimeString(event.startAt) : null,
+        endAt: event.endAt ? toDateTimeString(event.endAt) : null,
+        startDate: event.startDate ? toDateString(event.startDate) : null,
+        endDate: event.endDate ? toDateString(event.endDate) : null,
         title: event.title,
         color: event.color,
         memo: event.memo || null
