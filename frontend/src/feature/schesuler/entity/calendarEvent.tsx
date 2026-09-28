@@ -5,12 +5,24 @@ import type { ScheduleKind } from "../types/statics";
 import { nextDate } from "@/utils/date";
 import { fromDateString, fromDateTimeString } from "@/utils/date";
 
+type CalendarEventConstructorOptions = {
+    id?: number;
+    kind: ScheduleKind;
+    start: Date;
+    end: Date;
+    title: string;
+    color: string;
+    scheduleId?: number;
+    memo?: string | null;
+    clientId?: string;
+};
+
 /**
  * カレンダーイベントに必要な情報を持つデータクラス.  
  * `kind` の値によって安全に日付情報を保持できるよう設計されている.  
  */
 class CalendarEvent {
-    private _id: number;
+    private _id: number | undefined;
     private _clientId: string;
     private _scheduleId?: number;
     private _kind: ScheduleKind;
@@ -23,7 +35,7 @@ class CalendarEvent {
     memo?: string;
 
     constructor(
-        id: number,
+        id: number | undefined,
         kind: ScheduleKind,
         startAt: Date,
         endAt: Date,
@@ -34,7 +46,7 @@ class CalendarEvent {
         clientId?: string,
     );
     constructor(
-        id: number,
+        id: number | undefined,
         kind: ScheduleKind,
         startDate: Date,
         endDate: Date,
@@ -44,41 +56,60 @@ class CalendarEvent {
         memo?: string | null,
         clientId?: string,
     );
+    constructor(options: CalendarEventConstructorOptions);
     constructor(
-        id: number,
-        kind: ScheduleKind,
-        startAtOrDate: Date,
-        endAtOrDate: Date,
-        title: string,
-        color: string,
+        idOrOptions: number | undefined | CalendarEventConstructorOptions,
+        kind?: ScheduleKind,
+        startAtOrDate?: Date,
+        endAtOrDate?: Date,
+        title?: string,
+        color?: string,
         scheduleId?: number,
         memo?: string | null,
         clientId?: string
     ){
-        this._id = id;
-        this._clientId = clientId || uuidv4();
-        this._kind = kind;
-        this.title = title;
-        this.color = color;
-        this._scheduleId = scheduleId;
-        this.memo = memo || undefined;
+        const options: CalendarEventConstructorOptions = typeof idOrOptions === "object"
+            ? idOrOptions
+            : {
+                id: idOrOptions,
+                kind: kind!,
+                start: startAtOrDate!,
+                end: endAtOrDate!,
+                title: title!,
+                color: color!,
+                scheduleId,
+                memo,
+                clientId,
+            };
 
-        switch (kind) {
+        this._id = options.id;
+        this._clientId = options.clientId || uuidv4();
+        this._kind = options.kind;
+        this.title = options.title;
+        this.color = options.color;
+        this._scheduleId = options.scheduleId;
+        this.memo = options.memo || undefined;
+
+        switch (options.kind) {
             case "DATED":
-                this._startAt = startAtOrDate;
-                this._endAt = endAtOrDate;
+                this._startAt = options.start;
+                this._endAt = options.end;
                 break;
             case "ALL_DAY":
-                this._startDate = startAtOrDate;
-                this._endDate = endAtOrDate;
+                this._startDate = options.start;
+                this._endDate = options.end;
                 break;
             default:
-                throw new Error(`"kind", ${kind}, value is invalid.`);
+                throw new Error(`"kind", ${options.kind}, value is invalid.`);
         }
     }
 
     get id(){
         return this._id;
+    }
+
+    set id(id: number | undefined){
+        this._id = id;
     }
 
     get clientId(){
@@ -183,6 +214,24 @@ class CalendarEvent {
             end: this.kind == "ALL_DAY" ? nextDate(e) : e,
             borderColor: this.color,
             textColor: this.color,
+        }
+    }
+
+    toConstructor(): CalendarEventConstructorOptions{
+        const start = this._startAt || this._startDate;
+        const end = this._endAt || this._endDate;
+        if (!start) throw new Error("Both 'startAt' and 'startDate' are undefined");
+        if (!end) throw new Error("Both 'endAt' and 'endDate' are undefined");
+        return {
+            id: this.id,
+            kind: this.kind,
+            start,
+            end,
+            title: this.title,
+            color: this.color,
+            scheduleId: this.scheduleId,
+            memo: this.memo,
+            clientId: this.clientId,
         }
     }
 

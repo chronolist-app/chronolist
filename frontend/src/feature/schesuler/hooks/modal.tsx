@@ -160,7 +160,7 @@ const useRegisterEventModal = () => {
         setEvents((events) => [...events, event]);
         setSelectedEventId(event.clientId);
         const id = await registerEvent(values2event(values));
-        // TODO: CalendarEvent の id を変更可能にし, ID を設定する
+        event.id = id;
 
         // テスト出力
         console.log(`id: ${id}`);
@@ -219,7 +219,7 @@ const initialModalFormValues = (): ModalFormValues => {
 const values2event = (v: ModalFormValues): CalendarEvent => {
     if (!v.start || !v.end) throw new Error("Invalid date.");
     const e = new CalendarEvent(
-        0,
+        undefined,
         v.kind,
         v.start.toDate(),
         v.end.toDate(),
