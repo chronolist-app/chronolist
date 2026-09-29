@@ -3,6 +3,8 @@ package com.magu1436.chronolist.scheduler.entity;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -19,6 +21,7 @@ public class CalendarEvent {
     /** ユーザーID */
     private int userId;
     /** スケジュールID */
+    @JsonIgnore
     private int scheduleId;
     /** スケジュールの種類 */
     private ScheduleKind kind;

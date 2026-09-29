@@ -85,7 +85,7 @@
     </insert>
 
     <update id="updateCalendarEvent">
-        UPDATE calendar_event SET schedule_id = #{scheduleId}, color = #{color}, memo = #{memo}
+        UPDATE calendar_event SET color = #{color}, memo = #{memo}
         WHERE id = #{id}
     </update>
 

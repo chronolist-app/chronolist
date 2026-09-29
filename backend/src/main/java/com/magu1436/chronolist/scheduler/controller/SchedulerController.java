@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -102,15 +103,17 @@ public class SchedulerController {
      * @author konoma1103
      */
     @PutMapping("update")
+    @Transactional
     public ResponseEntity<Void> updateEvent(@RequestBody CalendarEvent calendarEvent) {
         // 受け取ったcalendarEventがDBに存在するか確認(存在しなかった場合は400レスポンスを返す)
-        if(!existsById(calendarEvent.getId())){
+        CalendarEvent existingCalendarEvent = mapper.getCalendarEventById(calendarEvent.getId());
+        if(existingCalendarEvent == null){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
         // 受け取ったCalendarEventを元にScheduleを生成
         Schedule schedule = Schedule.builder()
-                                    .id(calendarEvent.getScheduleId())
+                                    .id(existingCalendarEvent.getScheduleId())
                                     .kind(calendarEvent.getKind())
                                     .startAt(calendarEvent.getStartAt())
                                     .endAt(calendarEvent.getEndAt())
