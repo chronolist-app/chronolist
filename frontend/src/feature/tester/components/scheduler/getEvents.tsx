@@ -57,7 +57,6 @@ const Body: FC<{start: string, end: string}> = ({start, end}) => {
 
 const CE: FC<CalendarEventApi> = ({
     id,
-    scheduleId,
     kind,
     startAt,
     endAt,
@@ -70,7 +69,6 @@ const CE: FC<CalendarEventApi> = ({
     return (
         <div className={classNames("m-2", "border", "border-2", "border-blue", "d-flex", "flex-column")}>
             <div>id: {id}</div>
-            <div>scheduleId: {scheduleId || "null"}</div>
             <div>kind: {kind}</div>
             <div>startAt: {startAt || "null"}</div>
             <div>endAt: {endAt || "null"}</div>

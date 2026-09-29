@@ -12,7 +12,6 @@ type CalendarEventConstructorOptions = {
     end: Date;
     title: string;
     color: string;
-    scheduleId?: number;
     memo?: string | null;
     clientId?: string;
 };
@@ -24,7 +23,6 @@ type CalendarEventConstructorOptions = {
 class CalendarEvent {
     private _id: number | undefined;
     private _clientId: string;
-    private _scheduleId?: number;
     private _kind: ScheduleKind;
     private _startAt?: Date;
     private _endAt?: Date;
@@ -41,7 +39,6 @@ class CalendarEvent {
         endAt: Date,
         title: string,
         color: string,
-        scheduleId?: number,
         memo?: string | null,
         clientId?: string,
     );
@@ -52,7 +49,6 @@ class CalendarEvent {
         endDate: Date,
         title: string,
         color: string,
-        scheduleId?: number,
         memo?: string | null,
         clientId?: string,
     );
@@ -64,7 +60,6 @@ class CalendarEvent {
         endAtOrDate?: Date,
         title?: string,
         color?: string,
-        scheduleId?: number,
         memo?: string | null,
         clientId?: string
     ){
@@ -77,7 +72,6 @@ class CalendarEvent {
                 end: endAtOrDate!,
                 title: title!,
                 color: color!,
-                scheduleId,
                 memo,
                 clientId,
             };
@@ -87,7 +81,6 @@ class CalendarEvent {
         this._kind = options.kind;
         this.title = options.title;
         this.color = options.color;
-        this._scheduleId = options.scheduleId;
         this.memo = options.memo || undefined;
 
         switch (options.kind) {
@@ -114,10 +107,6 @@ class CalendarEvent {
 
     get clientId(){
         return this._clientId;
-    }
-
-    get scheduleId(){
-        return this._scheduleId;
     }
 
     get kind(){
@@ -190,7 +179,6 @@ class CalendarEvent {
             api.kind === "ALL_DAY" ? fromDateString(e) : fromDateTimeString(e),
             api.title,
             api.color,
-            api.scheduleId || undefined,
             api.memo || undefined,
         );
     }
@@ -229,7 +217,6 @@ class CalendarEvent {
             end,
             title: this.title,
             color: this.color,
-            scheduleId: this.scheduleId,
             memo: this.memo,
             clientId: this.clientId,
         }
@@ -243,7 +230,6 @@ class CalendarEvent {
             this.endAt || this.endDate || new Date(),
             this.title,
             this.color,
-            this.scheduleId,
             this.memo,
             this.clientId,
         );

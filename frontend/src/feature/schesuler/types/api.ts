@@ -3,7 +3,6 @@ import type { DateString, DateTimeString } from "@/types/date";
 
 export type CalendarEventApi = {
     id: number,
-    scheduleId: number | null,
     kind: ScheduleKind,
     startAt: DateTimeString | null,
     endAt: DateTimeString | null,

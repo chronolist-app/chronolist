@@ -15,7 +15,6 @@ type CalendarEventJSON = {
     endAt?: DateTimeString;
     title: string;
     color: string;
-    scheduleId?: number;
     memo?: string;
 }
 
@@ -38,7 +37,6 @@ export const getCalendarEvents = async (start: string | Date, end: string | Date
                 res.kind === "ALL_DAY" ? fromDateString(endValue) : fromDateTimeString(endValue),
                 res.title,
                 res.color,
-                res.scheduleId,
                 res.memo,
             );
         })

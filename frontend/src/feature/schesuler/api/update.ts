@@ -8,7 +8,6 @@ import type { ScheduleKind } from "../types/statics";
 
 type SubmitJSON = {
     id: number | undefined;
-    scheduleId: number | undefined;
     kind: ScheduleKind;
     startAt: DateTimeString | null;
     endAt: DateTimeString | null;
@@ -20,14 +19,14 @@ type SubmitJSON = {
 };
 
 const updateCalendarEvent = async (event: CalendarEvent): Promise<void> => {
-    console.log(event.toConstructor());
+    console.log(`update:`);
+    console.log(event);
     if (event.id === undefined) {
         throw new Error("Cannot update a calendar event without a id.");
     }
 
     const data: SubmitJSON = {
         id: event.id,
-        scheduleId: event.scheduleId,
         kind: event.kind,
         startAt: event.startAt ? toDateTimeString(event.startAt) : null,
         endAt: event.endAt ? toDateTimeString(event.endAt) : null,
