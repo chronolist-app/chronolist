@@ -9,6 +9,7 @@ import Time from "./Time";
 import Color from "./Color";
 import Memo from "./Memo";
 import type { ScheduleKind } from "../../types/statics";
+import deleteEvent from "../../api/delete";
 
 /**
  * カレンダーイベントの詳細を表示・編集可能にするサイドパネル
@@ -52,11 +53,12 @@ const SidePanel: FC<SidePanelProps> = () => {
 
     const handleDelete = () => {
         if (!targetCalendarEvent) return;
+        if (!targetCalendarEvent.id) throw new Error("The event has no id.");
         // クライアント側の削除
         setEvents(events.filter(e => e.clientId !== targetCalendarEvent.clientId));
         setEventClientId(null);
         // サーバー側の削除
-        // deleteApi(calendarEvent.id);
+        deleteEvent(targetCalendarEvent.id);
     }
 
     const handleChangeStart = (start: Date) => {
