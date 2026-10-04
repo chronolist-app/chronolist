@@ -9,6 +9,7 @@ import HomePage from "@/feature/home";
 import LoginPage from "@/feature/login";
 import SingnUpPage from "@/feature/signup";
 import TimeBlockingPage from "@/feature/timeblocking";
+import AppLayout from "@/layouts/AppLayout";
 
 
 const routesBasic = createBrowserRouter(
@@ -16,13 +17,33 @@ const routesBasic = createBrowserRouter(
         <>
             <Route path="/" element={<HomePage />} />
             <Route path="/test" element={<TesterPage />} />
-            <Route path="/test/todolist" element={<ToDoListTestPage />} />
-            <Route path="/test/scheduler" element={<SchedulerTestPage />} />
-            <Route path="/todolist" element={<ToDoListPage />} />
-            <Route path="/scheduler" element={<SchedulerPage />} />
+            <Route path="/test/todolist" element={
+                <AppLayout>
+                    <ToDoListTestPage />
+                </AppLayout>
+            } />
+            <Route path="/test/scheduler" element={
+                <AppLayout>
+                    <SchedulerTestPage />
+                </AppLayout>
+            } />
+            <Route path="/todolist" element={
+                <AppLayout>
+                    <ToDoListPage />
+                </AppLayout>
+            } />
+            <Route path="/scheduler" element={
+                <AppLayout>
+                    <SchedulerPage />
+                </AppLayout>
+            } />
+            <Route path="/timeblocking" element={
+                <AppLayout>
+                    <TimeBlockingPage />
+                </AppLayout>
+            } />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SingnUpPage />} />
-            <Route path="/timeblocking" element={<TimeBlockingPage />} />
         </>
     )
 );
