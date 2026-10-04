@@ -84,7 +84,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
     const pointToTime = useCallback((relativePointerY: number) => {
         const time = new Time(Math.floor(relativePointerY / slotHeight) * slotMinutes);
         return time;
-    }, []);
+    }, [slotHeight, slotMinutes]);
 
     const createPrevBlockSorce = useCallback((startAt: Time, originalSource: TimeBlockSource): TimeBlockSource => {
         return {
@@ -94,7 +94,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
             status: "PLACED",
             startAt,
         };
-    }, []);
+    }, [timeTableId]);
     
     /**
      * プレビューブロックを削除する
@@ -103,7 +103,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
         prevPointTimeRef.current = null;
         setBlocksOnTable((blocks) => blocks.filter(b => b.clientId !== PREVIEW_BLOCK_ID));
         console.log("prevBlock removed");
-    }, [blocksAtField, blocksOnTable]);
+    }, [setBlocksOnTable]);
 
     /**
      * プレビューブロックを表示する
@@ -115,7 +115,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
         ]);
         prevPointTimeRef.current = startAt;
         console.log("prevBlock shown");
-    }, []);
+    }, [setBlocksOnTable, createPrevBlockSorce]);
 
     /**
      * プレビューブロックを移動する
@@ -137,7 +137,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
         const movedPrevBlockSource: TimeBlockSource = createPrevBlockSorce(startAt, draggingBlockSource.current);
         setBlocksOnTable((blocks) => blocks.map(b => b.clientId === PREVIEW_BLOCK_ID ? movedPrevBlockSource : b));
         prevPointTimeRef.current = startAt;
-    }, []);
+    }, [createPrevBlockSorce]);
 
     useDndMonitor({
         onDragStart(event) {
