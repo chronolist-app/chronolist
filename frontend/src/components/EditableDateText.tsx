@@ -32,7 +32,7 @@ const EditableDateText: FC<EditableDateTextProps> = ({ value, variant, style, sx
     const handleFinishEdit = useCallback(() => {
         onChange?.(date);
         setIsEditing(false);
-    }, [date]);
+    }, [date, onChange, setIsEditing]);
 
     // 指定のキーが押されたときの処理
     // Enter か Esc が押されたら入力を確定
