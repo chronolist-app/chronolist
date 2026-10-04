@@ -96,8 +96,10 @@ const TimeBlockDetailPanel: FC = () => {
         setBlock(editedBlock);
         if (!editedBlock) return;
         if (!editedBlock.id) throw new Error("id is not still set: waiting for server response.");
-        editedBlock && reflectBlockToRepository(editedBlock);
-        editedBlock && updateStartAt(editedBlock.id, editedBlock.startAt);
+        if (editedBlock) {
+            reflectBlockToRepository(editedBlock);
+            updateStartAt(editedBlock.id, editedBlock.startAt);
+        }
     }, [block]);
 
     /**
@@ -106,8 +108,10 @@ const TimeBlockDetailPanel: FC = () => {
     const handleSetWidth = useCallback((width: number) => {
         const editedBlock = block && { ...block, width: width };
         setBlock(editedBlock);
-        editedBlock && reflectBlockToRepository(editedBlock);
-        editedBlock && update(editedBlock);
+        if (editedBlock) {
+            reflectBlockToRepository(editedBlock);
+            update(editedBlock);
+        }
     }, [block]);
 
     /**
@@ -116,8 +120,10 @@ const TimeBlockDetailPanel: FC = () => {
     const handleSetTasks = useCallback((tasks: TimeBlockTask[]) => {
         const editedBlock = block && { ...block, tasks: [...tasks] };
         setBlock(editedBlock);
-        editedBlock && reflectBlockToRepository(editedBlock);
-        editedBlock && update(editedBlock);
+        if (editedBlock) {
+            reflectBlockToRepository(editedBlock);
+            update(editedBlock);
+        }
     }, [block]);
 
     /**
