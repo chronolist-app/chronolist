@@ -49,7 +49,7 @@ const TimeBlockDetailPanel: FC = () => {
                 setBlocksAtField((blocks) => blocks.map(b => b.clientId === block.clientId ? block : b));
                 break;
         }
-    }, []);
+    }, [setBlocksOnTable, setBlocksAtField]);
 
     const {
         selectedTimeBlockId,
@@ -67,14 +67,14 @@ const TimeBlockDetailPanel: FC = () => {
         if (selectedTimeBlockId === null) return;
         const selectedBlock = blocksOnTable.find(b => b.clientId === selectedTimeBlockId) || blocksAtField.find(b => b.clientId === selectedTimeBlockId);
         setBlock(selectedBlock);
-    }, [selectedTimeBlockId]);
+    }, [selectedTimeBlockId, blocksOnTable, blocksAtField]);
 
     /**
      * モーダルが閉じられた際の処理
      */
     const handleClose = useCallback(() => {
         setSelectedTimeBlockClientId(null);
-    }, []);
+    }, [setSelectedTimeBlockClientId]);
 
     /**
      * タイトルを変更した際の処理
@@ -86,7 +86,7 @@ const TimeBlockDetailPanel: FC = () => {
             reflectBlockToRepository(editedBlock);
             update(editedBlock);
         }
-    }, [block]);
+    }, [block, setBlock, reflectBlockToRepository]);
 
     /**
      * ブロックの開始時刻(及び終了時刻)を変更した際の処理
@@ -100,7 +100,7 @@ const TimeBlockDetailPanel: FC = () => {
             reflectBlockToRepository(editedBlock);
             updateStartAt(editedBlock.id, editedBlock.startAt);
         }
-    }, [block]);
+    }, [block, setBlock, reflectBlockToRepository]);
 
     /**
      * ブロックの幅を変更した際の処理
@@ -112,7 +112,7 @@ const TimeBlockDetailPanel: FC = () => {
             reflectBlockToRepository(editedBlock);
             update(editedBlock);
         }
-    }, [block]);
+    }, [block, setBlock, reflectBlockToRepository]);
 
     /**
      * ブロックのタスクを変更した際の処理
@@ -124,7 +124,7 @@ const TimeBlockDetailPanel: FC = () => {
             reflectBlockToRepository(editedBlock);
             update(editedBlock);
         }
-    }, [block]);
+    }, [block, setBlock, reflectBlockToRepository]);
 
     /**
      * 削除ボタンを押した際の処理
