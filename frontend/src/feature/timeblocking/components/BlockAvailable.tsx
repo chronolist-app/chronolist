@@ -9,7 +9,7 @@ import { PREVIEW_BLOCK_ID } from "../static/previewBlock";
 import BlockRepositories from "../contexts/BlockRepositories";
 import TimeBlockView from "./TimeBlockView";
 import { BLOCKS_AREA_ID, TEMPLATE_BLOCKS_AREA_ID, TIMETABLE_ID } from "../static/droppableId";
-import { registerTemplateBlock } from "../api/templateBlock";
+import { register as registerTemplateBlock } from "../api/templateBlockApi";
 import { register as registerTimeBlock, update as updateTimeBlock } from "../api/timeBlockApi";
 
 const testBlocksAtField: TimeBlockSource[] = [{
@@ -150,7 +150,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
         },
         onDragMove(event) {
             switch (event.over?.id) {
-                case TIMETABLE_ID:
+                case TIMETABLE_ID: {
                     if (prevPointTimeRef.current === null) {
                         console.log("prevPointTime is null");
                         return;
@@ -166,15 +166,18 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
 
                     movePrevBlock(cursorTime);
                     break;
-                case BLOCKS_AREA_ID:
+                }
+                case BLOCKS_AREA_ID: {
                     break;
-                case TEMPLATE_BLOCKS_AREA_ID:
+                }
+                case TEMPLATE_BLOCKS_AREA_ID: {
                     break;
+                }
             }
         },
         onDragOver(event) {
             switch (event.over?.id) {
-                case TIMETABLE_ID:
+                case TIMETABLE_ID: {
                     // ドラッグオーバー開始時にプレビューブロックを表示
                     if (draggingBlockSource.current === null) throw new Error("draggingBlockSource is null");
                     if (!event.over.rect.top || !event.active?.rect?.current?.translated) {
@@ -184,12 +187,15 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
                     const cursorTime = pointToTime(event.active.rect.current.translated.top - event.over.rect.top);
                     showPrevBlock(cursorTime, draggingBlockSource.current);
                     break;
-                case BLOCKS_AREA_ID:
+                }
+                case BLOCKS_AREA_ID: {
                     removePrevBlock();
                     break;
-                case TEMPLATE_BLOCKS_AREA_ID:
+                }
+                case TEMPLATE_BLOCKS_AREA_ID: {
                     removePrevBlock();
                     break;
+                }
             }
         },
         async onDragEnd(e) {
@@ -198,7 +204,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
             }
             const movedBlockSource: TimeBlockSource = draggingBlockSource.current;
             switch (e.over?.id) {
-                case TIMETABLE_ID:
+                case TIMETABLE_ID: {
                     const newBlockSource: TimeBlockSource = {
                         ...movedBlockSource,
                         startAt: prevPointTimeRef.current,
@@ -219,7 +225,8 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
                             .catch((e) => {throw e});
                     }
                     break;
-                case BLOCKS_AREA_ID:
+                }
+                case BLOCKS_AREA_ID: {
                     if (!blocksAtField.find(b => b.clientId === movedBlockSource.clientId)) {
                         const heldBlockSource: TimeBlockSource = {
                             ...draggingBlockSource.current,
@@ -241,7 +248,8 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
                         }
                     };
                     break;
-                case TEMPLATE_BLOCKS_AREA_ID:
+                }
+                case TEMPLATE_BLOCKS_AREA_ID: {
                     if (movedBlockSource.fromTemplateBlockSource) return;
                     const newTemplateBlock: TemplateBlockSource = {
                         ...draggingBlockSource.current,
@@ -251,6 +259,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({children}) => {
                     setTemplateBlocks((blocks) => [...blocks, newTemplateBlock]);
                     newTemplateBlock.id = await registerTemplateBlock(newTemplateBlock);
                     break;
+                }
             }
             draggingBlockSource.current = null;
             removePrevBlock();
