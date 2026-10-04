@@ -35,7 +35,7 @@ const SidePanel: FC = () => {
         const event = events.find(e => e.clientId === eventClientId);
         if (!event) throw new Error("Event not found.");
         setTargetCalendarEvent(event);
-    }, [eventClientId, setTargetCalendarEvent]);
+    }, [eventClientId, setTargetCalendarEvent, events]);
 
     // 選択中のカレンダーイベントの更新を行い, カレンダーにも反映させる
     const changeCalendarEvent = (calendarEvent: CalendarEvent) => {
