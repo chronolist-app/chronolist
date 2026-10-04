@@ -14,9 +14,7 @@ import deleteEvent from "../../api/delete";
 /**
  * カレンダーイベントの詳細を表示・編集可能にするサイドパネル
  */
-type SidePanelProps = {}
-
-const SidePanel: FC<SidePanelProps> = () => {
+const SidePanel: FC = () => {
     
     const [ targetCalendarEvent, setTargetCalendarEvent ] = useState<CalendarEvent | null>(null);
 
