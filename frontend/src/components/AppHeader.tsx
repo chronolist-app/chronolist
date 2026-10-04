@@ -64,13 +64,17 @@ const SettingsButton: FC = () => {
 
 const AppHeader: FC = () => {
     return (
-        <Stack direction="row" spacing={2} alignItems="stretch" sx={{ height: "100%" }}>
-            <LogoButton />
-            <AppButton app_name="todolist" />
-            <AppButton app_name="scheduler" />
-            <AppButton app_name="timeblocking" />
-            <NotificationButton />
-            <SettingsButton />
+        <Stack direction="row" spacing={2} alignItems="stretch" justifyContent="space-between" sx={{ height: "100%" }}>
+            <Stack direction="row" spacing={1} alignItems="stretch" sx={{ height: "100%"}}>
+                <LogoButton />
+                <AppButton app_name="todolist" />
+                <AppButton app_name="scheduler" />
+                <AppButton app_name="timeblocking" />
+            </Stack>
+            <Stack direction="row" spacing={1} alignItems="stretch" sx={{ height: "100%"}}>
+                <NotificationButton />
+                <SettingsButton />
+            </Stack>
         </Stack>
     )
 };
