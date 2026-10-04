@@ -6,7 +6,7 @@ type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 type FetchConfig = {
     url: string;
     method: HttpMethod;
-    data?: any;
+    data?: unknown;
 }
 
 export const customizedFetch = async <T,>(config: FetchConfig) => {
@@ -21,7 +21,7 @@ export const customizedFetch = async <T,>(config: FetchConfig) => {
 export const useReadOnlyFetch = <T,>(
     app: string,
     method?: HttpMethod,
-    body?: {},
+    body?: unknown,
 ) => {
 
     const [data, setDate] = useState<T>();
