@@ -15,7 +15,7 @@ import updateCalendarEvent from "./api/update";
 const SchedulerPage = () => {
 
     const [events, setEvents] = useState<CalendarEvent[]>([]);
-    const updateEvent = (clientId: string, updatedEvent: CalendarEvent | ((updatedEvent: CalendarEvent) => CalendarEvent), callApi?: boolean) => {
+    const updateEvent = (clientId: string, updatedEvent: CalendarEvent | ((updatedEvent: CalendarEvent) => CalendarEvent)) => {
         const oldEvent = events.find(e => e.clientId === clientId);
         if (!oldEvent) throw new Error("Event not found.");
         const newEvent = typeof updatedEvent === "function" ? updatedEvent(oldEvent) : updatedEvent;
