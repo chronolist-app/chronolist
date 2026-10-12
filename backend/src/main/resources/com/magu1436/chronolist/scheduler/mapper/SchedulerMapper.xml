@@ -85,8 +85,10 @@
     </insert>
 
     <update id="updateCalendarEvent">
-        UPDATE calendar_event SET color = #{color}, memo = #{memo}
-        WHERE id = #{id}
+        UPDATE calendar_event c
+        INNER JOIN schedule s ON c.schedule_id = s.id
+        SET c.color = #{calendarEvent.color}, c.memo = #{calendarEvent.memo}
+        WHERE c.id = #{calendarEvent.id} AND s.user_id = #{userId}
     </update>
 
     <delete id="deleteCalendarEvent" parameterType="int">

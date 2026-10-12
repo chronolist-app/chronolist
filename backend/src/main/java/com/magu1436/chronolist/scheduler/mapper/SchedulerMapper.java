@@ -43,7 +43,10 @@ public interface SchedulerMapper {
     /** カレンダーイベントの新規登録 */
     int insertCalendarEvent(CalendarEvent calendarEvent);
     /** カレンダーイベントの更新 */
-    void updateCalendarEvent(CalendarEvent calendarEvent);
+    int updateCalendarEvent(
+        @Param("userId") int userId,
+        @Param("calendarEvent") CalendarEvent calendarEvent
+    );
     /** 受け取ったidのカレンダーイベントを削除 */
     void deleteCalendarEvent(int id);
 }
