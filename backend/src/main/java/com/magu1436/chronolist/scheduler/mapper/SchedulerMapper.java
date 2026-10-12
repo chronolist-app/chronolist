@@ -48,5 +48,5 @@ public interface SchedulerMapper {
         @Param("calendarEvent") CalendarEvent calendarEvent
     );
     /** 受け取ったidのカレンダーイベントを削除 */
-    void deleteCalendarEvent(int id);
+    int deleteCalendarEvent(@Param("id") int id, @Param("userId") int userId);
 }

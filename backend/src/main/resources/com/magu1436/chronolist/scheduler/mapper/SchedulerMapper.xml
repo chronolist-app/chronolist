@@ -91,7 +91,9 @@
         WHERE c.id = #{calendarEvent.id} AND s.user_id = #{userId}
     </update>
 
-    <delete id="deleteCalendarEvent" parameterType="int">
-        DELETE FROM calendar_event WHERE id = #{id}
+    <delete id="deleteCalendarEvent">
+        DELETE FROM calendar_event c
+        INNER JOIN schedule s ON c.schedule_id = s.id
+        WHERE c.id = #{id} AND s.user_id = #{userId}
     </delete>
 </mapper>
