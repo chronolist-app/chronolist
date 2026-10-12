@@ -9,7 +9,7 @@ const LoginPage = () => {
 
     const [serchParams] = useSearchParams();
 
-    let hasError = serchParams.has("error");
+    const [hasError, setHasError] = useState(() => serchParams.has("error"));
     const hasLogout = serchParams.has("logout");
 
     const [ loginId, setLoginId ] = useState<string>("");
@@ -17,6 +17,7 @@ const LoginPage = () => {
     const nav = useNavigate();
 
     const handleLogin = async () => {
+        setHasError(false);
         console.log("---ログイン処理を開始----------------------------------------")
         try {
             await customizedFetch({
@@ -39,7 +40,7 @@ const LoginPage = () => {
                 // 入力値によるエラー
                 if (status === 401) {
                     console.log("ログインIDまたはパスワードが不正です");
-                    hasError = true;
+                    setHasError(true);
                 }
             } else {
                 console.log("不明なエラー");
@@ -52,7 +53,7 @@ const LoginPage = () => {
         <>
             <h1>ログイン画面</h1>
 
-            {hasError && (<div style={{color: "red"}}>usernameまたはpasswordが違います</div>)}
+            {hasError && (<div role="alert" style={{color: "red"}}>ログインIDまたはパスワードが違います</div>)}
             {hasLogout && (<div style={{color: "blue"}}>ログアウトしました</div>)}
 
             <form>
