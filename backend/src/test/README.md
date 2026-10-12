@@ -34,7 +34,21 @@ ToDoListApiTestsはToDoの5エンドポイントについて、期限の3形式�
 SchedulerApiTestsはSchedulerの4エンドポイントについて、通常・終日予定、期間重複と両端の境界、
 同日検索、登録、予定種類の切り替え、更新・削除の404応答を検証する。
 calendar_eventとscheduleの両テーブルを独立したSQLで確認し、両者のIDが異なる場合も扱う。
-TimeBlockingのテストは後続で追加する。
+TimeTableApiTests・TimeBlockApiTests・TimeBlockTaskApiTests・TemplateBlockApiTestsは
+TimeBlockingの14エンドポイントを検証する。日付重複409、未登録IDの404、配置・保持の切り替え、
+開始時刻だけの更新、ブロック削除時の子タスク削除と関連予定削除を含む。
+
+## TimeBlockingで検出した既存不具合
+
+以下の2ケースは現在の実装では失敗する。仕様を保証するため、テストは無効化せず残している。
+
+- `TimeBlockApiTests.getHoldBlocksIncludesTasks`: タスク付きHOLDブロック取得は200が期待されるが、
+  MyBatisSystemExceptionにより500になる。TimeblockingResultMap.xmlのtasksのcollectionで
+  javaTypeにコレクション型ではなくTimeBlockTaskが指定されている。
+- `TimeBlockApiTests.updateStartAtPreservesScheduleLink`: 開始時刻だけの更新でschedule_idがNULLになる。
+  getTimeBlockByIdが関連予定を取得しない状態で、updateTimeBlockがschedule_idも上書きするため。
+
+全64ケース中62成功・2失敗。既存不具合の修正後に全件を再実行する必要がある。
 
 ## ToDoの仕様差分・未確定事項
 
