@@ -212,7 +212,12 @@ class SchedulerIdorTests extends ApiIntegrationTest {
         int schedule = scheduleId(event);
         var schedulesBefore = schedules();
         var eventsBefore = events();
-        doReturn(0).when(mapper).deleteSchedule(schedule, loginUser.getId());
+        // The first DELETE must really remove the event inside the transaction.
+        doAnswer(invocation -> {
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM calendar_event WHERE id=?",
+                    Integer.class, event)).isZero();
+            return 0;
+        }).when(mapper).deleteSchedule(schedule, loginUser.getId());
         var result = performAsUser(delete(BASE + "delete/{id}", event)).andReturn();
         verify(mapper).deleteCalendarEvent(event, loginUser.getId());
         verify(mapper).deleteSchedule(schedule, loginUser.getId());
@@ -221,5 +226,20 @@ class SchedulerIdorTests extends ApiIntegrationTest {
         softly.assertThat(schedules()).isEqualTo(schedulesBefore);
         softly.assertThat(events()).isEqualTo(eventsBefore);
         softly.assertAll();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 2})
+    void unexpectedFirstDeleteCountReturns404WithoutDeletingSchedule(int rows) throws Exception {
+        int event = seed(loginUser.getId(), "ALL_DAY");
+        int schedule = scheduleId(event);
+        var schedulesBefore = schedules();
+        var eventsBefore = events();
+        doReturn(rows).when(mapper).deleteCalendarEvent(event, loginUser.getId());
+        performAsUser(delete(BASE + "delete/{id}", event))
+                .andExpect(status().isNotFound()).andExpect(content().string(""));
+        verify(mapper, never()).deleteSchedule(schedule, loginUser.getId());
+        assertThat(schedules()).isEqualTo(schedulesBefore);
+        assertThat(events()).isEqualTo(eventsBefore);
     }
 }

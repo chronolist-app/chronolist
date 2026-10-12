@@ -95,25 +95,30 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
-    public boolean deleteEvent(int userId, int calendarEventId){
+    @Transactional
+    public void deleteEvent(int userId, int calendarEventId){
 
         // 受け取ったcalendarEventのidを元に, DBからCalendarEventを取得
         CalendarEvent calendarEvent = mapper.getCalendarEventById(calendarEventId, userId);
 
         if (calendarEvent == null){
-            return false;
+            throw new EventNotFoundException();
         }
 
         // 取得したcalendarEventからscheduleIdを取得
         int scheduleId = calendarEvent.getScheduleId();
 
         // calendarEventIdを元に, 対象となるcalendarEventをDBから削除
-        mapper.deleteCalendarEvent(calendarEventId, userId);
+        int deletedRowsCalendarEvent = mapper.deleteCalendarEvent(calendarEventId, userId);
+        if (deletedRowsCalendarEvent != 1) {
+            throw new EventNotFoundException();
+        }
 
         // scheduleIdを元に, 対象となるscheduleをDBから削除
-        int deletedRows = mapper.deleteSchedule(scheduleId, userId);
-
-        return deletedRows == 1;
+        int deletedRowsSchedule = mapper.deleteSchedule(scheduleId, userId);
+        if (deletedRowsSchedule != 1) {
+            throw new EventNotFoundException();
+        }
     }
 
 }

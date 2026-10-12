@@ -17,6 +17,6 @@ public interface SchedulerService {
 
     void updateEvent(int userId, CalendarEvent calendarEvent);
 
-    boolean deleteEvent(int userId, int calendarEventId);
+    void deleteEvent(int userId, int calendarEventId);
 
 }

@@ -99,24 +99,17 @@ public class SchedulerController {
      * 受け取ったidに一致するスケジュールおよびカレンダーイベントをDBから削除する
      * @param calendarEventId 削除したいカレンダーイベントの {@code id}
      * @return bodyが空の {@code ResponseEntity} 
-     * 受け取った {@code calendarEventId} がDBに存在するときは201レスポンス, 
-     * 存在しないときは404レスポンスを返す
+     * 削除成功時は204、対象を所有していない場合や削除件数が不足した場合は404を返す
      * @author konoma1103
      */
     @DeleteMapping("delete/{id}")
     public ResponseEntity<Void> deleteEvent(@PathVariable("id") int calendarEventId, @AuthenticationPrincipal LoginUser loginUser){
-        
-        boolean deleted = service.deleteEvent(loginUser.getId(), calendarEventId);
-
-        if(!deleted){
-            return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .build();
+        try {
+            service.deleteEvent(loginUser.getId(), calendarEventId);
+        } catch (EventNotFoundException e) {
+            return ResponseEntity.notFound().build();
         }
-
-        return ResponseEntity
-            .status(HttpStatus.NO_CONTENT)
-            .build();
+        return ResponseEntity.noContent().build();
     }
        
 }
