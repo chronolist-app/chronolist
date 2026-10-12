@@ -19,6 +19,7 @@ import com.magu1436.chronolist.login.LoginUser;
 import com.magu1436.chronolist.scheduler.entity.CalendarEvent;
 import com.magu1436.chronolist.scheduler.entity.Schedule;
 import com.magu1436.chronolist.scheduler.mapper.SchedulerMapper;
+import com.magu1436.chronolist.scheduler.service.SchedulerService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -36,6 +37,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 public class SchedulerController {
 
     private final SchedulerMapper mapper;
+    private final SchedulerService service;
 
     /** 
      * 特定期間のカレンダーイベント取得API.
@@ -54,7 +56,7 @@ public class SchedulerController {
             @PathVariable("startDate") LocalDate startDate,
             @PathVariable("endDate") LocalDate endDate
         ){
-        List<CalendarEvent> calendarEvents = mapper.getCalendarEventsFromTo(loginUser.getId(), startDate, endDate);
+        List<CalendarEvent> calendarEvents = service.getEvents(loginUser.getId(), startDate, endDate);
         return ResponseEntity.ok(calendarEvents);
     }
 
