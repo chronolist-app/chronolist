@@ -2,27 +2,55 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.magu1436.chronolist.timeblocking.mapper.TimeBlockTaskMapper">
     <select id="getTimeBlockTaskById" resultType="com.magu1436.chronolist.timeblocking.entity.TimeBlockTask">
-        SELECT id, time_block_id, title
-        FROM time_block_tasks
-        WHERE id = #{id}
+        SELECT tbt.id, tbt.time_block_id, tbt.title
+        FROM time_block_tasks tbt
+        JOIN time_blocks tb ON tb.id = tbt.time_block_id
+        WHERE tbt.id = #{id}
+          AND tb.user_id = #{userId}
     </select>
 
-    <insert id="insertTimeBlockTask" useGeneratedKeys="true" keyProperty="id" parameterType="com.magu1436.chronolist.timeblocking.entity.TimeBlockTask">
+    <insert id="insertTimeBlockTask" useGeneratedKeys="true" keyProperty="timeBlockTask.id">
         INSERT INTO time_block_tasks (time_block_id, title)
-        VALUES
-        (#{timeBlockId}, #{title})
+        SELECT 
+            #{timeBlockTask.timeBlockId},
+            #{timeBlockTask.title}
+        WHERE EXISTS(
+            SELECT 1
+            FROM time_blocks tb
+            WHERE tb.id = #{timeBlockTask.timeBlockId}
+              AND tb.user_id = #{userId}
+        )
     </insert>
 
-    <update id="updateTimeBlockTask" parameterType="com.magu1436.chronolist.timeblocking.entity.TimeBlockTask">
+    <update id="updateTimeBlockTask">
         UPDATE time_block_tasks
         SET
-            time_block_id = #{timeBlockId},
-            title = #{title}
+            time_block_id = #{timeBlockTask.timeBlockId},
+            title = #{timeBlockTask.title}
         WHERE
-            id = #{id}
+            id = #{timeBlockTask.id}
+          AND EXISTS(
+            SELECT 1
+            FROM time_blocks current_tb
+            WHERE current_tb.id = time_block_tasks.time_block_id
+              AND current_tb.user_id = #{userId}
+          )
+          AND EXISTS(
+            SELECT 1
+            FROM time_blocks new_tb
+            WHERE new_tb.id = #{timeBlockTask.timeBlockId}
+              AND new_tb.user_id = #{userId}
+          )
     </update>
 
-    <delete id="deleteTimeBlockTask" parameterType="int">
-        DELETE FROM time_block_tasks WHERE id = #{id}
+    <delete id="deleteTimeBlockTask">
+        DELETE FROM time_block_tasks 
+        WHERE id = #{id}
+          AND EXISTS(
+            SELECT 1
+            FROM time_blocks tb
+            WHERE tb.id = time_block_tasks.time_block_id
+              AND tb.user_id = #{userId}
+          )
     </delete>
 </mapper>
