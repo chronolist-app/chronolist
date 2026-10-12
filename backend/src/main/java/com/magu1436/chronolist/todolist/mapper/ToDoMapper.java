@@ -12,6 +12,8 @@ import com.magu1436.chronolist.todolist.entity.ToDoTask;
 public interface ToDoMapper {
     /** 指定のユーザーIDをもつToDoTaskを全件取得 */
     List<ToDoTask> getAllTasks(int userId);
+    /** 指定IDのToDoTaskを取得 */
+    ToDoTask getTaskById(int id);
     /** ユーザーIDとpriorityを元にToDoTaskを取得 */
     List<ToDoTask> getTasksByPriority(@Param("userId") int userId, @Param("priority") String priority);
     /** ユーザーIDと期日を元にToDoTaskを取得 */
