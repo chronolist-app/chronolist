@@ -168,8 +168,8 @@ public class SchedulerController {
      * DB上に存在しないとき:{@code False}
      * @author konoma1103
     */
-    private boolean existsById(int id){
-        CalendarEvent calendarEvent = mapper.getCalendarEventById(id);
+    private boolean existsById(int id, @AuthenticationPrincipal LoginUser loginUser){
+        CalendarEvent calendarEvent = mapper.getCalendarEventById(id, loginUser.getId());
         return calendarEvent != null;
     }
        
