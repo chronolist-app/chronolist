@@ -27,4 +27,33 @@ public class SchedulerServiceImpl implements SchedulerService {
         return mapper.getCalendarEventsFromTo(userId, starDate, enddDate);
     }
 
+    @Override
+    public Integer insertEvent(int userId, CalendarEvent calendarEvent){
+
+        // 受け取ったCalendarEventを元にScheduleを生成(userIdは引数から取得)
+        Schedule schedule = Schedule.builder()
+                                    .userId(userId)
+                                    .kind(calendarEvent.getKind())
+                                    .startAt(calendarEvent.getStartAt())
+                                    .endAt(calendarEvent.getEndAt())
+                                    .startDate(calendarEvent.getStartDate())
+                                    .endDate(calendarEvent.getEndDate())
+                                    .title(calendarEvent.getTitle())
+                                    .build();
+        // 生成したScheduleをscheduleテーブルに登録
+        mapper.insertSchedule(schedule);
+
+        // scheduleからscheduleIdを取得
+        int scheduleId = schedule.getId();
+        // 取得したscheduleIdをcalendarEventにset
+        calendarEvent.setScheduleId(scheduleId);
+        // CalendarEventをcalendar_eventテーブルに登録
+        mapper.insertCalendarEvent(calendarEvent);
+        // 自動生成されたcalendar_eventのidを取得
+        int calendarEventId = calendarEvent.getId();
+        // 取得したcalendar_eventのidを返す
+        return calendarEventId;
+    }
+
+
 }
