@@ -57,10 +57,17 @@ public class SchedulerServiceImpl implements SchedulerService {
 
     @Override
     public boolean updateEvent(int userId, CalendarEvent calendarEvent){
+
+        // 既存の CalendarEventを取得
+        CalendarEvent existingEvent = mapper.getCalendarEventById(calendarEvent.getId(), userId);
+
+        if (existingEvent == null) {
+            return false; // 既存のイベントが存在しない場合は更新できない
+        }
         
         // 受け取ったCalendarEventを元にScheduleを生成
         Schedule schedule = Schedule.builder()
-                                    .id(calendarEvent.getScheduleId())
+                                    .id(existingEvent.getScheduleId())
                                     .userId(userId)
                                     .kind(calendarEvent.getKind())
                                     .startAt(calendarEvent.getStartAt())
