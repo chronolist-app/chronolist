@@ -143,7 +143,7 @@ public class SchedulerController {
     @DeleteMapping("delete/{id}")
     public ResponseEntity<Void> deleteEvent(@PathVariable("id") int calendarEventId, @AuthenticationPrincipal LoginUser loginUser){
         // 受け取ったcalendarEventがDBに存在するか確認(存在しなかった場合は400レスポンスを返す)
-        if(!existsById(calendarEventId)){
+        if(!existsById(calendarEventId, loginUser)){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
@@ -168,7 +168,7 @@ public class SchedulerController {
      * DB上に存在しないとき:{@code False}
      * @author konoma1103
     */
-    private boolean existsById(int id, @AuthenticationPrincipal LoginUser loginUser){
+    private boolean existsById(int id, LoginUser loginUser){
         CalendarEvent calendarEvent = mapper.getCalendarEventById(id, loginUser.getId());
         return calendarEvent != null;
     }
