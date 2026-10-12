@@ -55,5 +55,28 @@ public class SchedulerServiceImpl implements SchedulerService {
         return calendarEventId;
     }
 
+    @Override
+    public boolean updateEvent(int userId, CalendarEvent calendarEvent){
+        
+        // 受け取ったCalendarEventを元にScheduleを生成
+        Schedule schedule = Schedule.builder()
+                                    .id(calendarEvent.getScheduleId())
+                                    .userId(userId)
+                                    .kind(calendarEvent.getKind())
+                                    .startAt(calendarEvent.getStartAt())
+                                    .endAt(calendarEvent.getEndAt())
+                                    .startDate(calendarEvent.getStartDate())
+                                    .endDate(calendarEvent.getEndDate())
+                                    .title(calendarEvent.getTitle())
+                                    .build();
+
+        // 生成したScheduleのidを元にscheduleテーブルの更新
+        mapper.updateSchedule(schedule);
+
+        // CalendarEventをcalendar_eventテーブルに登録
+        int updatedRows = mapper.updateCalendarEvent(userId, calendarEvent);
+
+        return updatedRows == 1;
+    }
 
 }

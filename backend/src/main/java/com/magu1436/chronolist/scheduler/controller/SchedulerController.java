@@ -82,6 +82,7 @@ public class SchedulerController {
      * 予定更新API. 
      * 受け取った {@code CalendarEvent} の {@code id} を元に, スケジュールおよびカレンダーイベントを更新する
      * @param calendarEvent 更新したい {@code calendarEvent}
+     * @param loginUser ログイン中のユーザー
      * @return bodyが空の {@code ResponseEntity}. 
      * 受け取った {@code calendarEvent} の {@code id} がDBに存在するときは201レスポンス, 
      * 存在しないときは404レスポンスを返す
@@ -90,30 +91,18 @@ public class SchedulerController {
     @PutMapping("update")
     @Transactional
     public ResponseEntity<Void> updateEvent(@RequestBody CalendarEvent calendarEvent, @AuthenticationPrincipal LoginUser loginUser) {
-        // 受け取ったcalendarEventがDBに存在するか確認(存在しなかった場合は400レスポンスを返す)
-        CalendarEvent existingCalendarEvent = mapper.getCalendarEventById(calendarEvent.getId(), loginUser.getId());
-        if(existingCalendarEvent == null){
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        
+        boolean updated = service.updateEvent(loginUser.getId(), calendarEvent);
+
+        if(!updated){
+            return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .build();
         }
 
-        // 受け取ったCalendarEventを元にScheduleを生成
-        Schedule schedule = Schedule.builder()
-                                    .id(existingCalendarEvent.getScheduleId())
-                                    .userId(loginUser.getId())
-                                    .kind(calendarEvent.getKind())
-                                    .startAt(calendarEvent.getStartAt())
-                                    .endAt(calendarEvent.getEndAt())
-                                    .startDate(calendarEvent.getStartDate())
-                                    .endDate(calendarEvent.getEndDate())
-                                    .title(calendarEvent.getTitle())
-                                    .build();
-        // 生成したScheduleのidを元にscheduleテーブルの更新
-        mapper.updateSchedule(schedule);
-
-        // CalendarEventをcalendar_eventテーブルに登録
-        mapper.updateCalendarEvent(loginUser.getId(), calendarEvent);
-
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .build();
     }
 
     /**
