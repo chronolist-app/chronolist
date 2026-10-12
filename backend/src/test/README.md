@@ -28,6 +28,34 @@ MockMvcは実サーバーやネットワークを起動せず、SecurityとSprin
 LoginUserを認証済みPrincipalとして注入するため、ログインAPIを呼ばない。
 ServiceやMapperはモック化しない。認証API・IDOR固有のケースはCHRON-135の対象外。
 
+### CHRON-137 SchedulerのIDORテスト
+
+`SchedulerIdorTests`は2ユーザーを用意し、一覧の所有者分離、他人・存在しないIDへの
+更新と削除の404、scheduleId/userIdの偽装、対象6Mapperの所有者条件とDB不変性を確認する。
+既存の`SchedulerApiTests`にある自分の予定の更新・削除と合わせて実行する。
+
+途中失敗のケースでは、`@MockitoSpyBean`でMapperの返却件数を差し替える。
+その他のMapper呼び出しは実SQLで実行し、先行操作のDB変更がロールバックされることと
+404応答を確認する。テスト全体には`@Transactional`を付けない。
+
+実行例: `docker compose exec -T backend sh ./gradlew test --tests '*Scheduler*'`
+
+2026-10-12に`feature/scheduler_idor`で実行: 既存12ケース＋追加14ケースの26ケース中、
+16成功・10失敗。CalendarEvent更新・削除のJOIN構文がH2非対応であるため、既存正常系4件、
+偽装ID更新2件、Mapper更新・削除2件が失敗する。削除ロールバック1件も先行DELETEの
+構文エラーで後続の故障注入まで到達しない。更新ロールバック1件は、後続更新0件でも
+204を返し先行Schedule更新をコミットするため失敗する。期待値は変更せず残す。
+
+同日の`feature/move-Logic-to-service_scheduler`でupdateEventのロールバック対応後に再実行:
+28ケース中24成功・4失敗。先行Schedule更新を実DBで確認した後、後続更新0件で404となり、
+先行変更が取り消されることを検証済み。先行更新が0件・2件の場合も404となり、
+CalendarEvent更新を実行しない。残る4件は削除SQLのH2構文エラーによるもの。
+
+同日の削除SQL修正・deleteEventのロールバック対応後に再実行: 既存12ケース＋IDOR18ケースの
+30ケースがすべて成功。先行CalendarEvent削除を実DBで確認した後、後続削除0件で404となり、
+削除済みイベントが復元されることを検証済み。先行削除が0件・2件の場合も404となり、
+Schedule削除を実行しない。
+
 ApiIntegrationInfrastructureTestsはToDoの登録・取得を2回繰り返し、基盤とデータ分離を検証する。
 ToDoListApiTestsはToDoの5エンドポイントについて、期限の3形式、優先度、完了状態、
 更新時の項目保持、単体・複数削除、実装済みの400・404応答とDB状態を検証する。

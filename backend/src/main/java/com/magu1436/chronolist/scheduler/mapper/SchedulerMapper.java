@@ -23,15 +23,15 @@ public interface SchedulerMapper {
         @Param("endDate") LocalDate endDate
     );
     /** 指定のidをもつスケジュールを取得 */
-    Schedule getScheduleById(int id);
+    Schedule getScheduleById(@Param("id") int id, @Param("userId") int userId);
     /** 指定の日にあるスケジュールを全て取得 */
     List<Schedule> getSchedulesByDate(@Param("userId") int userId, @Param("date") LocalDate date);
     /** スケジュールの新規登録 */
     int insertSchedule(Schedule schedule);
     /** スケジュールの更新 */
-    void updateSchedule(Schedule schedule);
+    int updateSchedule(Schedule schedule);
     /** 受け取ったidのスケジュールを削除 */
-    void deleteSchedule(int id);
+    int deleteSchedule(@Param("id") int id, @Param("userId") int userId);
     /** 指定の区間が期日のカレンダーイベントを全て取得 */
     List<CalendarEvent> getCalendarEventsFromTo(
         @Param("userId") int userId,
@@ -39,11 +39,14 @@ public interface SchedulerMapper {
         @Param("endDate") LocalDate endDate
     );
     /** 指定のidをもつカレンダーイベントを取得 */
-    CalendarEvent getCalendarEventById(int id);
+    CalendarEvent getCalendarEventById(@Param("id") int id, @Param("userId") int userId);
     /** カレンダーイベントの新規登録 */
     int insertCalendarEvent(CalendarEvent calendarEvent);
     /** カレンダーイベントの更新 */
-    void updateCalendarEvent(CalendarEvent calendarEvent);
+    int updateCalendarEvent(
+        @Param("userId") int userId,
+        @Param("calendarEvent") CalendarEvent calendarEvent
+    );
     /** 受け取ったidのカレンダーイベントを削除 */
-    void deleteCalendarEvent(int id);
+    int deleteCalendarEvent(@Param("id") int id, @Param("userId") int userId);
 }
