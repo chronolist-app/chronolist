@@ -40,7 +40,7 @@
 
     <update id="updateSchedule" parameterType="com.magu1436.chronolist.scheduler.entity.Schedule">
         UPDATE schedule SET kind = #{kind}, start_at = #{startAt}, end_at = #{endAt}, start_date = #{startDate}, end_date = #{endDate}, title = #{title}
-        WHERE id = #{id}
+        WHERE id = #{id} AND user_id = #{userId}
     </update>
 
     <delete id="deleteSchedule" parameterType="int">

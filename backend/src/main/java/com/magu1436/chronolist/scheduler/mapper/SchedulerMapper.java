@@ -29,7 +29,7 @@ public interface SchedulerMapper {
     /** スケジュールの新規登録 */
     int insertSchedule(Schedule schedule);
     /** スケジュールの更新 */
-    void updateSchedule(Schedule schedule);
+    int updateSchedule(Schedule schedule);
     /** 受け取ったidのスケジュールを削除 */
     void deleteSchedule(int id);
     /** 指定の区間が期日のカレンダーイベントを全て取得 */
