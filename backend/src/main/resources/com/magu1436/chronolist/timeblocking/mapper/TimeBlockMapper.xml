@@ -73,22 +73,29 @@
         </if>
     </insert>
 
-    <update id="updateTimeBlock" parameterType="com.magu1436.chronolist.timeblocking.entity.TimeBlock">
-        UPDATE time_blocks SET table_id = #{timeTableId}, title = #{title}, status = #{status}, schedule_id = #{relatedSchedule.id}, width = #{width}, start_at = #{startAt}, color = #{color}
-        WHERE id = #{id} AND user_id = #{userId}
+    <update id="updateTimeBlock" >
+        UPDATE time_blocks 
+        SET table_id = #{timeBlock.timeTableId},
+            title = #{timeBlock.title},
+            status = #{timeBlock.status},
+            schedule_id = #{timeBlock.relatedSchedule.id},
+            width = #{timeBlock.width},
+            start_at = #{timeBlock.startAt},
+            color = #{timeBlock.color}
+        WHERE id = #{timeBlock.id} AND user_id = #{userId}
 
-        <if test="timeTableId != null">
+        <if test="timeBlock.timeTableId != null">
             AND EXISTS(
                 SELECT 1
                 FROM time_tables tt
-                WHERE tt.id = #{timeTableId} AND tt.user_id = #{userId}
+                WHERE tt.id = #{timeBlock.timeTableId} AND tt.user_id = #{userId}
             )
         </if>
-        <if test="relatedSchedule != null">
+        <if test="timeBlock.relatedSchedule != null">
              AND EXISTS(
                 SELECT 1
                 FROM schedule s
-                WHERE s.id = #{relatedSchedule.id}
+                WHERE s.id = #{timeBlock.relatedSchedule.id}
                   AND s.user_id = #{userId}
              )
         </if>

@@ -23,8 +23,8 @@
     </insert>
 
     <update id="updateTimeTable">
-        UPDATE time_tables SET date = #{date}
-        WHERE id = #{id} AND user_id = #{userId}
+        UPDATE time_tables SET date = #{timeTable.date}
+        WHERE id = #{timeTable.id} AND user_id = #{userId}
     </update>
 
     <delete id="deleteTimeTable">
