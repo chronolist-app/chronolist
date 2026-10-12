@@ -84,6 +84,11 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         // 受け取ったcalendarEventのidを元に, DBからCalendarEventを取得
         CalendarEvent calendarEvent = mapper.getCalendarEventById(calendarEventId, userId);
+
+        if (calendarEvent == null){
+            return false;
+        }
+
         // 取得したcalendarEventからscheduleIdを取得
         int scheduleId = calendarEvent.getScheduleId();
 
