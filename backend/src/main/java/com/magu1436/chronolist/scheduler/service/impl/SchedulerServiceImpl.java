@@ -71,12 +71,12 @@ public class SchedulerServiceImpl implements SchedulerService {
                                     .build();
 
         // 生成したScheduleのidを元にscheduleテーブルの更新
-        mapper.updateSchedule(schedule);
+        int updatedRowsSchedule = mapper.updateSchedule(schedule);
 
         // CalendarEventをcalendar_eventテーブルに登録
-        int updatedRows = mapper.updateCalendarEvent(userId, calendarEvent);
+        int updatedRowsCalendarEvent = mapper.updateCalendarEvent(userId, calendarEvent);
 
-        return updatedRows == 1;
+        return updatedRowsSchedule == 1 && updatedRowsCalendarEvent == 1;
     }
 
     @Override
