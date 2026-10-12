@@ -21,9 +21,14 @@ public interface TimeBlockMapper {
      * 指定した ID の {@link TimeBlock} を取得する。
      *
      * @param id 取得対象の TimeBlock の ID
+     * @param userId id で指定している TimeBlock の所有者を判別するための userId
+     * 
      * @return 対応する {@link TimeBlock}。存在しない場合は {@code null} を返す。
      */
-    TimeBlock getTimeBlockById(int id);
+    TimeBlock getTimeBlockById(
+        @Param("id") int id,
+        @Param("userId") int userId
+    );
 
     /**
      * 指定した{@code timeTableId}をもつ{@code TimeBlock}を取得する
@@ -31,7 +36,9 @@ public interface TimeBlockMapper {
      * @param timeTableId 取得対象の{@code timeTableId}
      * @return 対応する{@link TimeBlock}。
      */
-    List<TimeBlock> getTimeBlocksByTimeTableId(@Param("timeTableId") int timeTableId);
+    List<TimeBlock> getTimeBlocksByTimeTableId(
+        @Param("userId") int userId,
+        @Param("timeTableId") int timeTableId);
 
     /**
      * 指定のユーザーIDをもち, かつステータスが {@code HOLD} の {@link TimeBlock} をすべて取得する。
@@ -54,7 +61,7 @@ public interface TimeBlockMapper {
      *
      * @param timeBlock 登録する {@link TimeBlock}
      */
-    void insertTimeBlock(TimeBlock timeBlock);
+    int insertTimeBlock(TimeBlock timeBlock);
 
     /**
      * 既存の {@link TimeBlock} を更新する。
@@ -62,14 +69,22 @@ public interface TimeBlockMapper {
      * 更新対象は、引数で受け取った {@link TimeBlock} の ID によって特定される。
      * </p>
      *
+     * @param userId timeBlock の所有者を判別するためのuserId
      * @param timeBlock 更新内容を保持した {@link TimeBlock}
      */
-    void updateTimeBlock(TimeBlock timeBlock);
+    int updateTimeBlock(
+        @Param("userId") int userId,
+        @Param("timeBlock") TimeBlock timeBlock
+    );
 
     /**
      * 指定した ID の {@link TimeBlock} を削除する。
      *
      * @param id 削除する TimeBlock の ID
+     * @param id でしていした TimeBlock の所有者を判別するための userId
      */
-    void deleteTimeBlock(int id);
+    int deleteTimeBlock(
+        @Param("id") int id,
+        @Param("userId") int userId
+    );
 }

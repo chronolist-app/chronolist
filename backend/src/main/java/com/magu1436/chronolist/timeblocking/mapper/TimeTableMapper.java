@@ -53,14 +53,26 @@ public interface TimeTableMapper {
      * <strong>それらは登録されずに無視されることに注意</strong>。
      * </p>
      *
+     * @param userId timeTable の所有者を判別するためのuserId
      * @param timeTable 更新内容を保持する {@link TimeTable}
+     * 
+     * @return 処理後の更新行数
      */
-    void updateTimeTable(TimeTable timeTable);
+    int updateTimeTable(
+        @Param("userId") int userId,
+        @Param("timeTable") TimeTable timeTable
+    );
 
     /**
      * 指定した ID の {@link TimeTable} を削除する。
      *
      * @param id 削除対象の TimeTable の ID
+     * @param userId TimeTable の所有者を判別するためのuserId
+     * 
+     * @return 処理後の削除行数
      */
-    void deleteTimeTable(int id);
+    int deleteTimeTable(
+        @Param("id") int id,
+        @Param("userId") int userId
+    );
 }
