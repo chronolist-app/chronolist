@@ -129,17 +129,5 @@ public class SchedulerController {
             .status(HttpStatus.NO_CONTENT)
             .build();
     }
-
-
-    /** 指定したidのcalendarEventがDBに存在するか確認するメソッド 
-     * @param id DBに存在するかを確認したいcalendarEventの{@code id}
-     * @return DB上に存在するとき:{@code True}
-     * DB上に存在しないとき:{@code False}
-     * @author konoma1103
-    */
-    private boolean existsById(int id, LoginUser loginUser){
-        CalendarEvent calendarEvent = mapper.getCalendarEventById(id, loginUser.getId());
-        return calendarEvent != null;
-    }
        
 }
