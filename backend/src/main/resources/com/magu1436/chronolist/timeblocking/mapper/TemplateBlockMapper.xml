@@ -10,7 +10,7 @@
     <select id="getTemplateBlockById" resultType="com.magu1436.chronolist.timeblocking.entity.TemplateBlock">
         SELECT id, user_id, title, width, color
         FROM template_blocks
-        WHERE id = #{id}
+        WHERE id = #{id} AND user_id = #{userId}
     </select>
 
     <insert id="insertTemplateBlock" useGeneratedKeys="true" keyProperty="id" parameterType="com.magu1436.chronolist.timeblocking.entity.TemplateBlock">
@@ -21,10 +21,10 @@
 
     <update id="updateTemplateBlock" parameterType="com.magu1436.chronolist.timeblocking.entity.TemplateBlock">
         UPDATE template_blocks SET title = #{title}, width = #{width}, color = #{color}
-        WHERE id = #{id}
+        WHERE id = #{id} AND user_id = #{userId}
     </update>
 
-    <delete id="deleteTemplateBlock" parameterType="int">
-        DELETE FROM template_blocks WHERE id = #{id}
+    <delete id="deleteTemplateBlock">
+        DELETE FROM template_blocks WHERE id = #{id} AND user_id = #{userId}
     </delete>
 </mapper>
