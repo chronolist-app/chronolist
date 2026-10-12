@@ -24,10 +24,10 @@
 
     <update id="updateTimeTable">
         UPDATE time_tables SET date = #{date}
-        WHERE id = #{id}
+        WHERE id = #{id} AND user_id = #{userId}
     </update>
 
-    <delete id="deleteTimeTable" parameterType="int">
-        DELETE FROM time_tables WHERE id = #{id}
+    <delete id="deleteTimeTable">
+        DELETE FROM time_tables WHERE id = #{id} AND user_id = #{userId}
     </delete>
 </mapper>
