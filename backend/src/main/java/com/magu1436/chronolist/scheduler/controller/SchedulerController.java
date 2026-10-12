@@ -116,23 +116,18 @@ public class SchedulerController {
      */
     @DeleteMapping("delete/{id}")
     public ResponseEntity<Void> deleteEvent(@PathVariable("id") int calendarEventId, @AuthenticationPrincipal LoginUser loginUser){
-        // 受け取ったcalendarEventがDBに存在するか確認(存在しなかった場合は400レスポンスを返す)
-        if(!existsById(calendarEventId, loginUser)){
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        
+        boolean deleted = service.deleteEvent(loginUser.getId(), calendarEventId);
+
+        if(!deleted){
+            return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .build();
         }
 
-        // 受け取ったcalendarEventのidを元に, DBからCalendarEventを取得
-        CalendarEvent calendarEvent = mapper.getCalendarEventById(calendarEventId, loginUser.getId());
-        // 取得したcalendarEventからscheduleIdを取得
-        int scheduleId = calendarEvent.getScheduleId();
-
-        // calendarEventIdを元に, 対象となるcalendarEventをDBから削除
-        mapper.deleteCalendarEvent(calendarEventId, loginUser.getId());
-
-        // scheduleIdを元に, 対象となるscheduleをDBから削除
-        mapper.deleteSchedule(scheduleId, loginUser.getId());
-
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        return ResponseEntity
+            .status(HttpStatus.NO_CONTENT)
+            .build();
     }
 
 
