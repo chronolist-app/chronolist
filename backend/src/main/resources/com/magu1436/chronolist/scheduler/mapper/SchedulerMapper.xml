@@ -23,7 +23,7 @@
     <select id="getScheduleById" resultType="com.magu1436.chronolist.scheduler.entity.Schedule">
         SELECT id, kind, start_at, end_at, start_date, end_date, title
         FROM schedule
-        WHERE id = #{id}
+        WHERE id = #{id} AND user_id = #{userId}
     </select>
 
     <select id="getSchedulesByDate" resultType="com.magu1436.chronolist.scheduler.entity.Schedule">

@@ -23,7 +23,7 @@ public interface SchedulerMapper {
         @Param("endDate") LocalDate endDate
     );
     /** 指定のidをもつスケジュールを取得 */
-    Schedule getScheduleById(int id);
+    Schedule getScheduleById(@Param("id") int id, @Param("userId") int userId);
     /** 指定の日にあるスケジュールを全て取得 */
     List<Schedule> getSchedulesByDate(@Param("userId") int userId, @Param("date") LocalDate date);
     /** スケジュールの新規登録 */
