@@ -12,7 +12,7 @@
             tb.start_at,
             tb.color
         FROM time_blocks tb
-        WHERE tb.id = #{id}
+        WHERE tb.id = #{id} AND tb.user_id = #{userId}
     </select>
 
     <select id="getTimeBlocksByTimeTableId" resultType="com.magu1436.chronolist.timeblocking.entity.TimeBlock">
@@ -26,7 +26,10 @@
             b.start_at,
             b.color
         FROM time_blocks b
+        JOIN time_tables t ON t.id = b.table_id
         WHERE b.table_id = #{timeTableId}
+          AND b.user_id = #{userId}
+          AND t.user_id = #{userId}
     </select>
 
     <select id="getHeldTimeBlocks" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeBlockResult">
@@ -42,16 +45,57 @@
 
     <insert id="insertTimeBlock" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO time_blocks (user_id, table_id, title, status, schedule_id, width, start_at, color)
-        VALUES
-        (#{userId}, #{timeTableId}, #{title}, #{status}, #{relatedSchedule.id}, #{width}, #{startAt}, #{color})
+        SELECT
+            #{userId},
+            #{timeTableId},
+            #{title}, #{status},
+            #{relatedSchedule.id},
+            #{width},
+            #{startAt},
+            #{color}
+        
+        WHERE 1=1
+        <if test="timeTableId != null">
+            AND EXISTS(
+                SELECT 1
+                FROM time_tables tt
+                WHERE tt.id = #{timeTableId}
+                  AND tt.user_id = #{userId}
+            )
+        </if>
+        <if test="relatedSchedule != null">
+            AND EXISTS(
+                SELECT 1
+                FROM schedule s
+                WHERE s.id = #{relatedSchedule.id}
+                  AND s.user_id = #{userId}
+            )
+        </if>
     </insert>
 
     <update id="updateTimeBlock" parameterType="com.magu1436.chronolist.timeblocking.entity.TimeBlock">
         UPDATE time_blocks SET table_id = #{timeTableId}, title = #{title}, status = #{status}, schedule_id = #{relatedSchedule.id}, width = #{width}, start_at = #{startAt}, color = #{color}
-        WHERE id = #{id}
+        WHERE id = #{id} AND user_id = #{userId}
+
+        <if test="timeTableId != null">
+            AND EXISTS(
+                SELECT 1
+                FROM time_tables tt
+                WHERE tt.id = #{timeTableId} AND tt.user_id = #{userId}
+            )
+        </if>
+        <if test="relatedSchedule != null">
+             AND EXISTS(
+                SELECT 1
+                FROM schedule s
+                WHERE s.id = #{relatedSchedule.id}
+                  AND s.user_id = #{userId}
+             )
+        </if>
     </update>
 
-    <delete id="deleteTimeBlock" parameterType="int">
-        DELETE FROM time_blocks WHERE id = #{id}
+    <delete id="deleteTimeBlock">
+        DELETE FROM time_blocks
+        WHERE id = #{id} AND user_id = #{userId}
     </delete>
 </mapper>
