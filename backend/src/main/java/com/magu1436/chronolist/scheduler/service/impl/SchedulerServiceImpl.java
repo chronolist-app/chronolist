@@ -4,9 +4,11 @@ import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.magu1436.chronolist.scheduler.entity.CalendarEvent;
 import com.magu1436.chronolist.scheduler.entity.Schedule;
+import com.magu1436.chronolist.scheduler.exception.EventNotFoundException;
 import com.magu1436.chronolist.scheduler.mapper.SchedulerMapper;
 import com.magu1436.chronolist.scheduler.service.SchedulerService;
 
@@ -56,13 +58,14 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
-    public boolean updateEvent(int userId, CalendarEvent calendarEvent){
+    @Transactional
+    public void updateEvent(int userId, CalendarEvent calendarEvent){
 
         // 既存の CalendarEventを取得
         CalendarEvent existingEvent = mapper.getCalendarEventById(calendarEvent.getId(), userId);
 
         if (existingEvent == null) {
-            return false; // 既存のイベントが存在しない場合は更新できない
+            throw new EventNotFoundException();
         }
         
         // 受け取ったCalendarEventを元にScheduleを生成
@@ -79,11 +82,16 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         // 生成したScheduleのidを元にscheduleテーブルの更新
         int updatedRowsSchedule = mapper.updateSchedule(schedule);
+        if (updatedRowsSchedule != 1) {
+            throw new EventNotFoundException();
+        }
 
         // CalendarEventをcalendar_eventテーブルに登録
         int updatedRowsCalendarEvent = mapper.updateCalendarEvent(userId, calendarEvent);
 
-        return updatedRowsSchedule == 1 && updatedRowsCalendarEvent == 1;
+        if (updatedRowsCalendarEvent != 1) {
+            throw new EventNotFoundException();
+        }
     }
 
     @Override

@@ -3,7 +3,9 @@ package com.magu1436.chronolist.scheduler;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,11 +23,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import com.magu1436.chronolist.scheduler.entity.CalendarEvent;
+import com.magu1436.chronolist.scheduler.entity.Schedule;
 import com.magu1436.chronolist.scheduler.mapper.SchedulerMapper;
 import com.magu1436.chronolist.support.ApiIntegrationTest;
 
 /** CHRON-137: real SQL ownership checks and transaction boundaries through HTTP.
- * The spy delegates to the real Mapper except when explicitly injecting a zero-row failure.
+ * The spy delegates to the real Mapper except when explicitly injecting an unexpected row count.
  */
 class SchedulerIdorTests extends ApiIntegrationTest {
     private static final String BASE = "/api/scheduler/";
@@ -170,9 +173,15 @@ class SchedulerIdorTests extends ApiIntegrationTest {
     @Test
     void zeroRowSecondUpdateReturns404AndRollsBackFirstUpdate() throws Exception {
         int event = seed(loginUser.getId(), "ALL_DAY");
+        int linkedSchedule = scheduleId(event);
         var schedulesBefore = schedules();
         var eventsBefore = events();
-        doReturn(0).when(mapper).updateCalendarEvent(eq(loginUser.getId()), any(CalendarEvent.class));
+        // Confirm a real first update occurred, so unchanged DB cannot be a false positive.
+        doAnswer(invocation -> {
+            assertThat(jdbcTemplate.queryForObject("SELECT title FROM schedule WHERE id=?",
+                    String.class, linkedSchedule)).isEqualTo("changed");
+            return 0;
+        }).when(mapper).updateCalendarEvent(eq(loginUser.getId()), any(CalendarEvent.class));
         var result = performJsonAsUser(put(BASE + "update"), body(event)).andReturn();
         verify(mapper).updateSchedule(any());
         verify(mapper).updateCalendarEvent(eq(loginUser.getId()), any(CalendarEvent.class));
@@ -181,6 +190,20 @@ class SchedulerIdorTests extends ApiIntegrationTest {
         softly.assertThat(schedules()).isEqualTo(schedulesBefore);
         softly.assertThat(events()).isEqualTo(eventsBefore);
         softly.assertAll();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 2})
+    void unexpectedFirstUpdateCountReturns404WithoutUpdatingEvent(int rows) throws Exception {
+        int event = seed(loginUser.getId(), "ALL_DAY");
+        var schedulesBefore = schedules();
+        var eventsBefore = events();
+        doReturn(rows).when(mapper).updateSchedule(any(Schedule.class));
+        performJsonAsUser(put(BASE + "update"), body(event))
+                .andExpect(status().isNotFound()).andExpect(content().string(""));
+        verify(mapper, never()).updateCalendarEvent(eq(loginUser.getId()), any(CalendarEvent.class));
+        assertThat(schedules()).isEqualTo(schedulesBefore);
+        assertThat(events()).isEqualTo(eventsBefore);
     }
 
     @Test

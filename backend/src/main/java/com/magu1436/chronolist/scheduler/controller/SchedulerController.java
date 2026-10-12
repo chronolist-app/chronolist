@@ -7,7 +7,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,8 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.magu1436.chronolist.login.LoginUser;
 import com.magu1436.chronolist.scheduler.entity.CalendarEvent;
-import com.magu1436.chronolist.scheduler.entity.Schedule;
-import com.magu1436.chronolist.scheduler.mapper.SchedulerMapper;
+import com.magu1436.chronolist.scheduler.exception.EventNotFoundException;
 import com.magu1436.chronolist.scheduler.service.SchedulerService;
 
 import lombok.RequiredArgsConstructor;
@@ -36,7 +34,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 @RequiredArgsConstructor
 public class SchedulerController {
 
-    private final SchedulerMapper mapper;
     private final SchedulerService service;
 
     /** 
@@ -84,25 +81,17 @@ public class SchedulerController {
      * @param calendarEvent 更新したい {@code calendarEvent}
      * @param loginUser ログイン中のユーザー
      * @return bodyが空の {@code ResponseEntity}. 
-     * 受け取った {@code calendarEvent} の {@code id} がDBに存在するときは201レスポンス, 
-     * 存在しないときは404レスポンスを返す
+     * 更新成功時は204、対象を所有していない場合や更新件数が不足した場合は404を返す
      * @author konoma1103
      */
     @PutMapping("update")
-    @Transactional
     public ResponseEntity<Void> updateEvent(@RequestBody CalendarEvent calendarEvent, @AuthenticationPrincipal LoginUser loginUser) {
-        
-        boolean updated = service.updateEvent(loginUser.getId(), calendarEvent);
-
-        if(!updated){
-            return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .build();
+        try {
+            service.updateEvent(loginUser.getId(), calendarEvent);
+        } catch (EventNotFoundException e) {
+            return ResponseEntity.notFound().build();
         }
-
-        return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .build();
+        return ResponseEntity.noContent().build();
     }
 
     /**

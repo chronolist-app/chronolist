@@ -15,7 +15,7 @@ public interface SchedulerService {
 
     Integer insertEvent(int userId, CalendarEvent calendarEvent);
 
-    boolean updateEvent(int userId, CalendarEvent calendarEvent);
+    void updateEvent(int userId, CalendarEvent calendarEvent);
 
     boolean deleteEvent(int userId, int calendarEventId);
 
