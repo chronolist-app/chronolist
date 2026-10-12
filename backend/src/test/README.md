@@ -31,7 +31,10 @@ ServiceやMapperはモック化しない。認証API・IDOR固有のケースは
 ApiIntegrationInfrastructureTestsはToDoの登録・取得を2回繰り返し、基盤とデータ分離を検証する。
 ToDoListApiTestsはToDoの5エンドポイントについて、期限の3形式、優先度、完了状態、
 更新時の項目保持、単体・複数削除、実装済みの400・404応答とDB状態を検証する。
-その他の業務APIのテストは後続で追加する。
+SchedulerApiTestsはSchedulerの4エンドポイントについて、通常・終日予定、期間重複と両端の境界、
+同日検索、登録、予定種類の切り替え、更新・削除の404応答を検証する。
+calendar_eventとscheduleの両テーブルを独立したSQLで確認し、両者のIDが異なる場合も扱う。
+TimeBlockingのテストは後続で追加する。
 
 ## ToDoの仕様差分・未確定事項
 
