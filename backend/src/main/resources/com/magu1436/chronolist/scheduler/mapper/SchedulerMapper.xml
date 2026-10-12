@@ -75,7 +75,7 @@
             s.kind, s.start_at, s.end_at, s.start_date, s.end_date, s.title
         FROM calendar_event c
         INNER JOIN schedule s ON c.schedule_id = s.id
-        WHERE c.id = #{id}
+        WHERE c.id = #{id} AND s.user_id = #{userId}
     </select>
 
     <insert id="insertCalendarEvent" useGeneratedKeys="true" keyProperty="id">

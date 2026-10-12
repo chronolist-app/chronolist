@@ -39,7 +39,7 @@ public interface SchedulerMapper {
         @Param("endDate") LocalDate endDate
     );
     /** 指定のidをもつカレンダーイベントを取得 */
-    CalendarEvent getCalendarEventById(int id);
+    CalendarEvent getCalendarEventById(@Param("id") int id, @Param("userId") int userId);
     /** カレンダーイベントの新規登録 */
     int insertCalendarEvent(CalendarEvent calendarEvent);
     /** カレンダーイベントの更新 */
