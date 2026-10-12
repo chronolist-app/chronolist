@@ -18,7 +18,5 @@ public interface SchedulerService {
     boolean updateEvent(int userId, CalendarEvent calendarEvent);
 
     boolean deleteEvent(int userId, int calendarEventId);
-    
-    boolean existsById(int id, int userId);
 
 }
