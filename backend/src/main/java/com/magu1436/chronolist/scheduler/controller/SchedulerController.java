@@ -104,9 +104,9 @@ public class SchedulerController {
      */
     @PutMapping("update")
     @Transactional
-    public ResponseEntity<Void> updateEvent(@RequestBody CalendarEvent calendarEvent) {
+    public ResponseEntity<Void> updateEvent(@RequestBody CalendarEvent calendarEvent, @AuthenticationPrincipal LoginUser loginUser) {
         // 受け取ったcalendarEventがDBに存在するか確認(存在しなかった場合は400レスポンスを返す)
-        CalendarEvent existingCalendarEvent = mapper.getCalendarEventById(calendarEvent.getId());
+        CalendarEvent existingCalendarEvent = mapper.getCalendarEventById(calendarEvent.getId(), loginUser.getId());
         if(existingCalendarEvent == null){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
@@ -114,6 +114,7 @@ public class SchedulerController {
         // 受け取ったCalendarEventを元にScheduleを生成
         Schedule schedule = Schedule.builder()
                                     .id(existingCalendarEvent.getScheduleId())
+                                    .userId(loginUser.getId())
                                     .kind(calendarEvent.getKind())
                                     .startAt(calendarEvent.getStartAt())
                                     .endAt(calendarEvent.getEndAt())
@@ -125,7 +126,7 @@ public class SchedulerController {
         mapper.updateSchedule(schedule);
 
         // CalendarEventをcalendar_eventテーブルに登録
-        mapper.updateCalendarEvent(calendarEvent);
+        mapper.updateCalendarEvent(loginUser.getId(), calendarEvent);
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
