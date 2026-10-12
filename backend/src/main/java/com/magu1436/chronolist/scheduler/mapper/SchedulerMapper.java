@@ -31,7 +31,7 @@ public interface SchedulerMapper {
     /** スケジュールの更新 */
     int updateSchedule(Schedule schedule);
     /** 受け取ったidのスケジュールを削除 */
-    void deleteSchedule(int id);
+    int deleteSchedule(@Param("id") int id, @Param("userId") int userId);
     /** 指定の区間が期日のカレンダーイベントを全て取得 */
     List<CalendarEvent> getCalendarEventsFromTo(
         @Param("userId") int userId,

@@ -44,7 +44,7 @@
     </update>
 
     <delete id="deleteSchedule" parameterType="int">
-        DELETE FROM schedule WHERE id = #{id}
+        DELETE FROM schedule WHERE id = #{id} AND user_id = #{userId}
     </delete>
 
     <select id="getCalendarEventsFromTo" resultType="com.magu1436.chronolist.scheduler.entity.CalendarEvent">
