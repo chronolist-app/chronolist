@@ -170,12 +170,13 @@ public class TimeBlockingController {
      * }</pre>
      */
     @PutMapping("timeBlock/update")
-    public ResponseEntity<Void> update(@RequestBody TimeBlock timeBlock){
+    public ResponseEntity<Void> update(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TimeBlock timeBlock){
         // 受け取ったTimeBlockがDBに存在する場合は更新を実行する
-        if(ExistsTimeBlockById(timeBlock.getId())){
-            timeBlockMapper.updateTimeBlock(timeBlock);
+        if(ExistsTimeBlockById(timeBlock.getId(), loginUser)){
+            timeBlockMapper.updateTimeBlock(loginUser.getId(), timeBlock);
             // 受け取ったTimeBlockのrelatedScheduleがNullでない場合はscheduleテーブルも更新する
             if (timeBlock.getRelatedSchedule() != null){
+                timeBlock.getRelatedSchedule().setUserId(loginUser.getId());
                 schedulerMapper.updateSchedule(timeBlock.getRelatedSchedule());
             }
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
@@ -202,11 +203,11 @@ public class TimeBlockingController {
      * @author milk0924
      */
     @PutMapping("timeBlock/update/startAt")
-    public ResponseEntity<Void> startAtUpdate(@RequestBody TimeBlock timeBlock){
-        if(ExistsTimeBlockById(timeBlock.getId())){
-            TimeBlock updatedTimeBlock = timeBlockMapper.getTimeBlockById(timeBlock.getId());
+    public ResponseEntity<Void> startAtUpdate(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TimeBlock timeBlock){
+        if(ExistsTimeBlockById(timeBlock.getId(), loginUser)){
+            TimeBlock updatedTimeBlock = timeBlockMapper.getTimeBlockById(timeBlock.getId(), loginUser.getId());
             updatedTimeBlock.setStartAt(timeBlock.getStartAt());
-            timeBlockMapper.updateTimeBlock(updatedTimeBlock);
+            timeBlockMapper.updateTimeBlock(loginUser.getId(), updatedTimeBlock);
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         }
 
@@ -228,14 +229,14 @@ public class TimeBlockingController {
      */
     @DeleteMapping("timeBlock/delete")
     public ResponseEntity<Void> delete(@RequestBody TimeBlock timeBlock, @AuthenticationPrincipal LoginUser loginUser){
-        if(ExistsTimeBlockById(timeBlock.getId())){
+        if(ExistsTimeBlockById(timeBlock.getId(), loginUser)){
             // TimeBlockのrelatedScheduleがNullでない場合はscheduleテーブルも削除する
             if (timeBlock.getRelatedSchedule() != null){
                 Integer scheduleId = timeBlock.getRelatedSchedule().getId();
                 schedulerMapper.deleteSchedule(scheduleId, loginUser.getId());
             }
             // TimeBlockの削除
-            timeBlockMapper.deleteTimeBlock(timeBlock.getId());
+            timeBlockMapper.deleteTimeBlock(timeBlock.getId(), loginUser.getId());
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         }
 
@@ -259,8 +260,8 @@ public class TimeBlockingController {
      * @author konoma1103
      */
     @PutMapping("timeBlockTask/register")
-    public ResponseEntity<Integer> registerTimeBlockTask(@RequestBody TimeBlockTask timeBlockTask){
-        timeBlockTaskMapper.insertTimeBlockTask(timeBlockTask);
+    public ResponseEntity<Integer> registerTimeBlockTask(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TimeBlockTask timeBlockTask){
+        timeBlockTaskMapper.insertTimeBlockTask(loginUser.getId(), timeBlockTask);
         return ResponseEntity.status(HttpStatus.CREATED).body(timeBlockTask.getId());
     }
 
@@ -273,9 +274,9 @@ public class TimeBlockingController {
      * @author magu1436
      */
     @PutMapping("timeBlockTask/update")
-    public ResponseEntity<Void> updateTimeBlockTask(@RequestBody TimeBlockTask timeBlockTask){
+    public ResponseEntity<Void> updateTimeBlockTask(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TimeBlockTask timeBlockTask){
         try {
-            timeBlockTaskService.update(timeBlockTask);
+            timeBlockTaskService.update(loginUser.getId(), timeBlockTask);
         } catch (TimeBlockTaskNotFound e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
@@ -296,10 +297,10 @@ public class TimeBlockingController {
      * @author konoma1103
      */
     @DeleteMapping("timeBlockTask/delete")
-    public ResponseEntity<Void> deleteTimeBlockTask(@RequestBody TimeBlockTask timeBlockTask){
+    public ResponseEntity<Void> deleteTimeBlockTask(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TimeBlockTask timeBlockTask){
         // 指定のIDをもつTimeBlockTaskがDBに存在する場合は削除を実行
-        if (ExistsTimeBlockTaskById(timeBlockTask.getId())){
-            timeBlockTaskMapper.deleteTimeBlockTask(timeBlockTask.getId());
+        if (ExistsTimeBlockTaskById(timeBlockTask.getId(), loginUser)){
+            timeBlockTaskMapper.deleteTimeBlockTask(timeBlockTask.getId(), loginUser.getId());
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         }
 
@@ -364,8 +365,9 @@ public class TimeBlockingController {
      * @author milk0924
      */
     @PutMapping("templateBlock/update")
-    public ResponseEntity<Void> updateTemplateBlock(@RequestBody TemplateBlock templateBlock){
-        if(ExistsTemplateBlockById(templateBlock.getId())){
+    public ResponseEntity<Void> updateTemplateBlock(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TemplateBlock templateBlock){
+        templateBlock.setUserId(loginUser.getId());
+        if(ExistsTemplateBlockById(templateBlock.getId(), loginUser)){
             templateBlockMapper.updateTemplateBlock(templateBlock);
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         }
@@ -386,9 +388,9 @@ public class TimeBlockingController {
      * @author milk0924
      */
     @DeleteMapping("templateBlock/delete")
-    public ResponseEntity<Void> deleteTemplateBlock(@RequestBody TemplateBlock templateBlock){
-        if(ExistsTemplateBlockById(templateBlock.getId())){
-            templateBlockMapper.deleteTemplateBlock(templateBlock.getId());
+    public ResponseEntity<Void> deleteTemplateBlock(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TemplateBlock templateBlock){
+        if(ExistsTemplateBlockById(templateBlock.getId(), loginUser)){
+            templateBlockMapper.deleteTemplateBlock(templateBlock.getId(), loginUser.getId());
             return  ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         }
 
@@ -401,8 +403,8 @@ public class TimeBlockingController {
      * @param id
      * @return boolean
      */
-    private boolean ExistsTimeBlockById(Integer id){
-        TimeBlock timeBlockGotById = timeBlockMapper.getTimeBlockById(id);
+    private boolean ExistsTimeBlockById(Integer id, LoginUser loginUser){
+        TimeBlock timeBlockGotById = timeBlockMapper.getTimeBlockById(id, loginUser.getId());
         return timeBlockGotById != null;
     }
 
@@ -411,8 +413,8 @@ public class TimeBlockingController {
      * @param id
      * @return boolean
      */
-    private boolean ExistsTimeBlockTaskById(Integer id){
-        TimeBlockTask timeBlockTaskGotById = timeBlockTaskMapper.getTimeBlockTaskById(id);
+    private boolean ExistsTimeBlockTaskById(Integer id, LoginUser loginUser){
+        TimeBlockTask timeBlockTaskGotById = timeBlockTaskMapper.getTimeBlockTaskById(id, loginUser.getId());
         return timeBlockTaskGotById != null;
     }
 
@@ -421,8 +423,8 @@ public class TimeBlockingController {
      * @param id
      * @return boolean
      */
-    private boolean ExistsTemplateBlockById(Integer id){
-        TemplateBlock templateBlockGotById = templateBlockMapper.getTemplateBlockById(id);
+    private boolean ExistsTemplateBlockById(Integer id, LoginUser loginUser){
+        TemplateBlock templateBlockGotById = templateBlockMapper.getTemplateBlockById(id, loginUser.getId());
         return templateBlockGotById != null;
     }
 }

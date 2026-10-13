@@ -4,6 +4,6 @@ import com.magu1436.chronolist.timeblocking.entity.TimeBlockTask;
 
 public interface TimeBlockTaskService {
 
-    public void update(TimeBlockTask task);
+    public void update(int userId, TimeBlockTask task);
 
 }

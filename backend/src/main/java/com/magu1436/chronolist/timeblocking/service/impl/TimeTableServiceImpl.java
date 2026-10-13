@@ -43,7 +43,7 @@ public class TimeTableServiceImpl implements TimeTableService{
         }
 
         // DBに該当するブロックがなかった場合には, blocks には空のリストを設定
-        List<TimeBlock> blocks = timeBlockService.getTimeBlocksByTimeTableId(table.getId());
+        List<TimeBlock> blocks = timeBlockService.getTimeBlocksByTimeTableId(userId, table.getId());
         if (blocks == null) {
             blocks = List.of();
         }

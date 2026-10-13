@@ -24,7 +24,7 @@ public class TimeBlockServiceImpl implements TimeBlockService {
      * @param timeTableId 取得対象の {@code timeTable} のID
      * @return 対応する {@link TimeBlock} のリスト
      */
-    public List<TimeBlock> getTimeBlocksByTimeTableId(int timeTableId) {
-        return timeBlockMapper.getTimeBlocksByTimeTableId(timeTableId);
+    public List<TimeBlock> getTimeBlocksByTimeTableId(int userId, int timeTableId) {
+        return timeBlockMapper.getTimeBlocksByTimeTableId(userId, timeTableId);
     }
 }

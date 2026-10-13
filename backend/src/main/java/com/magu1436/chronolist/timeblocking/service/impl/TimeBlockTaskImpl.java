@@ -25,10 +25,10 @@ public class TimeBlockTaskImpl implements TimeBlockTaskService {
      * @author magu1436
      */
     @Override
-    public void update(TimeBlockTask task) {
-        if (mapper.getTimeBlockTaskById(task.getId()) == null) {
+    public void update(int userId, TimeBlockTask task) {
+        if (mapper.getTimeBlockTaskById(task.getId(), userId) == null) {
             throw new TimeBlockTaskNotFound("TimeBlockTask not found.");
         }
-        mapper.updateTimeBlockTask(task);
+        mapper.updateTimeBlockTask(userId, task);
     }
 }
