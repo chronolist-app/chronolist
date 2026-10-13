@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.util.Map;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -61,10 +62,76 @@ class TimeBlockTaskApiTests extends TimeBlockingApiTest {
     @ParameterizedTest
     @ValueSource(strings = {"update", "delete"})
     void missingTaskReturns404(String operation) throws Exception {
-        task(block(null, "HOLD", null), "保持");
-        var before = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks");
-        performJsonAsUser(operation.equals("update") ? put(BASE + "timeBlockTask/update") : delete(BASE + "timeBlockTask/delete"), Map.of("id", -1))
-                .andExpect(status().isNotFound()).andExpect(content().string(""));
-        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks")).isEqualTo(before);
+        int ownBlock = block(null, "HOLD", null);
+        task(ownBlock, "保持");
+        assertNotFoundWithoutChanges(
+                operation.equals("update") ? put(BASE + "timeBlockTask/update") : delete(BASE + "timeBlockTask/delete"),
+                operation.equals("update")
+                        ? Map.of("id", -1, "timeBlockId", ownBlock, "title", "変更後の作業")
+                        : Map.of("id", -1));
+    }
+
+    /** 他ユーザー所有または不存在の親ブロックには登録できない. */
+    @ParameterizedTest
+    @ValueSource(strings = {"foreign", "missing"})
+    void registerTaskRejectsUnavailableBlock(String destination) throws Exception {
+        int ownBlock = block(null, "HOLD", null);
+        int foreignBlock = foreignBlock();
+        task(ownBlock, "自分の作業");
+        task(foreignBlock, "他ユーザーの作業");
+        assertNotFoundWithoutChanges(put(BASE + "timeBlockTask/register"),
+                Map.of("timeBlockId", destination.equals("foreign") ? foreignBlock : -1, "title", "追加する作業"));
+    }
+
+    /** 更新元と更新先の両方が認証ユーザー所有でなければ更新できない. */
+    @ParameterizedTest
+    @ValueSource(strings = {"foreignToForeign", "foreignToOwn", "ownToForeign"})
+    void updateTaskRejectsForeignOwnership(String transition) throws Exception {
+        int ownBlock = block(null, "HOLD", null);
+        int foreignBlock = foreignBlock();
+        int ownTask = task(ownBlock, "自分の作業");
+        int foreignTask = task(foreignBlock, "他ユーザーの作業");
+        int target = transition.equals("ownToForeign") ? ownTask : foreignTask;
+        int destination = transition.equals("foreignToOwn") ? ownBlock : foreignBlock;
+        assertNotFoundWithoutChanges(put(BASE + "timeBlockTask/update"),
+                Map.of("id", target, "timeBlockId", destination, "title", "変更後の作業"));
+    }
+
+    /** 自分のタスクでも不存在の親ブロックへは移動できない. */
+    @Test
+    void updateTaskRejectsMissingDestination() throws Exception {
+        int ownBlock = block(null, "HOLD", null);
+        int id = task(ownBlock, "自分の作業");
+        task(foreignBlock(), "他ユーザーの作業");
+        assertNotFoundWithoutChanges(put(BASE + "timeBlockTask/update"),
+                Map.of("id", id, "timeBlockId", -1, "title", "変更後の作業"));
+    }
+
+    /** 他ユーザーのタスクは削除できない. */
+    @Test
+    void deleteTaskRejectsForeignOwnership() throws Exception {
+        task(block(null, "HOLD", null), "自分の作業");
+        int id = task(foreignBlock(), "他ユーザーの作業");
+        assertNotFoundWithoutChanges(delete(BASE + "timeBlockTask/delete"), Map.of("id", id));
+    }
+
+    /** APIを経由せず別ユーザーと、そのユーザー所有のHOLDブロックを作る. */
+    private int foreignBlock() {
+        String loginId = "time-block-task-other-user";
+        jdbcTemplate.update("INSERT INTO users (login_id,password,role) VALUES (?,?,?)",
+                loginId, "unused-test-password", "GENERAL");
+        int userId = jdbcTemplate.queryForObject("SELECT id FROM users WHERE login_id=?", Integer.class, loginId);
+        int id = block(null, "HOLD", null);
+        jdbcTemplate.update("UPDATE time_blocks SET user_id=? WHERE id=?", userId, id);
+        return id;
+    }
+
+    /** 拒否応答と、双方のユーザーの全タスク・親ブロックが不変であることを検証する. */
+    private void assertNotFoundWithoutChanges(MockHttpServletRequestBuilder request, Object body) throws Exception {
+        var tasksBefore = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks ORDER BY id");
+        var blocksBefore = jdbcTemplate.queryForList("SELECT * FROM time_blocks ORDER BY id");
+        performJsonAsUser(request, body).andExpect(status().isNotFound());
+        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks ORDER BY id")).isEqualTo(tasksBefore);
+        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_blocks ORDER BY id")).isEqualTo(blocksBefore);
     }
 }
