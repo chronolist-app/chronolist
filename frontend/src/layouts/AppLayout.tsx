@@ -7,12 +7,14 @@ interface AppLayoutProps {
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     return (
-        <Stack direction="column" spacing={1} sx={{ height: "100vh" }}>
-            <Box sx={{height: "15%"}}>
+        <Stack direction="column" spacing={1} sx={{ height: "100dvh" }}>
+            <Box sx={{ height: "15%", flexShrink: 0 }}>
                 <AppHeader />
             </Box>
-            <Divider />
-            {children}
+            <Divider sx={{ flexShrink: 0 }} />
+            <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "auto" }}>
+                {children}
+            </Box>
         </Stack>
     );
 };
