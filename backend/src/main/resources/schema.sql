@@ -1,6 +1,12 @@
 -- テーブルが存在したら削除
+DROP TABLE IF EXISTS time_block_tasks;
+DROP TABLE IF EXISTS time_blocks;
 DROP TABLE IF EXISTS calendar_event;
+DROP TABLE IF EXISTS template_blocks;
+DROP TABLE IF EXISTS todo_tasks;
+DROP TABLE IF EXISTS time_tables;
 DROP TABLE IF EXISTS schedule;
+DROP TABLE IF EXISTS users;
 
 
 -- Usersテーブルの作成
@@ -18,7 +24,7 @@ CREATE TABLE users (
 CREATE TABLE schedule (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
-    kind VARCHAR(8),
+    kind VARCHAR(8) NOT NULL,
     start_at TIMESTAMP,
     end_at TIMESTAMP,
     start_date DATE,
@@ -27,7 +33,7 @@ CREATE TABLE schedule (
     title VARCHAR(64) NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id),
 
-    -- kindが「TIMED」か「ALL_DAY」のどちらかをとるための制約
+    -- kindが「DATED」か「ALL_DAY」のどちらかをとるための制約
     CONSTRAINT chk_kind_str CHECK (kind IN ('DATED', 'ALL_DAY')),
     
     CONSTRAINT chk_kind_timed
@@ -53,7 +59,7 @@ CREATE TABLE schedule (
 CREATE TABLE calendar_event (
     id INT PRIMARY KEY AUTO_INCREMENT,
     schedule_id INT NOT NULL,
-    color VARCHAR(16),
+    color VARCHAR(16) NOT NULL,
     memo TEXT,
     FOREIGN KEY (schedule_id) REFERENCES schedule(id)
 );
@@ -79,9 +85,9 @@ CREATE TABLE todo_tasks (
     -- due_kindの値に基づいてdue_dateとdue_timeが値をとっているかの確認
     CONSTRAINT chk_due_date
         CHECK (
-            (due_kind = 'NONE' and due_date = NULL and due_time = NULL)
+            (due_kind = 'NONE' and due_date IS NULL and due_time IS NULL)
             or
-            (due_kind = 'DATED' and due_date is NOT NULL and due_time = NULL)
+            (due_kind = 'DATED' and due_date is NOT NULL and due_time IS NULL)
             or
             (due_kind = 'DATETIME' and due_date is NOT NULL and due_time is NOT NULL)
         )
