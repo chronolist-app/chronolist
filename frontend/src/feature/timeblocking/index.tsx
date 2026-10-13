@@ -46,12 +46,14 @@ const TimeBlockingPage = () => {
                 <SelectedTimeBlockId value={{ selectedTimeBlockId, setSelectedTimeBlockClientId: setSelectedTimeBlockId }}>
                     <SelectedTemplateBlockClientId value={{ selectedTemplateBlockClientId, setSelectedTemplateBlockClientId }}>
                             <BlockAvailable>
-                            <Stack direction={"row"} sx={{width: "100vw", height: "100vh"}}>
-                                <Box sx={{height: "100%", width: "50%"}}><TimeTable /></Box>
+                            <Stack direction={"row"} sx={{ width: "100%", height: "100%", minHeight: 0, flexShrink: 0 }}>
+                                <Box sx={{ height: "100%", width: "50%", minHeight: 0, minWidth: 0 }}><TimeTable /></Box>
                                 <Stack
                                     sx={{
                                         height: "100%",
                                         width: "50%",
+                                        minHeight: 0,
+                                        minWidth: 0,
                                         border: "1px solid red",
                                     }}
                                 >
