@@ -6,15 +6,15 @@ import com.magu1436.chronolist.timeblocking.entity.TimeBlock;
 
 public interface TimeBlockService {
     
-    public List<TimeBlock> getTimeBlocksByTimeTableId(int loginUser, int timeTableId);
+    List<TimeBlock> getTimeBlocksByTimeTableId(int loginUser, int timeTableId);
 
-    public List<TimeBlock> getHoldBlocks(int loginUser);
+    List<TimeBlock> getHoldBlocks(int loginUser);
 
-    public TimeBlock getTimeBlockById(int id, int loginUser);
+    TimeBlock getTimeBlockById(int id, int loginUser);
 
-    public int register(int loginUser, TimeBlock timeBlock);
+    int register(int loginUser, TimeBlock timeBlock);
 
-    public boolean update(int loginUser, TimeBlock timeBlock);
+    boolean update(int loginUser, TimeBlock timeBlock);
 
-    public boolean delete(int loginUser, int id);
+    boolean delete(int loginUser, int id);
 }
