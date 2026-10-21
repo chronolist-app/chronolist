@@ -32,7 +32,8 @@ const BlocksArea = () => {
             <Paper
                 ref={setNodeRef}
                 sx = {{
-                    height: "100%",
+                    flex: 1,
+                    minHeight: 0,
                     width: "100%",
                     padding: 1,
                     backgroundColor: "lightgreen",

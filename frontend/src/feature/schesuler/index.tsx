@@ -27,14 +27,14 @@ const SchedulerPage = () => {
 
     const DynamicCalendar = (
         <>
-            <Box sx={{flex: (selectedEventId ? 3 : 1)}}>
+            <Box sx={{ flex: (selectedEventId ? 3 : 1), minWidth: 0, minHeight: 0 }}>
                 <Calendar />
             </Box>
         </>
     );
     const DynamicSidePanel = selectedEventId && (
         <>
-            <Box sx={{flex: 1}}>
+            <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto" }}>
                 <SidePanel />
             </Box>
         </>
@@ -45,7 +45,7 @@ const SchedulerPage = () => {
             <CalendarEventsContext value={{events, setEvents, updateEvent}} >
                 <SelectedCalendarEventContext value={{eventClientId: selectedEventId, setEventClientId: setSelectedEventId}} >
                     <LocalizationProvider dateAdapter={AdapterDayjs}>
-                        <Stack sx={{height: "100vh", width: "100vw", border: "1px solid red", alignItems: "stretch"}} direction={"row"}>
+                        <Stack sx={{ height: "100%", width: "100%", minHeight: 0, flexShrink: 0, border: "1px solid red", alignItems: "stretch" }} direction={"row"}>
                             {DynamicCalendar}
                             {DynamicSidePanel}
                         </Stack>
