@@ -29,7 +29,20 @@
     <select id="getSchedulesByDate" resultType="com.magu1436.chronolist.scheduler.entity.Schedule">
         SELECT id, kind, start_at, end_at, start_date, end_date, title
         FROM schedule
-        WHERE (user_id = #{userId}) AND ((start_date &lt;= #{date}) AND (end_date &gt;= #{date}))
+        WHERE user_id = #{userId}
+        AND (
+            (
+                kind = 'ALL_DAY'
+                AND start_date &lt;= #{date}
+                AND end_date &gt;= #{date}
+            )
+            OR
+            (
+                kind = 'DATED'
+                AND CAST(start_at AS DATE) &lt;= #{date}
+                AND CAST(end_at AS DATE) &gt;= #{date}
+            )
+        )
     </select>
 
     <insert id="insertSchedule" useGeneratedKeys="true" keyProperty="id" parameterType="com.magu1436.chronolist.scheduler.entity.Schedule">
