@@ -2,6 +2,9 @@
 
 FlywayはJavaアプリに組み込まず、専用イメージで実行する。
 ベースイメージは `redgate/flyway:11.15.0` に固定する。
+MySQL Connector/J 9.4.0をSHA-256固定で `/flyway/drivers/` に追加する。
+`jdbc:mysql` の `sslMode=VERIFY_IDENTITY` を使うため、付属MariaDBドライバーだけに依存しない。
+ビルド時にMaven CentralへのHTTPS接続が必要。取得内容の不一致はビルドエラーとなる。
 TiDB Cloud実機での初期構築・再実行・差分適用の結果と互換性上の残課題は、
 末尾のローカル検証記録を参照。CHECK有効化後の制約追加・違反データ拒否も確認済み。
 ONの状態からのV1初期構築と専用コンテナ等の実機検証は残っている。
@@ -185,6 +188,26 @@ TiDBはDDL全体をトランザクションとして取り消せないため、�
 今後このDBで検証する場合はV1と検証専用V2・V3を含む同じlocationsを使う。
 このDBは本番用イメージの適用先に流用せず、適用済みSQL・履歴を編集・削除しない。
 既存データの削除、`clean`・`repair`・`baseline` は行っていない。
+
+### 専用コンテナの接続確認とドライバー修正（2026-10-22 JST）
+
+ユーザーの通常のPowerShellではDocker APIへ接続できた。
+エージェントの実行環境からは名前付きパイプのアクセス拒否が続くため、
+接続情報を表示しない確認スクリプトをユーザーのターミナルで実行した。
+
+- 修正前の `docker compose build flyway` は終了0。
+- イメージ内にMySQL Connector/Jはなく、MariaDBドライバーのみ存在した。
+- `info` は終了1・`DB_CONNECTION`。insecure transport禁止のエラーを検出。
+  DNS・TLSハンドシェイク・認証のエラーは検出されていないが、TLS接続や認証の成功を意味しない。
+  この確認ではDBへの書き込みは行っていない。
+- Dockerfileへ、Windows版CLIで接続に成功したMySQL Connector/J 9.4.0を追加した。
+  Maven Centralの配布物を `ADD --checksum` で取得し、SHA-256を
+  `49ed93c8b2bea9cb0929b85a8a28837b191d0f8eac6919fdcef16e36e2cd53b3` に固定。
+  ファイルを0644で配置し、非root実行時にも読み取れるようにした。
+- **修正後のコンテナのビルド・接続は再確認待ち。**
+  先に同じ確認スクリプトでドライバーの存在・チェックサムと `info` の成功を確認し、
+  その後に新しい空の使い捨て検証DBでCHECKがONの状態からV1を初回適用する。
+  V3適用済みの既存検証DBは初回適用に流用しない。
 
 ### 残作業と完了判定
 
