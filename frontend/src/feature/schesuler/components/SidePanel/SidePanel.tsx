@@ -10,6 +10,11 @@ import Color from "./Color";
 import Memo from "./Memo";
 import type { ScheduleKind } from "../../types/statics";
 import deleteEvent from "../../api/delete";
+import { addDays } from "@/utils/date";
+
+// ローカル暦日を日数として比較し、夏時間による一日の長さの違いを除く。
+const calendarDay = (date: Date): number =>
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
 
 /**
  * カレンダーイベントの詳細を表示・編集可能にするサイドパネル
@@ -61,9 +66,32 @@ const SidePanel: FC = () => {
 
     const handleChangeStart = (start: Date) => {
         if (!targetCalendarEvent) return;
-        if (targetCalendarEvent.kind === "ALL_DAY") targetCalendarEvent.startDate = start;
-        else targetCalendarEvent.startAt = start;
-        changeCalendarEvent(targetCalendarEvent);
+        const updatedEvent = targetCalendarEvent.clone();
+
+        if (updatedEvent.kind === "ALL_DAY") {
+            const oldStart = targetCalendarEvent.startDate;
+            const oldEnd = targetCalendarEvent.endDate;
+            if (!oldStart || !oldEnd) throw new Error("The event has no date range.");
+
+            updatedEvent.startDate = new Date(start.getTime());
+            if (calendarDay(start) > calendarDay(oldEnd)) {
+                const durationDays = calendarDay(oldEnd) - calendarDay(oldStart);
+                updatedEvent.endDate = addDays(start, durationDays);
+            }
+        } else {
+            const oldStart = targetCalendarEvent.startAt;
+            const oldEnd = targetCalendarEvent.endAt;
+            if (!oldStart || !oldEnd) throw new Error("The event has no datetime range.");
+
+            updatedEvent.startAt = new Date(start.getTime());
+            if (start.getTime() > oldEnd.getTime()) {
+                const duration = oldEnd.getTime() - oldStart.getTime();
+                updatedEvent.endAt = new Date(start.getTime() + duration);
+            }
+        }
+
+        // 開始・終了を確定してから、一度の更新で画面とサーバーに反映する。
+        changeCalendarEvent(updatedEvent);
     }
 
     const handleChangeEnd = (end: Date) => {
