@@ -56,3 +56,25 @@ TiDBはDDL全体をトランザクションとして取り消せないため、�
   これはSQL同梱とFlyway実行の検証であり、TiDB互換性の証明ではない。
 - 開発schema.sqlとの比較で、DROPの除外とTIMESTAMPのNULL明示以外のDDLが一致。
 - Composeの通常サービス一覧にflywayが含まれず、migrationプロファイルでのみ含まれることを確認。
+
+## ステップ3での接続確認（2026-10-22）
+
+- `feature/CHRON-145-db-initialization` で専用イメージのビルドに成功。
+- 実行環境に `FLYWAY_URL`・`FLYWAY_USER`・`FLYWAY_PASSWORD` が空でない値として
+  存在することを確認。値は表示・記録していない。
+- URLは指定のTiDBホスト、ポート4000、`sslMode=VERIFY_IDENTITY`、DB名指定を
+  満たすことを値の出力なしで確認。
+- `docker compose run --rm flyway -connectRetries=0 info` はFlyway 11.15.0で起動したが、
+  `UnknownHostException`（SQL State `08000`、終了コード1）で接続に失敗。
+  コンテナ外の実行環境でも同じホストのDNS解決に失敗した。
+  TLS・認証・DB状態は未確認。
+- 環境のネットワークポリシーではTiDBホストはHTTP許可一覧に存在するが、
+  `tcp_network_access.domains` と `ip_ranges` は空。
+  指定のTCP CONNECTプロキシへの診断接続も `ConnectionRefusedError` となった。
+  HTTPのドメイン許可だけではMySQL用TCP接続が可能とは判断できない。
+- `migrate` は未実行。初期構築・再実行・差分適用・データ保持の検証は未着手。
+
+再開には、実行環境の設定でTiDBホストのTCP接続（4000番ポート）を許可し、
+対応する名前解決とTCP接続経路が利用可能になっていることを確認する。
+環境への設定反映後、環境変数の存在確認と `info` を再実行し、接続成功後に
+検証DBの状態を確認してから初期構築へ進む。
