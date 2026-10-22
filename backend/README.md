@@ -31,4 +31,5 @@ CLIではbackendから `sh ./gradlew bootRun --args='--spring.profiles.active=de
 - `DB_PASSWORD`: TiDB Cloudのパスワード
 
 prodの接続情報は必須。DBスキーマはアプリ起動前に別途用意する。
-FlywayとCloud Run Jobは後続ステップで整備する。
+FlywayのSQL・専用コンテナと実行方法は [flyway/README.md](flyway/README.md) を参照。
+Cloud Run Jobは後続ステップで整備する。

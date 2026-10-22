@@ -11,6 +11,15 @@ services:
       - backend_gradle_cache:/root/.gradle
       - backend_project_gradle_cache:/app/.gradle
 
+  flyway:
+    build:
+      context: ./backend/flyway
+    profiles: ["migration"]
+    environment:
+      FLYWAY_URL: ${FLYWAY_URL:-}
+      FLYWAY_USER: ${FLYWAY_USER:-}
+      FLYWAY_PASSWORD: ${FLYWAY_PASSWORD:-}
+
   frontend:
     build:
       context: ./frontend
