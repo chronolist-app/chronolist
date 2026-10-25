@@ -2,12 +2,23 @@ services:
   backend:
     build:
       context: ./backend
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
     ports:
       - "8080:8080"
     volumes:
       - ./backend:/app
       - backend_gradle_cache:/root/.gradle
       - backend_project_gradle_cache:/app/.gradle
+
+  flyway:
+    build:
+      context: ./backend/flyway
+    profiles: ["migration"]
+    environment:
+      FLYWAY_URL: ${FLYWAY_URL:-}
+      FLYWAY_USER: ${FLYWAY_USER:-}
+      FLYWAY_PASSWORD: ${FLYWAY_PASSWORD:-}
 
   frontend:
     build:
