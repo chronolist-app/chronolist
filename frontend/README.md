@@ -1,73 +1,132 @@
-# React + TypeScript + Vite
+# Chronolist Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React / TypeScript / Viteで構築したSPA。開発時はVite、本番はNginxで静的ファイルを配信する。
+以下のDockerコマンドはリポジトリルートで実行する。
 
-Currently, two official plugins are available:
+## 開発環境
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+docker compose up -d --build frontend
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+`http://localhost:5173` を開く。Composeは `development` stageを使用し、ソースをマウントしてHMRを有効にする。
+API URLは既存の `VITE_API_BASE_URL=http://localhost:8080` を使用する。
+Dockerを使わない場合は `frontend` で `npm ci` を実行し、シェルの環境変数または `.env.local` に
+`VITE_API_BASE_URL` を設定して `npm run dev` を実行する。
+開発時は `config.js` を生成・読み込みしない。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 本番イメージのビルド
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+docker build --target production -t chronolist-frontend:local ./frontend
 ```
+
+API URLの指定は不要。Node.jsのstageで `npm ci` と `npm run build` を実行し、
+生成した `dist` をNginxの `production` stageへコピーする。
+最終stageが `production` なので `--target production` は省略可能。
+runtimeにはNginxと設定生成用のjqを配置し、Node.js・npmは含めない。
+`.env*`、`node_modules`、`dist` は `.dockerignore` でビルドコンテキストから除外する。
+
+## 本番イメージの起動
+
+```sh
+docker run -d --name chronolist-frontend-local -p 127.0.0.1:5174:80 -e API_BASE_URL=http://localhost:8080 chronolist-frontend:local
+docker logs chronolist-frontend-local
+```
+
+`http://localhost:5174` で画面を確認する。
+起動時に `API_BASE_URL` を検証し、`/usr/share/nginx/html/config.js` を生成してからNginxを起動する。
+設定ファイルはアプリのJavaScriptより先に読み込まれる。
+
+| 項目 | ルール |
+| --- | --- |
+| URLの例 | `https://api.example.com`、`https://example.com/backend/` |
+| 接続元 | ブラウザから到達できるURLを指定。Docker内のサービス名はブラウザから名前解決できる場合のみ使用可能 |
+| APIパス | `/api/` を含めない。Axiosが `api/` を付与する |
+| 末尾スラッシュ | `getApiBaseUrl()` が1つに正規化する |
+| スキーム | HTTPまたはHTTPSの絶対URL |
+| 使用できない値 | 空値、認証情報、クエリ、フラグメント、空白、バックスラッシュ、不正なポート |
+| 設定不備 | 未設定・不正値では起動に失敗する。ログで原因を確認する |
+
+`config.js` はブラウザに公開されるため、認証情報を含めない。
+API URL専用の `src/config/apiBaseUrl.ts` が `getApiBaseUrl()` を公開する。
+開発時の `import.meta.env.VITE_API_BASE_URL` と本番の `window.__APP_CONFIG__.API_BASE_URL` の切り替え、
+未設定チェック、URL検証、末尾スラッシュ調整をここに集約する。
+本番設定の欠落時に開発用の値へフォールバックしない。
+
+### 開発Backendとの通信確認
+
+現在の開発BackendはFrontendのoriginとして `http://localhost:5173` のみを許可している。
+上記の5174番では画面配信を確認できるが、ブラウザのAPI通信はCORSで拒否される。
+本番のCORS・認証Cookie・HTTPSの設定は接続先環境側で整える。CHRON-150ではBackend設定を変更しない。
+
+既存の開発Backendと通信確認する場合は、開発Frontendを一時停止し、本番Frontendを5173番で起動する。
+
+```sh
+docker compose stop frontend
+docker run -d --name chronolist-frontend-check -p 127.0.0.1:5173:80 -e API_BASE_URL=http://localhost:8080 chronolist-frontend:local
+```
+
+検証後は検証コンテナを停止・削除して開発Frontendを戻す。Backendの再起動は不要。
+
+```sh
+docker stop chronolist-frontend-check
+docker rm chronolist-frontend-check
+docker compose start frontend
+```
+
+## API URLの変更
+
+同じイメージで、環境変数を変更してコンテナを再作成する。
+以下は5174番のローカル確認用コンテナの変更例。
+
+```sh
+docker stop chronolist-frontend-local
+docker rm chronolist-frontend-local
+docker run -d --name chronolist-frontend-local -p 127.0.0.1:5174:80 -e API_BASE_URL=https://api.example.com chronolist-frontend:local
+```
+
+イメージの再ビルドは不要。既存コンテナの `docker restart` だけでは環境変数を変更できない。
+以前の `config.js` をマウントする必要はない。起動済みの画面はリロードして新しい設定を読み込む。
+
+## 配信・キャッシュ設定
+
+| パス | 応答 |
+| --- | --- |
+| React Routerの画面URL | ファイルが存在しなければ `index.html` を返す |
+| `/index.html` | `Cache-Control: no-cache` で利用前に更新を確認する |
+| `/config.js` | `Cache-Control: no-store`。欠落時は404 |
+| `/assets/` | 静的ファイルを配信。存在しなければ404 |
+
+`npm run preview` は起動時設定を生成しない。本番成果物の動作確認にはDockerイメージを使う。
+
+## 動作確認
+
+実施済みの確認結果は [VERIFICATION.md](VERIFICATION.md) を参照。
+
+1. API URL未指定で本番イメージをビルドする。
+2. `API_BASE_URL` を指定して起動し、`/config.js` の値と `no-store` を確認する。
+3. `/`、`/login`、`/signup`、`/scheduler`、`/todolist`、`/timeblocking`、`/test`、`/test/todolist`、`/test/scheduler` へ直接アクセスし、リロードでも表示されることを確認する。
+4. ヘッダーから各画面・ホームへ移動する。
+5. 開発Backendの検証用ユーザーでログインし、各画面のデータ取得を確認する。
+6. 同一イメージを異なるAPI URLで再作成し、リロード後の設定・通信先が切り替わることを確認する。
+7. 未設定・不正な `API_BASE_URL` では起動に失敗することを確認する。
+8. 存在しない `/assets/missing.js` と、削除した `/config.js` が404になり、HTMLへfallbackしないことを確認する。
+9. 検証後に開発Frontendを戻し、ログイン・API通信が動くことを確認する。
+
+設定生成・欠落の検証には使い捨てコンテナを使用する。
+本番ホスティング構築・CI/CD・BackendのCORS変更は別チケットで扱う。
+
+### 起動時URL検証の回帰テスト
+
+本番イメージをビルドした後、PowerShellで次を実行する。
+テストは一時コンテナで実行し、正常なドメイン・IPv4・IPv6、
+不正URL、未設定での起動失敗と設定ファイル生成を確認する。
+
+```powershell
+$testDirectory = (Resolve-Path ./frontend/tests).Path
+docker run --rm --mount "type=bind,source=$testDirectory,target=/tests,readonly" --entrypoint sh chronolist-frontend:local /tests/api-config.test.sh
+```
+
+IPv4は4組の10進数（各0〜255、不要な先頭ゼロなし）を指定する。
+IPv6は角括弧で囲んだ16進表記を使用する。

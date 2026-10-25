@@ -9,6 +9,19 @@ export default defineConfig({
   plugins: [
     react(),
     tsconfigPaths(),
+    {
+      name: 'runtime-api-config',
+      apply: 'build',
+      transformIndexHtml() {
+        return [
+          {
+            tag: 'script',
+            attrs: { src: '/config.js' },
+            injectTo: 'head-prepend',
+          },
+        ];
+      },
+    },
   ],
 
   resolve: {

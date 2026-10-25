@@ -8,8 +8,7 @@ import settingsIcon from "@/assets/config.png";
 const LogoButton: FC = () => {
     const nav = useNavigate();
     const handleClick = () => {
-        const url = new URL(`${import.meta.env.VITE_API_BASE_URL}`);
-        nav(url.pathname);
+        nav("/");
     };
     return (
         <IconButton sx={{ height: "100%", p: 0 }} onClick={handleClick}>
@@ -26,8 +25,7 @@ const LogoButton: FC = () => {
 const AppButton: FC<{ app_name: string }> = ({ app_name }) => {
     const nav = useNavigate();
     const handleClick = () => {
-        const url = new URL(`${import.meta.env.VITE_API_BASE_URL}/${app_name}`);
-        nav(url.pathname);
+        nav(`/${app_name}`);
     };
     return (
         <Button onClick={handleClick}>
