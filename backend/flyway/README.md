@@ -47,6 +47,10 @@ TiDBでは適用前に `SHOW VARIABLES LIKE 'tidb_enable_check_constraint'` を�
   DROPや開発用サンプルデータは含まない。TIMESTAMPのNULL許容を明示している。
 - 以降は `V2__説明.sql`、`V3__説明.sql` のように、重複しない番号付き差分SQLを追加する。
   検証用の架空の差分を本番SQLとして追加しない。
+- `sql/V2__add_session_tables.sql` はSpring Session JDBC用の2テーブルと索引を追加する。
+  対応Backendのデプロイ前に適用する。既存業務テーブルやV1は変更しない。
+  Spring Session 3.5のMySQL標準スキーマを元にしているが、TiDBでの適用・CRUD・期限切れ削除は
+  別途実機検証する。H2の開発スキーマではMySQLのENGINE / ROW_FORMAT指定のみ省略する。
 - 一度いずれかの共有環境へ適用したSQLは編集・削除・改名しない。
   Flywayの履歴テーブルとチェックサムで適用済みSQLを管理する。
 - スキーマ変更時は同じ変更で開発用 `src/main/resources/schema.sql` も更新する。

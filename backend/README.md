@@ -34,6 +34,23 @@ prodの接続情報は必須。DBスキーマはアプリ起動前に別途用�
 FlywayのSQL・専用コンテナと実行方法は [flyway/README.md](flyway/README.md) を参照。
 Cloud Run Jobの設定と運用手順は [flyway/CLOUD_RUN.md](flyway/CLOUD_RUN.md) を参照。
 
+## HTTPセッションの保存先
+
+Spring Session JDBCが既存DataSourceを使用する。prodはTiDB、dev / testはH2へ
+`SPRING_SESSION`・`SPRING_SESSION_ATTRIBUTES` を保存する。Redis等の追加サービスは不要。
+Spring Sessionによる自動テーブル作成は全環境で無効化し、dev / testは既存の
+`schema.sql`、prodはFlywayでスキーマを管理する。
+
+prodへ対応Backendをデプロイする前に、Flyway V2（セッション用テーブル追加）まで適用する。
+適用済みV1は変更しない。devのH2は再起動時に初期化されるため、セッションも消える。
+期限切れセッションの物理削除はSpring Session JDBCの標準定期処理が担当する。
+Cloud Runが停止中は定期処理も停止するが、有効期限の判定と物理削除は別である。
+
+CHRON-151の段階的な実装として、現時点は保存基盤の導入まで。
+7日の無操作期限、Cookie名・属性・継続更新、ログインフィルタ連携とCSRF保護は後続で整備する。
+TiDB上のDDL・セッション操作の互換性、および実際の再起動・複数インスタンス間の継続は
+H2上のテストと区別して検証する。
+
 ## Dockerイメージの使い分け
 
 以下のDockerコマンドはリポジトリルートで実行する。
