@@ -46,13 +46,13 @@ prodへ対応Backendをデプロイする前に、Flyway V2（セッション用
 期限切れセッションの物理削除はSpring Session JDBCの標準定期処理が担当する。
 Cloud Runが停止中は定期処理も停止するが、有効期限の判定と物理削除は別である。
 
-CHRON-151の段階的な実装として、現時点は保存基盤・ログインフィルタ連携・Cookie期限更新まで。
+CHRON-151の段階的な実装として、現時点は保存基盤・ログインフィルタ連携・Cookie期限更新・
+BackendのCSRF保護まで。Frontendのトークン自動取得・送信はステップ5で対応する。
 ログイン時のセッションID変更、旧CSRFトークンの破棄、認証情報の保存はSecurity側で行い、
 成功ハンドラは200応答のみを返す。独自ログインフィルタはSecurity内で生成し、Servlet Filterとして
 別途自動登録しない。ログインはPOST `/api/login` のみで受け付ける。
-CSRFリクエスト検証は後続で整備する。
-CSRF有効化時は共通の `HttpSessionCsrfTokenRepository` を使い、現段階でsessionManagementへ
-追加しているCSRF認証戦略の登録をCsrfConfigurerへ移し、二重登録を避ける。
+CSRFはdev / prod共通で有効。ログイン時のトークン破棄とログアウト時の削除は
+CsrfConfigurerの標準処理に任せ、独自のセッション戦略へ重複登録しない。
 TiDB上のDDL・セッション操作の互換性、および実際の再起動・複数インスタンス間の継続は
 H2上のテストと区別して検証する。
 
@@ -86,6 +86,35 @@ SPA APIは401を直接返すため、未認証リクエストの保存（Spring 
 以前の段階でSpring Session標準の `SESSION` Cookieを受け取ったブラウザは再ログインが必要。
 Cookie属性と期限更新はローカルのテストで確認し、Cloud Run・Nginx経由の実ブラウザでの確認は
 CHRON-152と連携して行う。
+
+### CSRFトークンの取得・送信とエラー応答
+
+未ログインでも `GET /api/csrf` にアクセスでき、`Cache-Control: no-store` と
+`{"token":"...","headerName":"X-CSRF-TOKEN"}` を返す。同時にセッションCookieを受け取る。
+トークンは共通のHttpSessionCsrfTokenRepositoryを通してDBセッションに保存し、取得APIでは
+Spring Security標準のマスク済みトークンを返す。マスクは取得ごとに変わるが、同じセッションの
+既存トークンが取得のたびに無効になるわけではない。
+
+状態変更リクエストには同じセッションのCookieと `X-CSRF-TOKEN` ヘッダーを送る。
+ログイン・サインアップ・ログアウトも対象。GET / HEAD / OPTIONS等の参照・事前確認には
+トークンを要求しない。ログイン・ログアウト成功後は古いトークンが破棄されるため再取得する。
+拒否された更新要求をBackendが再実行することはない。
+
+| 状況 | HTTP / JSON code |
+| --- | --- |
+| 認証必須APIへの未認証・期限切れアクセス | `401` / `UNAUTHENTICATED`（CSRF不備が先に検出されても同じ） |
+| ログイン資格情報の不一致 | `401` / `UNAUTHENTICATED` |
+| ログイン・サインアップのCSRF不備、認証済みリクエストのCSRF不備 | `403` / `CSRF_TOKEN_INVALID` |
+| 通常の権限不足 | `403` / `ACCESS_DENIED` |
+
+エラー応答は `{"code":"..."}` のJSONで、例外詳細やトークンを含めない。
+CSRFの発行・検証に伴い匿名セッションが作成される場合があるが、これは認証状態の復元や
+期限切れした認証セッションの延長ではない。
+CORSでは既存の開発Originに対し `X-CSRF-TOKEN` とPATCHを許可する。Originの環境別切替・
+Controller単位のCORS整理はステップ6で扱う。
+
+この段階のFrontendはまだトークンを送らないため、画面からのログイン・状態変更は403になる。
+Frontend連携の完成と実ブラウザの認証・CSRFフロー確認はステップ5以降で実施する。
 
 ## Dockerイメージの使い分け
 

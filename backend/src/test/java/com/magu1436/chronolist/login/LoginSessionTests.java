@@ -28,6 +28,7 @@ import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 import org.springframework.test.web.servlet.MvcResult;
 
 import com.magu1436.chronolist.support.ApiIntegrationTest;
+import com.magu1436.chronolist.support.CsrfApiClient;
 
 import jakarta.servlet.http.Cookie;
 
@@ -112,7 +113,9 @@ class LoginSessionTests extends ApiIntegrationTest {
         anonymous.setAttribute("pre-login", "retained");
         sessions.save(anonymous);
 
+        var csrf = new CsrfApiClient(mockMvc, objectMapper).acquire(cookieFor(anonymous));
         mockMvc.perform(post("/api/login").cookie(cookieFor(anonymous))
+                .header(csrf.headerName(), csrf.token())
                 .contentType(MediaType.APPLICATION_JSON).content(credentials("wrong-password")))
                 .andExpect(status().isUnauthorized());
 
@@ -123,6 +126,10 @@ class LoginSessionTests extends ApiIntegrationTest {
         assertThat(stored.<String>getAttribute("pre-login")).isEqualTo("retained");
         mockMvc.perform(get("/api/todolist/getAll").cookie(cookieFor(anonymous)))
                 .andExpect(status().isUnauthorized());
+        // A credentials failure must not invalidate the token needed to retry login.
+        mockMvc.perform(post("/api/login").cookie(cookieFor(anonymous)).header(csrf.headerName(), csrf.token())
+                .contentType(MediaType.APPLICATION_JSON).content(credentials(PASSWORD)))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -136,7 +143,9 @@ class LoginSessionTests extends ApiIntegrationTest {
     @Test
     void logoutInvalidatesStoredSessionAndOldCookie() throws Exception {
         Cookie cookie = login(PASSWORD);
-        MvcResult logout = mockMvc.perform(post("/api/logout").cookie(cookie))
+        var csrf = new CsrfApiClient(mockMvc, objectMapper).acquire(cookie);
+        MvcResult logout = mockMvc.perform(post("/api/logout").cookie(cookie)
+                .header(csrf.headerName(), csrf.token()))
                 .andExpect(status().isOk()).andReturn();
         // Spring Session may commit invalidation both at response commit and filter completion.
         assertThat(logout.getResponse().getCookies()).isNotEmpty().allSatisfy(deleted -> {
@@ -193,10 +202,9 @@ class LoginSessionTests extends ApiIntegrationTest {
     }
 
     private Cookie login(String password, Cookie... cookies) throws Exception {
-        var request = post("/api/login").contentType(MediaType.APPLICATION_JSON).content(credentials(password));
-        if (cookies.length > 0) {
-            request.cookie(cookies);
-        }
+        var csrf = new CsrfApiClient(mockMvc, objectMapper).acquire(cookies);
+        var request = post("/api/login").contentType(MediaType.APPLICATION_JSON).content(credentials(password))
+                .cookie(csrf.cookie()).header(csrf.headerName(), csrf.token());
         MvcResult result = mockMvc.perform(request).andExpect(status().isOk()).andReturn();
         assertThat(result.getResponse().getCookies()).hasSize(1);
         return result.getResponse().getCookies()[0];

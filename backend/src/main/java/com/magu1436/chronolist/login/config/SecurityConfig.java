@@ -17,7 +17,6 @@ import org.springframework.security.web.context.DelegatingSecurityContextReposit
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -29,9 +28,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 
 import com.magu1436.chronolist.login.JsonLoginFilter;
 import com.magu1436.chronolist.login.Handler.CustomFailureHandler;
+import com.magu1436.chronolist.login.Handler.ApiSecurityErrorHandler;
 import com.magu1436.chronolist.login.Handler.CustomSuccessHandler;
 
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
@@ -54,32 +53,28 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(final HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(final HttpSecurity http, ApiSecurityErrorHandler securityErrors)
+            throws Exception {
         http
             // CORSの設定
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            // CSRFの無効化
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository()))
             .authenticationManager(authenticationManager())
             // SPA APIs return 401 directly; saved-request sessions are unnecessary.
             .requestCache(cache -> cache.disable())
             .securityContext(context -> context.securityContextRepository(securityContextRepository()))
-            // Until CSRF validation is enabled, register its login-time reset explicitly.
-            // Step 4 will move this registration to CsrfConfigurer, using the same repository.
-            .sessionManagement(session -> session.addSessionAuthenticationStrategy(
-                new CsrfAuthenticationStrategy(csrfTokenRepository())))
-            .with(new JsonLoginConfigurer(), configurer -> {})
+            .with(new JsonLoginConfigurer(securityErrors), configurer -> {})
 
             // 未認証の時点で認証が必要なページへのアクセスが行われた際のレスポンス
             .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            })
-        )
+                .authenticationEntryPoint(securityErrors)
+                .accessDeniedHandler(securityErrors)
+            )
 
             .authorizeHttpRequests(auth -> auth
                 // 各ページへのアクセス許可設定
-                .requestMatchers( "/api/signup").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/csrf").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/login", "/api/signup").permitAll()
                 .requestMatchers( "/api/**").authenticated()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
@@ -110,10 +105,10 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(List.of("http://localhost:5173"));
         
         // 許可するHTTPメソッド
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         
         // 許可するヘッダー
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-CSRF-TOKEN"));
         
         // Cookieなどの認証情報の共有を許可
         configuration.setAllowCredentials(true);
@@ -137,6 +132,12 @@ public class SecurityConfig {
 
     /** Build inside Security only, after its shared repositories and strategies are initialized. */
     private static final class JsonLoginConfigurer extends AbstractHttpConfigurer<JsonLoginConfigurer, HttpSecurity> {
+        private final ApiSecurityErrorHandler securityErrors;
+
+        JsonLoginConfigurer(ApiSecurityErrorHandler securityErrors) {
+            this.securityErrors = securityErrors;
+        }
+
         @Override
         public void configure(HttpSecurity http) {
             JsonLoginFilter filter = new JsonLoginFilter();
@@ -144,7 +145,7 @@ public class SecurityConfig {
             filter.setSecurityContextRepository(http.getSharedObject(SecurityContextRepository.class));
             filter.setSessionAuthenticationStrategy(http.getSharedObject(SessionAuthenticationStrategy.class));
             filter.setAuthenticationSuccessHandler(new CustomSuccessHandler());
-            filter.setAuthenticationFailureHandler(new CustomFailureHandler());
+            filter.setAuthenticationFailureHandler(new CustomFailureHandler(securityErrors));
             filter.setRequiresAuthenticationRequestMatcher(
                     PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/api/login"));
             http.addFilterAt(postProcess(filter), UsernamePasswordAuthenticationFilter.class);

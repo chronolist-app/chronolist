@@ -1,6 +1,7 @@
 package com.magu1436.chronolist.support;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.util.List;
 
@@ -9,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
@@ -57,7 +59,9 @@ public abstract class ApiIntegrationTest {
 
     /** ログインAPIを経由せず、テストユーザーで認証済みのリクエストを送る. */
     protected ResultActions performAsUser(MockHttpServletRequestBuilder request) throws Exception {
-        return mockMvc.perform(request.with(user(loginUser)).accept(MediaType.APPLICATION_JSON));
+        return mockMvc.perform(request.with(user(loginUser))
+                .with(req -> CsrfFilter.DEFAULT_CSRF_MATCHER.matches(req) ? csrf().postProcessRequest(req) : req)
+                .accept(MediaType.APPLICATION_JSON));
     }
 
     /** オブジェクトをJSON化し、認証済みのリクエスト本文として送る. */

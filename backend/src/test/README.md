@@ -46,7 +46,8 @@ updateStartAtPreservesScheduleLink）。TiDB実機へのV2適用・セッショ�
 JSONログインとCookieを使って後続APIへアクセスする。認証情報の保存・復元、パスワード等の
 消去、既存セッションIDの変更と旧CSRFトークンの破棄、ログイン失敗、GETでのログイン拒否、
 ログアウト後のDBセッション削除と古いCookieの拒否を確認する。
-ログイン前セッションはJDBC Repositoryへ直接用意する。CSRFリクエスト検証は後続ステップの対象。
+ログイン前セッションの直接準備が必要なケース以外は、CsrfApiClientで実際の取得APIから
+トークンを取得し、Cookieと共に送信する。
 
 2026-10-25、CHRON-151ステップ2で全テストを実行：全97件中95成功・2失敗。
 追加したLoginSessionTests5件はすべて成功。失敗はステップ1と同じ既知TimeBlocking不具合2件。
@@ -62,6 +63,19 @@ Cookieが更新されることと、匿名アクセスでセッションを作�
 
 2026-10-25、CHRON-151ステップ3でCookie・ログイン・保存基盤の19件がすべて成功。
 全テストは107件中105成功・2失敗。失敗は前ステップと同じ既知TimeBlocking不具合2件。
+
+### CSRF保護
+
+既存の業務APIテストではApiIntegrationTestの共通ヘルパーが状態変更リクエストだけに
+Spring Security TestのCSRFサポートを付与する。参照系はトークンなしで実行する。
+`CsrfProtectionTests`とLoginSessionTestsではこのヘルパーを使わず、実際の `/api/csrf`、
+ログインAPIとCookieで連携を確認する。マスク済みトークン、ログイン・ログアウト前後の更新、
+POST / PUT / DELETEの成功、POST / PUT / PATCH / DELETEの欠落・不正トークン拒否とDB不変性、
+公開認証APIの保護、期限切れ401とCSRF403・権限不足403の区別、GET / HEAD・CORS preflightを検証する。
+
+2026-10-26、CHRON-151ステップ4で全テストを実行：全131件中129成功・2失敗。
+CsrfProtectionTestsの24件と、CSRF取得方式へ更新したLoginSessionTestsの7件はすべて成功。
+失敗は前ステップと同じ既知TimeBlocking不具合2件。FrontendのCSRF自動送信は未実装。
 
 テスト全体に@Transactionalは付けない。アプリ側のトランザクション境界を維持する。
 追加の@Sqlは共通cleanup.sqlにマージされるが、ユーザー作成より先に実行されるため、
