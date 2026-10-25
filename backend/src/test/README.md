@@ -20,6 +20,37 @@ testプロファイルは専用H2 DBを作成し、通常のschema.sqlを使う�
 共通基盤がテストユーザーを登録する。テーブル追加時はcleanup.sqlも更新する。
 並列実行は共有DBの初期化と競合するため無効にしている。
 
+### JDBCセッションの保存基盤
+
+`JdbcSessionRepositoryTests`はtestプロファイルの実際のSpring Session JDBC RepositoryとH2を使い、
+認証情報（LoginUserを含むSecurityContext）・CSRFトークンの保存／復元、属性更新・ID変更・削除、
+期限切れ拒否と期限切れ属性の削除を確認する。ログインAPIやCookieを使ったフロー、
+TiDB互換性、Backend再起動・別インスタンス間の継続は、このテストの検証範囲に含まない。
+
+開発用Composeコンテナで全テストを実行する場合は、コンテナのdevプロファイル指定が
+「プロファイル未指定」を検証するDatabaseProfileTestsへ影響しないよう、実行時のみ外す。
+起動済みBackendの環境変数は変更しない。
+
+```sh
+docker compose exec -T backend env -u SPRING_PROFILES_ACTIVE sh ./gradlew test --no-daemon
+```
+
+2026-10-25、CHRON-151ステップ1で上記コマンドを実行：全92件中90成功・2失敗。
+追加したJDBCセッション4件、DatabaseProfileTests4件、API基盤2件はすべて成功。
+失敗は下記の既知TimeBlocking不具合2件（getHoldBlocksIncludesTasks、
+updateStartAtPreservesScheduleLink）。TiDB実機へのV2適用・セッション操作は未実施。
+
+### ログインとJDBCセッションの連携
+
+`LoginSessionTests`は認証済みPrincipalの注入やMockHttpSessionの引継ぎを使わず、
+JSONログインとCookieを使って後続APIへアクセスする。認証情報の保存・復元、パスワード等の
+消去、既存セッションIDの変更と旧CSRFトークンの破棄、ログイン失敗、GETでのログイン拒否、
+ログアウト後のDBセッション削除と古いCookieの拒否を確認する。
+ログイン前セッションはJDBC Repositoryへ直接用意する。CSRFリクエスト検証は後続ステップの対象。
+
+2026-10-25、CHRON-151ステップ2で全テストを実行：全97件中95成功・2失敗。
+追加したLoginSessionTests5件はすべて成功。失敗はステップ1と同じ既知TimeBlocking不具合2件。
+
 テスト全体に@Transactionalは付けない。アプリ側のトランザクション境界を維持する。
 追加の@Sqlは共通cleanup.sqlにマージされるが、ユーザー作成より先に実行されるため、
 共通ユーザーに依存するデータは@BeforeEachで用意する。

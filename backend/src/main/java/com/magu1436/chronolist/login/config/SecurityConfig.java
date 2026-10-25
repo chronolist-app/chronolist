@@ -7,10 +7,18 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
+import org.springframework.security.web.context.DelegatingSecurityContextRepository;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -52,8 +60,13 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             // CSRFの無効化
             .csrf(csrf -> csrf.disable())
-            // フィルターの追加
-            .addFilterAt(jsonLoginFilter(), UsernamePasswordAuthenticationFilter.class)
+            .authenticationManager(authenticationManager())
+            .securityContext(context -> context.securityContextRepository(securityContextRepository()))
+            // Until CSRF validation is enabled, register its login-time reset explicitly.
+            // Step 4 will move this registration to CsrfConfigurer, using the same repository.
+            .sessionManagement(session -> session.addSessionAuthenticationStrategy(
+                new CsrfAuthenticationStrategy(csrfTokenRepository())))
+            .with(new JsonLoginConfigurer(), configurer -> {})
 
             // 未認証の時点で認証が必要なページへのアクセスが行われた際のレスポンス
             .exceptionHandling(ex -> ex
@@ -109,18 +122,31 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JsonLoginFilter jsonLoginFilter() throws Exception {
-        JsonLoginFilter filter = new JsonLoginFilter();
-        
-        // フィルタに「誰が認証するか（Manager）」と「出口の案内係（Handler）」を教える
-        filter.setAuthenticationManager(authenticationManager());
-        filter.setAuthenticationSuccessHandler(new CustomSuccessHandler());
-        filter.setAuthenticationFailureHandler(new CustomFailureHandler());
-        
-        // ログインを受け付けるURLを指定
-        filter.setFilterProcessesUrl("/api/login");
-        
-        return filter;
+    public SecurityContextRepository securityContextRepository() {
+        return new DelegatingSecurityContextRepository(
+                new RequestAttributeSecurityContextRepository(),
+                new HttpSessionSecurityContextRepository());
+    }
+
+    @Bean
+    public HttpSessionCsrfTokenRepository csrfTokenRepository() {
+        return new HttpSessionCsrfTokenRepository();
+    }
+
+    /** Build inside Security only, after its shared repositories and strategies are initialized. */
+    private static final class JsonLoginConfigurer extends AbstractHttpConfigurer<JsonLoginConfigurer, HttpSecurity> {
+        @Override
+        public void configure(HttpSecurity http) {
+            JsonLoginFilter filter = new JsonLoginFilter();
+            filter.setAuthenticationManager(http.getSharedObject(AuthenticationManager.class));
+            filter.setSecurityContextRepository(http.getSharedObject(SecurityContextRepository.class));
+            filter.setSessionAuthenticationStrategy(http.getSharedObject(SessionAuthenticationStrategy.class));
+            filter.setAuthenticationSuccessHandler(new CustomSuccessHandler());
+            filter.setAuthenticationFailureHandler(new CustomFailureHandler());
+            filter.setRequiresAuthenticationRequestMatcher(
+                    PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/api/login"));
+            http.addFilterAt(postProcess(filter), UsernamePasswordAuthenticationFilter.class);
+        }
     }
 
     @Bean

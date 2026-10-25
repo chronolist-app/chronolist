@@ -1,12 +1,16 @@
 package com.magu1436.chronolist.login;
 
+import java.io.Serial;
 import java.util.Collection;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 
-public class LoginUser extends User{
-private final Integer id;
+public class LoginUser extends User {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    private final Integer id;
 
     public LoginUser(Integer id,
         String loginId,
