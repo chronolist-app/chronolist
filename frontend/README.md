@@ -116,3 +116,17 @@ docker run -d --name chronolist-frontend-local -p 127.0.0.1:5174:80 -e API_BASE_
 
 設定生成・欠落の検証には使い捨てコンテナを使用する。
 本番ホスティング構築・CI/CD・BackendのCORS変更は別チケットで扱う。
+
+### 起動時URL検証の回帰テスト
+
+本番イメージをビルドした後、PowerShellで次を実行する。
+テストは一時コンテナで実行し、正常なドメイン・IPv4・IPv6、
+不正URL、未設定での起動失敗と設定ファイル生成を確認する。
+
+```powershell
+$testDirectory = (Resolve-Path ./frontend/tests).Path
+docker run --rm --mount "type=bind,source=$testDirectory,target=/tests,readonly" --entrypoint sh chronolist-frontend:local /tests/api-config.test.sh
+```
+
+IPv4は4組の10進数（各0〜255、不要な先頭ゼロなし）を指定する。
+IPv6は角括弧で囲んだ16進表記を使用する。
