@@ -9,6 +9,7 @@ import com.magu1436.chronolist.timeblocking.exception.TimeBlockReferenceNotFound
 
 import com.magu1436.chronolist.timeblocking.entity.TimeBlock;
 import com.magu1436.chronolist.timeblocking.mapper.TimeBlockMapper;
+import com.magu1436.chronolist.scheduler.mapper.SchedulerMapper;
 import com.magu1436.chronolist.timeblocking.service.TimeBlockService;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class TimeBlockServiceImpl implements TimeBlockService {
     
     private final TimeBlockMapper mapper;
+    private final SchedulerMapper schedulerMapper;
 
     @Override 
     @Transactional(readOnly = true)
@@ -72,8 +74,18 @@ public class TimeBlockServiceImpl implements TimeBlockService {
 
     @Override
     public boolean delete(int loginUser, int id){
+        TimeBlock deleteTimeBlock = mapper.getTimeBlockById(id, loginUser);
+        if(deleteTimeBlock == null){
+            return false;
+        }
         int deleteRows = mapper.deleteTimeBlock(id, loginUser);
-        // scheduler削除用処理を挿入する必要あり。
-        return deleteRows == 1;
+        if(deleteRows!=1){
+            return false;
+        }
+        if(deleteTimeBlock.getRelatedSchedule() != null &&
+                schedulerMapper.deleteSchedule(deleteTimeBlock.getRelatedSchedule().getId(), loginUser) != 1){
+            throw new RuntimeException("関連スケジュールの削除に失敗");
+        }
+        return true;
     }
 }
