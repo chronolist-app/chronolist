@@ -51,6 +51,18 @@ JSONログインとCookieを使って後続APIへアクセスする。認証情�
 2026-10-25、CHRON-151ステップ2で全テストを実行：全97件中95成功・2失敗。
 追加したLoginSessionTests5件はすべて成功。失敗はステップ1と同じ既知TimeBlocking不具合2件。
 
+### Cookie属性と継続更新
+
+ステップ3ではLoginSessionTestsにDB上の期限とCookieの継続更新、期限切れ拒否を追加し、
+ログイン・ログアウト時のCookie属性も確認する。時刻を待たずにDB上の最終アクセス日時と期限を
+調整する。`SessionCookieConfigurationTests`はdev / test / prodの発行・削除属性、外部設定による
+保持期間の変更を確認する。`SessionCookieRefreshFilterTests`は早期レスポンス確定時にも
+Cookieが更新されることと、匿名アクセスでセッションを作らないことを確認する。
+これらはMockMvc・モックServlet環境での検証であり、実ブラウザやCloud Runの検証とは区別する。
+
+2026-10-25、CHRON-151ステップ3でCookie・ログイン・保存基盤の19件がすべて成功。
+全テストは107件中105成功・2失敗。失敗は前ステップと同じ既知TimeBlocking不具合2件。
+
 テスト全体に@Transactionalは付けない。アプリ側のトランザクション境界を維持する。
 追加の@Sqlは共通cleanup.sqlにマージされるが、ユーザー作成より先に実行されるため、
 共通ユーザーに依存するデータは@BeforeEachで用意する。

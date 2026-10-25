@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Map;
@@ -57,8 +59,16 @@ class LoginSessionTests extends ApiIntegrationTest {
     @Test
     void loginPersistsAuthenticationAndCookieAuthenticatesNextRequest() throws Exception {
         Cookie cookie = login(PASSWORD);
+        assertThat(cookie.getName()).isEqualTo("JSESSIONID");
+        assertThat(cookie.getMaxAge()).isEqualTo(604800);
+        assertThat(cookie.getPath()).isEqualTo("/");
+        assertThat(cookie.getDomain()).isNull();
+        assertThat(cookie.isHttpOnly()).isTrue();
+        assertThat(cookie.getSecure()).isFalse();
+        assertThat(cookie.getAttribute("SameSite")).isEqualTo("Lax");
         Session stored = sessions.findById(sessionId(cookie));
         assertThat(stored).isNotNull();
+        assertThat(stored.getMaxInactiveInterval()).isEqualTo(Duration.ofDays(7));
         SecurityContext context = stored.getAttribute(
                 HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
         assertThat(context.getAuthentication().isAuthenticated()).isTrue();
@@ -126,12 +136,60 @@ class LoginSessionTests extends ApiIntegrationTest {
     @Test
     void logoutInvalidatesStoredSessionAndOldCookie() throws Exception {
         Cookie cookie = login(PASSWORD);
-        mockMvc.perform(post("/api/logout").cookie(cookie)).andExpect(status().isOk());
+        MvcResult logout = mockMvc.perform(post("/api/logout").cookie(cookie))
+                .andExpect(status().isOk()).andReturn();
+        // Spring Session may commit invalidation both at response commit and filter completion.
+        assertThat(logout.getResponse().getCookies()).isNotEmpty().allSatisfy(deleted -> {
+            assertThat(deleted.getName()).isEqualTo(cookie.getName());
+            assertThat(deleted.getMaxAge()).isZero();
+            assertThat(deleted.getValue()).isEmpty();
+            assertThat(deleted.getPath()).isEqualTo(cookie.getPath());
+            assertThat(deleted.getDomain()).isEqualTo(cookie.getDomain());
+            assertThat(deleted.getSecure()).isEqualTo(cookie.getSecure());
+            assertThat(deleted.isHttpOnly()).isEqualTo(cookie.isHttpOnly());
+            assertThat(deleted.getAttribute("SameSite")).isEqualTo(cookie.getAttribute("SameSite"));
+        });
 
         assertThat(sessions.findById(sessionId(cookie))).isNull();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM SPRING_SESSION_ATTRIBUTES", Integer.class)).isZero();
         mockMvc.perform(get("/api/todolist/getAll").cookie(cookie)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void apiUseExtendsDatabaseExpiryAndReissuesPersistentCookie() throws Exception {
+        Cookie cookie = login(PASSWORD);
+        long lastAccess = Instant.now().minus(Duration.ofDays(6)).toEpochMilli();
+        long oldExpiry = lastAccess + Duration.ofDays(7).toMillis();
+        jdbcTemplate.update("UPDATE SPRING_SESSION SET CREATION_TIME = ?, LAST_ACCESS_TIME = ?, "
+                + "EXPIRY_TIME = ? WHERE SESSION_ID = ?",
+                lastAccess - Duration.ofDays(1).toMillis(), lastAccess, oldExpiry, sessionId(cookie));
+
+        MvcResult result = mockMvc.perform(get("/api/todolist/getAll").cookie(cookie))
+                .andExpect(status().isOk()).andReturn();
+
+        assertThat(result.getResponse().getCookies()).hasSize(1);
+        Cookie refreshed = result.getResponse().getCookies()[0];
+        assertThat(refreshed.getName()).isEqualTo(cookie.getName());
+        assertThat(refreshed.getValue()).isEqualTo(cookie.getValue());
+        assertThat(refreshed.getMaxAge()).isEqualTo(604800);
+        assertThat(refreshed.getAttribute("Expires")).isNotBlank();
+        assertThat(jdbcTemplate.queryForObject("SELECT EXPIRY_TIME FROM SPRING_SESSION WHERE SESSION_ID = ?",
+                Long.class, sessionId(cookie))).isGreaterThan(oldExpiry + Duration.ofDays(5).toMillis());
+    }
+
+    @Test
+    void expiredCookieDoesNotRestoreAuthenticationOrReceivePositiveMaxAge() throws Exception {
+        Cookie cookie = login(PASSWORD);
+        long expiredAccess = Instant.now().minus(Duration.ofDays(8)).toEpochMilli();
+        jdbcTemplate.update("UPDATE SPRING_SESSION SET LAST_ACCESS_TIME = ?, EXPIRY_TIME = ? WHERE SESSION_ID = ?",
+                expiredAccess, expiredAccess + Duration.ofDays(7).toMillis(), sessionId(cookie));
+
+        MvcResult result = mockMvc.perform(get("/api/todolist/getAll").cookie(cookie))
+                .andExpect(status().isUnauthorized()).andReturn();
+        assertThat(result.getResponse().getCookies()).allSatisfy(reissued ->
+                assertThat(reissued.getMaxAge()).isLessThanOrEqualTo(0));
+        assertThat(sessions.findById(sessionId(cookie))).isNull();
     }
 
     private Cookie login(String password, Cookie... cookies) throws Exception {
@@ -149,8 +207,7 @@ class LoginSessionTests extends ApiIntegrationTest {
     }
 
     private Cookie cookieFor(Session session) {
-        // Step 3 will set JSESSIONID explicitly; Spring Session currently uses its SESSION default.
-        return new Cookie("SESSION", Base64.getEncoder().encodeToString(session.getId().getBytes(StandardCharsets.UTF_8)));
+        return new Cookie("JSESSIONID", Base64.getEncoder().encodeToString(session.getId().getBytes(StandardCharsets.UTF_8)));
     }
 
     private String sessionId(Cookie cookie) {

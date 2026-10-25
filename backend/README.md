@@ -46,11 +46,11 @@ prodへ対応Backendをデプロイする前に、Flyway V2（セッション用
 期限切れセッションの物理削除はSpring Session JDBCの標準定期処理が担当する。
 Cloud Runが停止中は定期処理も停止するが、有効期限の判定と物理削除は別である。
 
-CHRON-151の段階的な実装として、現時点は保存基盤とログインフィルタの連携まで。
+CHRON-151の段階的な実装として、現時点は保存基盤・ログインフィルタ連携・Cookie期限更新まで。
 ログイン時のセッションID変更、旧CSRFトークンの破棄、認証情報の保存はSecurity側で行い、
 成功ハンドラは200応答のみを返す。独自ログインフィルタはSecurity内で生成し、Servlet Filterとして
 別途自動登録しない。ログインはPOST `/api/login` のみで受け付ける。
-7日の無操作期限、Cookie名・属性・継続更新、CSRFリクエスト検証は後続で整備する。
+CSRFリクエスト検証は後続で整備する。
 CSRF有効化時は共通の `HttpSessionCsrfTokenRepository` を使い、現段階でsessionManagementへ
 追加しているCSRF認証戦略の登録をCsrfConfigurerへ移し、二重登録を避ける。
 TiDB上のDDL・セッション操作の互換性、および実際の再起動・複数インスタンス間の継続は
@@ -60,6 +60,32 @@ H2上のテストと区別して検証する。
 互換性のない変更時は旧セッションを失効させ、再ログインを求める。必要な場合はデプロイ時に
 対象DBのセッション属性・セッション本体の順で削除する手順を用意する（業務データは削除しない）。
 今回のserialVersionUID明示前に作成されたセッションは継続利用を保証しない。
+
+### ログイン維持期間とCookie
+
+無操作期限は既定7日。Spring Sessionがセッション利用時に最終アクセス日時とDB上の期限を更新する。
+認証済みの `/api/*` アクセスでは、レスポンス確定前にCookieも再発行し、Cookieだけが当初の
+ログイン日から7日で先に切れないようにする。維持用の定期通信は追加しない。
+自動ポーリングを今後追加する場合は、それだけで無操作期限を延長し続けない扱いを検討する。
+
+| 設定 | 既定値・用途 |
+| --- | --- |
+| `SESSION_TIMEOUT` / `spring.session.timeout` | `7d`。サーバー側の無操作期限 |
+| `SESSION_COOKIE_MAX_AGE` / `server.servlet.session.cookie.max-age` | 無操作期限と同じ値。Cookie保持期間を別に設定する場合のみ指定。正の秒数が必要 |
+| Cookie名 / Path / Domain | `JSESSIONID` / `/` / 指定なし（host-only） |
+| HttpOnly / SameSite | `true` / `Lax` |
+| Secure | dev・testは `false`、prodは `true`。prodはHTTP転送経由でもSecureを付ける |
+
+Cookieは永続Cookieとして発行し、ブラウザ終了後も期限内なら再利用できる。
+Cookie保持期間を長くしても、サーバー側で失効したセッションが有効になることはない。
+設定変更のためのDBマイグレーションは不要。無操作期限の設定は新しく作るセッションへ適用される。
+ログアウトはDBセッションを無効化し、発行・更新と同じCookie生成処理で削除Cookieを返す。
+期限切れ・匿名リクエストで認証用Cookieを延長せず、Cookie更新処理自体はセッションを新規作成しない。
+SPA APIは401を直接返すため、未認証リクエストの保存（Spring Security RequestCache）は無効化する。
+
+以前の段階でSpring Session標準の `SESSION` Cookieを受け取ったブラウザは再ログインが必要。
+Cookie属性と期限更新はローカルのテストで確認し、Cloud Run・Nginx経由の実ブラウザでの確認は
+CHRON-152と連携して行う。
 
 ## Dockerイメージの使い分け
 

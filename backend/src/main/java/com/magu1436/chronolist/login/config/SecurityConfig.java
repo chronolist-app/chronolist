@@ -61,6 +61,8 @@ public class SecurityConfig {
             // CSRFの無効化
             .csrf(csrf -> csrf.disable())
             .authenticationManager(authenticationManager())
+            // SPA APIs return 401 directly; saved-request sessions are unnecessary.
+            .requestCache(cache -> cache.disable())
             .securityContext(context -> context.securityContextRepository(securityContextRepository()))
             // Until CSRF validation is enabled, register its login-time reset explicitly.
             // Step 4 will move this registration to CsrfConfigurer, using the same repository.
@@ -88,8 +90,8 @@ public class SecurityConfig {
                         .matcher(HttpMethod.POST, "/api/logout")
                 )
                 .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler())
+                // Spring Session expires the cookie through the same serializer used to issue it.
                 .invalidateHttpSession(true)
-                .deleteCookies("JSESSIONID")
             )
 
             // H2 Console をフレーム内で表示できるように許可する設定
