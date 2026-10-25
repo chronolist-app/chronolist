@@ -189,8 +189,8 @@ const useRegisterEventModal = () => {
 
     const setDates = useCallback((start: Date, end: Date) => setValues((v) => ({
         ...v,
-        startDate: dayjs(start),
-        endDate: dayjs(end),
+        start: dayjs(start),
+        end: dayjs(end),
     })), [setValues]);
 
     return { modal, toggleModalShow, setDates };

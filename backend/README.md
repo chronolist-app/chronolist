@@ -1,0 +1,199 @@
+# バックエンドの環境設定
+
+Java 25を使用する。環境は `SPRING_PROFILES_ACTIVE` で切り替える。
+
+| プロファイル | DB | 起動時SQL初期化 |
+| --- | --- | --- |
+| dev | H2（jdbc:h2:mem:testdb、ユーザーadmin、パスワードなし） | schema.sqlとdata.sql |
+| prod | 環境変数で指定するTiDB Cloud | 実行しない |
+| 未指定 | Spring Bootの自動設定 | 実行しない |
+| test | 専用H2 | schema.sqlとテスト専用データ |
+
+## 開発
+
+リポジトリルートで `docker compose up backend` を実行するとdevが適用される。
+Dockerを使わない場合はリポジトリルートをVSCodeで開き、Java拡張機能を導入し、
+共有の `.vscode/launch.json` から `Spring Boot - Chronolist (dev)` を選択する。
+この起動設定には `SPRING_PROFILES_ACTIVE=dev` が設定済み。個人のOS環境変数設定は不要。
+H2コンソールはdevのみ有効（http://localhost:8080/h2-console）。
+再起動すると開発用スキーマとサンプルデータが再作成される。
+
+CLIではbackendから `sh ./gradlew bootRun --args='--spring.profiles.active=dev'`。
+テストは `sh ./gradlew test`（詳細はsrc/test/README.md）。
+
+## 本番
+
+実行環境で以下を設定する。認証情報はリポジトリに保存しない。
+
+- `SPRING_PROFILES_ACTIVE=prod`
+- `DB_URL`: `jdbc:mysql://<host>:4000/<database>?sslMode=VERIFY_IDENTITY`
+- `DB_USERNAME`: TiDB Cloudのユーザー名
+- `DB_PASSWORD`: TiDB Cloudのパスワード
+
+prodの接続情報は必須。DBスキーマはアプリ起動前に別途用意する。
+FlywayのSQL・専用コンテナと実行方法は [flyway/README.md](flyway/README.md) を参照。
+Cloud Run Jobの設定と運用手順は [flyway/CLOUD_RUN.md](flyway/CLOUD_RUN.md) を参照。
+
+## Dockerイメージの使い分け
+
+以下のDockerコマンドはリポジトリルートで実行する。
+Docker Desktopなど、LinuxコンテナとBuildKitを利用できる環境が必要。
+初回ビルドではベースイメージ、Gradle、依存ライブラリの取得にネットワーク接続が必要になる。
+
+| 用途 | ビルド方法 | 起動方法 |
+| --- | --- | --- |
+| 通常の開発 | Composeが `development` stageを選択 | JDKで `bootRun`。ソースとGradleキャッシュをマウント |
+| 本番イメージ・単体検証 | 通常の `docker build` が最終の `runtime` stageを選択 | JREで `java -jar /app/app.jar`。ソースのマウント不要 |
+
+開発用イメージを更新する場合は次を実行する。
+backendが再起動するとdevのH2データは再作成される。
+
+```sh
+docker compose up -d --build --no-deps backend
+```
+
+## 本番イメージのビルド
+
+```sh
+docker build -t chronolist-backend:local ./backend
+```
+
+build stageのGradle Wrapperが `bootJar --no-daemon` を実行し、`app.jar` を生成する。
+runtime stageにはJREとJARを配置し、Gradle・アプリのソース・ビルドキャッシュは含めない。
+起動時にビルドは行わない。実行ユーザーはUID/GID `10001:10001`、JARは読み取り専用。
+
+`.dockerignore` でローカルのビルド成果物・IDE設定・環境変数ファイル等を除外し、
+COPY対象をGradle設定・Wrapper・ソースに限定している。
+認証情報をソースやリソースへ記述しない。
+ビルド時のGradleキャッシュはBuildKitが管理し、Composeの開発用ボリュームとは別に保持する。
+
+## 本番イメージをdevで単体起動する
+
+外部DBなしで、ビルドしたJARとHTTP接続を確認できる。
+開発用Composeの8080番ポートとの競合を避け、ホスト側は18081番を使用する。
+
+```sh
+docker run -d --name chronolist-image-dev -p 127.0.0.1:18081:8080 -e SPRING_PROFILES_ACTIVE=dev chronolist-backend:local
+docker logs chronolist-image-dev
+```
+
+ログでdev Profile、H2接続、`Started Application` を確認する。
+devのデータはインメモリのため、コンテナ再起動で初期化される。
+
+## 本番イメージをprodで起動する
+
+先に [Flywayの手順](flyway/README.md) に従って対象DBのマイグレーションを完了する。
+アプリコンテナはマイグレーションもSQL自動初期化も実行しない。
+データを書き込む動作検証には使い捨て検証DBを使用する。
+
+起動するシェルの環境変数に、冒頭の `DB_URL`・`DB_USERNAME`・`DB_PASSWORD` を設定しておく。
+接続元からTiDBへ通信できることも必要。
+Secret管理機能などから値を取得し、コマンド引数やGit管理対象ファイルへ値を直接記述しない。
+リポジトリの `.env` にある `FLYWAY_*` はFlyway用なので、下記の `docker run` には自動適用されない。
+
+| 環境変数 | 内容 |
+| --- | --- |
+| `SPRING_PROFILES_ACTIVE` | 起動時に `prod` を指定 |
+| `DB_URL` | 対象DBを含むJDBC URL。`sslMode=VERIFY_IDENTITY` を指定 |
+| `DB_USERNAME` / `DB_PASSWORD` | 対象DBの認証情報 |
+| `SERVER_PORT` | 任意。コンテナ内のHTTPポート。既定8080 |
+
+```sh
+docker run -d --name chronolist-image-prod -p 127.0.0.1:18082:8080 -e SPRING_PROFILES_ACTIVE=prod -e DB_URL -e DB_USERNAME -e DB_PASSWORD chronolist-backend:local
+docker logs chronolist-image-prod
+```
+
+`-e DB_URL` などはシェルの環境変数を引き継ぐ指定。
+ソースやGradleキャッシュのボリュームは指定しない。
+ログでprod Profileと正常起動を確認する。
+DB接続は最初のDB操作まで遅延するため、起動成功だけで接続成功とは判断しない。
+
+ポートを変更する場合は、例えば `-e SERVER_PORT=9090` と
+`-p 127.0.0.1:18082:9090` を組み合わせる。
+Dockerfileの `EXPOSE 8080` はポート情報の宣言であり、公開や待受ポート変更は行わない。
+上の例はホストのループバックに限定して公開する。
+
+## HTTP・DB動作の確認
+
+devの場合は18081番、prodの場合は18082番を使用する。
+以下はPowerShell 7の例。未認証での401応答でHTTP到達を確認する。
+
+```powershell
+$baseUrl = 'http://127.0.0.1:18082'
+(Invoke-WebRequest "$baseUrl/api/todolist/getAll" -SkipHttpErrorCheck).StatusCode
+```
+
+DB接続を確認する場合は、使い捨て検証DBに対して以下を実行する。
+検証用ユーザーを1件作成し、セッションを使ったDB読み取りまで確認する。
+各HTTP操作が200になることを確認する。認証情報・Cookieは出力しない。
+
+```powershell
+$credentials = @{
+    loginId = 'c149' + [guid]::NewGuid().ToString('N').Substring(0, 16)
+    password = 'Check149!' + [guid]::NewGuid().ToString('N')
+} | ConvertTo-Json
+$session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+(Invoke-WebRequest "$baseUrl/api/signup" -Method Post -ContentType 'application/json' -Body $credentials).StatusCode
+(Invoke-WebRequest "$baseUrl/api/login" -Method Post -ContentType 'application/json' -Body $credentials -WebSession $session).StatusCode
+$tasks = Invoke-WebRequest "$baseUrl/api/todolist/getAll" -WebSession $session
+$tasks.StatusCode
+$tasks.Content # 新規ユーザーなら []
+```
+
+続けて、同じ使い捨て検証DBにToDoを1件作り、再起動前の内容を保存する。
+
+```powershell
+$taskBody = @{
+    title = 'Docker image verification'
+    dueKind = 'NONE'
+    priority = 'LOW'
+    memo = 'Synthetic verification data'
+    isCompleted = $false
+} | ConvertTo-Json
+(Invoke-WebRequest "$baseUrl/api/todolist/register" -Method Post -ContentType 'application/json' -Body $taskBody -WebSession $session).StatusCode
+$beforeRestart = (Invoke-WebRequest "$baseUrl/api/todolist/getAll" -WebSession $session).Content
+docker restart chronolist-image-prod
+docker logs --tail 20 chronolist-image-prod
+```
+
+ログで再度 `Started Application` を確認した後、同じPowerShellで次を実行する。
+新しいセッションで同じユーザーにログインし、取得内容の完全一致（`True`）を確認する。
+
+```powershell
+$newSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+(Invoke-WebRequest "$baseUrl/api/login" -Method Post -ContentType 'application/json' -Body $credentials -WebSession $newSession).StatusCode
+$afterRestart = (Invoke-WebRequest "$baseUrl/api/todolist/getAll" -WebSession $newSession).Content
+$beforeRestart -ceq $afterRestart
+```
+
+prodのユーザー・ToDoはコンテナを削除してもDBに残る。
+
+CHRON-149で実施したAPI操作・再起動後の比較結果は
+[Dockerイメージ検証記録](DOCKER_VERIFICATION.md) を参照。
+
+## 停止・後片付け
+
+作成した検証コンテナだけを停止・削除する。
+使用したProfileに対応するコマンドを選ぶ。
+
+```sh
+docker stop chronolist-image-dev
+docker rm chronolist-image-dev
+docker stop chronolist-image-prod
+docker rm chronolist-image-prod
+```
+
+必要がなくなったローカルイメージは `docker image rm chronolist-backend:local` で削除できる。
+検証DBの削除やFlyway履歴の変更はこの手順では行わない。
+
+## コンテナ内での既存テスト
+
+起動済みの開発用Composeを利用する場合は、dev Profileの環境変数をテストプロセスから外す。
+Profile未指定の動作を検証するテストへの影響を避けるためで、Compose自体の設定は変更しない。
+
+```sh
+docker compose exec -T backend env -u SPRING_PROFILES_ACTIVE sh ./gradlew test
+```
+
+テストは専用H2を使用する。詳細は [API統合テスト](src/test/README.md)、
+今回の全件実行結果は [検証記録](DOCKER_VERIFICATION.md) を参照。

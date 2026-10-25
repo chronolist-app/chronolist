@@ -12,7 +12,6 @@ import BlockRepositories from "../contexts/BlockRepositories";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createAt, getByDate } from "../api/timeTableApi";
 import type { TimeTableSource } from "../types/timeTableSource";
-import { AxiosError } from "axios";
 import { NotFoundError } from "@/error/common";
 import { toDateString } from "@/utils/date";
 

@@ -32,7 +32,7 @@ export const useReadOnlyFetch = <T,>(
         const fetchData = async () => {
             const config: FetchConfig = {
                 url: app,
-                method: method = "GET",
+                method: method ?? "GET",
                 data: body,
             };
             try {
