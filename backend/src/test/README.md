@@ -77,6 +77,16 @@ POST / PUT / DELETEの成功、POST / PUT / PATCH / DELETEの欠落・不正ト�
 CsrfProtectionTestsの24件と、CSRF取得方式へ更新したLoginSessionTestsの7件はすべて成功。
 失敗は前ステップと同じ既知TimeBlocking不具合2件。FrontendのCSRF自動送信は未実装。
 
+### 環境別CORSとHTTPSプロキシ
+
+CorsPropertiesTestsはdev / testの既定Origin、prodの明示設定必須、複数Origin、不正なOriginの拒否を検証する。
+CorsApiTestsは開発既定値と異なるOriginを使い、許可Originのcredentials付き応答、未許可Origin拒否、
+HEAD / POST / PUT / PATCH / DELETEのpreflight、同一Originの扱いを検証する。
+2026-10-26、CHRON-151ステップ6で全159件中157成功・2失敗。追加したCORSの28件はすべて成功。
+失敗は以前と同じTimeBlockingの既知2件。bootJarも生成済み。
+Nginx本番イメージの設定回帰と、prod設定＋使い捨てH2によるHTTPS結合27項目は
+[Frontend検証記録](../../../frontend/VERIFICATION.md) を参照。TiDB実機・Cloud Runの確認は含まない。
+
 テスト全体に@Transactionalは付けない。アプリ側のトランザクション境界を維持する。
 追加の@Sqlは共通cleanup.sqlにマージされるが、ユーザー作成より先に実行されるため、
 共通ユーザーに依存するデータは@BeforeEachで用意する。

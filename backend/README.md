@@ -6,7 +6,7 @@ Java 25を使用する。環境は `SPRING_PROFILES_ACTIVE` で切り替える�
 | --- | --- | --- |
 | dev | H2（jdbc:h2:mem:testdb、ユーザーadmin、パスワードなし） | schema.sqlとdata.sql |
 | prod | 環境変数で指定するTiDB Cloud | 実行しない |
-| 未指定 | Spring Bootの自動設定 | 実行しない |
+| 未指定 | Spring Bootの自動設定 | 実行しない。アプリ起動にはCORS許可Originの明示設定が必要 |
 | test | 専用H2 | schema.sqlとテスト専用データ |
 
 ## 開発
@@ -29,6 +29,7 @@ CLIではbackendから `sh ./gradlew bootRun --args='--spring.profiles.active=de
 - `DB_URL`: `jdbc:mysql://<host>:4000/<database>?sslMode=VERIFY_IDENTITY`
 - `DB_USERNAME`: TiDB Cloudのユーザー名
 - `DB_PASSWORD`: TiDB Cloudのパスワード
+- `FRONTEND_ORIGIN`: 本番FrontendのOrigin（例: `https://<service-url>.run.app`。末尾スラッシュやパスなし）
 
 prodの接続情報は必須。DBスキーマはアプリ起動前に別途用意する。
 FlywayのSQL・専用コンテナと実行方法は [flyway/README.md](flyway/README.md) を参照。
@@ -110,12 +111,33 @@ Spring Security標準のマスク済みトークンを返す。マスクは取�
 エラー応答は `{"code":"..."}` のJSONで、例外詳細やトークンを含めない。
 CSRFの発行・検証に伴い匿名セッションが作成される場合があるが、これは認証状態の復元や
 期限切れした認証セッションの延長ではない。
-CORSでは既存の開発Originに対し `X-CSRF-TOKEN` とPATCHを許可する。Originの環境別切替・
-Controller単位のCORS整理はステップ6で扱う。
+CORSでは設定したOriginに対し `X-CSRF-TOKEN` とGET / HEAD / POST / PUT / PATCH / DELETE / OPTIONSを許可する。
+設定はSecurityConfigへ集約し、Controllerごとの固定CrossOriginは使用しない。
 
 Frontendの共通Axiosがトークンを取得・送信し、ログイン・ログアウト成功後に再取得する。
 ローカル実ブラウザでの認証・CSRFフロー確認は [Frontendの検証記録](../frontend/VERIFICATION.md) を参照。
 本番Cloud Run・Nginx経由の確認、およびTiDB互換性確認は引き続き別途実施する。
+
+### CORSとプロキシからの転送情報
+
+`chronolist.cors.allowed-origins` を `FRONTEND_ORIGIN` から取得する。dev / testは未設定なら
+`http://localhost:5173` を使用し、従来のCompose・VSCode起動で追加設定は不要。
+prodは必須で、未設定・空値・ワイルドカード・パス／認証情報／クエリ／フラグメント付きの値は
+起動時に拒否する。複数Originを許可する場合はカンマ区切りで明示する。
+独自ドメインは必要ない。本番はFrontendとBackendの公開OriginをNginx経由で1つにする。
+
+devの許可Originを変更する場合のみ、起動プロセスの `FRONTEND_ORIGIN` または
+`chronolist.cors.allowed-origins` を上書きする。Compose利用時はoverrideファイル等の
+backend.environmentへ設定する。通常の開発では不要。
+
+prodは `server.forward-headers-strategy=framework` を使用する。Nginxが公開URLから設定した
+Host・X-Forwarded-Host / Proto / Portを使い、HTTPS終端後のHTTP転送でも公開URLを正しく認識する。
+BackendはCloud Runの入口コンテナに指定せず、Nginxからだけ到達できる構成にする。
+信頼境界はNginxであり、外部のForwardedヘッダーをそのまま信用しない。
+本番配置時のポート・同一Origin公開設定は [Frontend手順](../frontend/README.md) と合わせる。
+
+prod設定＋使い捨てH2＋一時TLS入口を使うローカル結合検証は実施済み。
+この成功はTiDB互換性や実際のCloud Run配置の確認を意味しない。
 
 ## Dockerイメージの使い分け
 

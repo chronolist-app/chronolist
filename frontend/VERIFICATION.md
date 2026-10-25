@@ -1,5 +1,27 @@
 # Frontend 動作確認記録
 
+## CHRON-151 ステップ6：環境別CORSとAPI転送（2026-10-26 JST）
+
+| 確認 | 結果 |
+| --- | --- |
+| Frontend本番イメージのビルド | 成功（TypeScript・Vite・Nginx設定同梱） |
+| API URL設定の既存回帰 | 48件すべて成功 |
+| 新しいAPI転送設定の回帰 | 18件すべて成功。HTTP/HTTPSの公開Origin、上流URL検証、静的配信モードへの復帰を確認 |
+| BackendのCORS追加テスト | 28件すべて成功 |
+| Backend全体 | 159件中157成功。既知TimeBlocking不具合2件が失敗 |
+| ローカルHTTPS結合 | 27項目すべて成功 |
+
+HTTPS検証はテスト用TLS入口→Frontend本番Nginx→BackendのHTTP転送で実施した。
+Backendはprod設定を使い、DB・SQL初期化のみ専用H2へ上書きした。本番DBや.envは利用していない。
+curlのCA指定で証明書とホスト名の検証を有効にし、PCの信頼設定は変更していない。
+CookieのSecure / HttpOnly / SameSite / Path / Domain、期限更新と削除、ログイン・CRUD・ログアウト、
+古いCSRFトークンの403、ログアウト後の401、APIルートのJSON 404を確認した。
+偽装ForwardedヘッダーがHTTPS認識やパスを変えないことと、未許可Originが拒否されることも確認した。
+専用コンテナ・ネットワーク・証明書はスクリプト終了時に削除した。
+初回は検証元の開発イメージがGradleを起動して準備待ちに失敗したため、JARの直接起動へ修正して再実行した。
+
+本記録はTiDB互換性や実際のCloud Runの配置・実ブラウザ確認を証明するものではない。
+
 ## CHRON-151 ステップ5：CSRF共通通信層（2026-10-26 JST）
 
 Frontendは既存ComposeのVite（http://localhost:5173）、BackendはCSRF有効のdev（H2、
