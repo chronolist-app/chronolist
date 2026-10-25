@@ -51,12 +51,13 @@ const Calendar = () => {
 
     // イベントラベル表示時に呼び出される関数
     const handleEventContent = useCallback((arg: EventContentArg) => {
+        const labelStyle = arg.event.allDay ? undefined : { color: arg.textColor };
         return (
             <>
-                <label className="p-1">
+                <label className="p-1" style={labelStyle}>
                     {arg.event.start && formattedTime(arg.event.start)}
                 </label>
-                <label className="p-1">{arg.event.title}</label>
+                <label className="p-1" style={labelStyle}>{arg.event.title}</label>
             </>
         )
     }, []);
