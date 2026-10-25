@@ -23,8 +23,15 @@ RUN --mount=type=cache,id=chronolist-backend-gradle,target=/root/.gradle,sharing
 
 FROM eclipse-temurin:25-jre AS runtime
 
+RUN groupadd --gid 10001 app \
+    && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
+
 WORKDIR /app
 
-COPY --from=build /app/build/libs/app.jar ./app.jar
+COPY --from=build --chmod=444 /app/build/libs/app.jar ./app.jar
+
+USER 10001:10001
+
+EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
