@@ -101,8 +101,15 @@
         </if>
     </update>
 
+    <update id="updateTimeBlockStartAt" >
+        UPDATE time_blocks 
+        SET start_at = #{startAt}
+        WHERE id = #{id} AND user_id = #{userId}
+    </update>
+
     <delete id="deleteTimeBlock">
         DELETE FROM time_blocks
         WHERE id = #{id} AND user_id = #{userId}
     </delete>
+
 </mapper>

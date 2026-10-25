@@ -1,5 +1,6 @@
 package com.magu1436.chronolist.timeblocking.service.impl;
 
+import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -63,9 +64,16 @@ public class TimeBlockServiceImpl implements TimeBlockService {
         return updateRows == 1;
     }
 
+    @Override 
+    public boolean updateStartAt(int loginUser, int id, LocalTime startAt){
+        int updateRows = mapper.updateTimeBlockStartAt(loginUser, id, startAt);
+        return updateRows == 1;
+    }
+
     @Override
     public boolean delete(int loginUser, int id){
         int deleteRows = mapper.deleteTimeBlock(id, loginUser);
+        // scheduler削除用処理を挿入する必要あり。
         return deleteRows == 1;
     }
 }

@@ -1,5 +1,6 @@
 package com.magu1436.chronolist.timeblocking.service;
 
+import java.time.LocalTime;
 import java.util.List;
 
 import com.magu1436.chronolist.timeblocking.entity.TimeBlock;
@@ -17,4 +18,6 @@ public interface TimeBlockService {
     boolean update(int loginUser, TimeBlock timeBlock);
 
     boolean delete(int loginUser, int id);
+
+    boolean updateStartAt(int loginUser, int id, LocalTime startAt);
 }
