@@ -1,16 +1,25 @@
+# syntax=docker/dockerfile:1
+
 FROM eclipse-temurin:25-jdk AS development
 
 WORKDIR /app
 
-COPY . .
+COPY gradlew build.gradle settings.gradle ./
+COPY gradle/ ./gradle/
 
 RUN chmod +x gradlew
+
+RUN --mount=type=cache,id=chronolist-backend-gradle,target=/root/.gradle,sharing=locked \
+    ./gradlew --version --no-daemon
+
+COPY src/ ./src/
 
 CMD ["./gradlew", "bootRun"]
 
 FROM development AS build
 
-RUN ./gradlew bootJar --no-daemon
+RUN --mount=type=cache,id=chronolist-backend-gradle,target=/root/.gradle,sharing=locked \
+    ./gradlew bootJar --no-daemon
 
 FROM eclipse-temurin:25-jre AS runtime
 
