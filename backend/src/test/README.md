@@ -87,6 +87,13 @@ HEAD / POST / PUT / PATCH / DELETEのpreflight、同一Originの扱いを検証�
 Nginx本番イメージの設定回帰と、prod設定＋使い捨てH2によるHTTPS結合27項目は
 [Frontend検証記録](../../../frontend/VERIFICATION.md) を参照。TiDB実機・Cloud Runの確認は含まない。
 
+2026-10-26、CHRON-151ステップ7では別途TiDB実機の結合検証37項目がすべて成功した。
+Flyway V1・V2、独立したBackend JVM間と再起動後の認証・CSRF継続、7日間の期限更新、
+ログアウトの共有反映、期限切れ拒否・削除を確認した。既存DBを変更せず専用一時DBを使い、
+終了後に削除した。再実行手順・詳細・Cloud Runへの引継ぎは
+[TiDB共有セッション検証](../../verification/README.md) を参照。
+通常のH2テストはTiDBへ接続しない。このステップではアプリ本体の変更はなく、全H2テストの再実行はしていない。
+
 テスト全体に@Transactionalは付けない。アプリ側のトランザクション境界を維持する。
 追加の@Sqlは共通cleanup.sqlにマージされるが、ユーザー作成より先に実行されるため、
 共通ユーザーに依存するデータは@BeforeEachで用意する。

@@ -45,10 +45,12 @@ Spring Sessionによる自動テーブル作成は全環境で無効化し、dev
 prodへ対応Backendをデプロイする前に、Flyway V2（セッション用テーブル追加）まで適用する。
 適用済みV1は変更しない。devのH2は再起動時に初期化されるため、セッションも消える。
 期限切れセッションの物理削除はSpring Session JDBCの標準定期処理が担当する。
+既定cronは `0 * * * * *`（毎分0秒）。必要な場合は
+`SPRING_SESSION_JDBC_CLEANUP_CRON` / `spring.session.jdbc.cleanup-cron` で変更する。
 Cloud Runが停止中は定期処理も停止するが、有効期限の判定と物理削除は別である。
 
 CHRON-151の段階的な実装として、現時点は保存基盤・ログインフィルタ連携・Cookie期限更新・
-BackendのCSRF保護とFrontend共通層のトークン自動取得・送信まで対応済み。
+BackendのCSRF保護・Frontend共通層のトークン自動取得と送信・環境別CORS・Nginx転送まで対応済み。
 ログイン時のセッションID変更、旧CSRFトークンの破棄、認証情報の保存はSecurity側で行い、
 成功ハンドラは200応答のみを返す。独自ログインフィルタはSecurity内で生成し、Servlet Filterとして
 別途自動登録しない。ログインはPOST `/api/login` のみで受け付ける。
@@ -116,7 +118,8 @@ CORSでは設定したOriginに対し `X-CSRF-TOKEN` とGET / HEAD / POST / PUT 
 
 Frontendの共通Axiosがトークンを取得・送信し、ログイン・ログアウト成功後に再取得する。
 ローカル実ブラウザでの認証・CSRFフロー確認は [Frontendの検証記録](../frontend/VERIFICATION.md) を参照。
-本番Cloud Run・Nginx経由の確認、およびTiDB互換性確認は引き続き別途実施する。
+TiDBの共有セッション検証は [専用の再実行手順](verification/README.md) を参照。
+本番Cloud Run・Nginx経由の確認は引き続きCHRON-152で実施する。
 
 ### CORSとプロキシからの転送情報
 
