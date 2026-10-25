@@ -1,4 +1,6 @@
 -- Delete children before parents without disabling foreign key constraints.
+DELETE FROM SPRING_SESSION_ATTRIBUTES;
+DELETE FROM SPRING_SESSION;
 DELETE FROM time_block_tasks;
 DELETE FROM time_blocks;
 DELETE FROM time_tables;

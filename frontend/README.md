@@ -15,6 +15,41 @@ Dockerを使わない場合は `frontend` で `npm ci` を実行し、シェル�
 `VITE_API_BASE_URL` を設定して `npm run dev` を実行する。
 開発時は `config.js` を生成・読み込みしない。
 
+## CSRF保護付きAPI通信
+
+API呼び出しは既存の `src/utils/axios.ts` を通す。共通層が `GET /api/csrf` からトークンを取得し、
+POST / PUT / PATCH / DELETEへ `X-CSRF-TOKEN` を付ける。Cookie送信は従来どおり
+`withCredentials: true`。参照リクエストのためにトークンを取得・付与しない。
+個々のAPI関数にCSRF処理を追加する必要はない。
+
+トークンはメモリだけに保持し、同時取得は1つにまとめる。ログイン・ログアウト成功後は
+古い取得処理を中止して再取得し、旧世代の取得結果や遅れて到着した403で新しい値を上書きしない。
+API URLの設定方式（devのVITE_API_BASE_URL、prodの起動時API_BASE_URL）は変更しない。
+共通クライアントに別OriginやAPI外のURLを渡しても、CSRFトークンを付与しない。
+
+`403` かつ `code=CSRF_TOKEN_INVALID` の場合だけトークンを再取得し、全画面共通の通知で
+画面の再読み込み・再操作を促す。失敗した状態変更要求はログイン・ログアウトを含めて自動再送しない。
+既存画面が表示を楽観的に変更している場合もあるため、再読み込みで実際の保存状態を確認する。
+通常の権限不足403をCSRFエラーとして扱わず、401は従来どおりログイン画面へ遷移する。
+ログインAPIの401は画面遷移せず、既存の資格情報エラー表示に任せる。
+
+初回トークン取得に失敗した場合は状態変更要求を送らず、通信確認を促す。
+認証成功後の再取得失敗ではログイン・ログアウト自体の成功を維持し、次の操作時に再取得する。
+ホーム画面のログアウトボタンも共通Axiosを使い、成功後に `/login?logout` へ遷移する。
+
+### 自動テスト
+
+既存のNode.js 24で標準テストランナーとTypeScriptの型除去を利用する。追加のテスト依存は不要。
+
+```sh
+docker compose exec -T frontend npm test
+docker compose exec -T frontend npm run build
+```
+
+`tests/csrf-token-manager.test.ts` と `tests/api-client.test.ts` では実際のAxios interceptorと
+テスト用adapterを使い、同時取得、認証世代の競合、取得・復旧失敗、再送防止、401と403の区別を検証する。
+ブラウザ・Cookie・Backendとの結合確認は [VERIFICATION.md](VERIFICATION.md) のCHRON-151記録を参照。
+
 ## 本番イメージのビルド
 
 ```sh
@@ -41,7 +76,7 @@ docker logs chronolist-frontend-local
 | 項目 | ルール |
 | --- | --- |
 | URLの例 | `https://api.example.com`、`https://example.com/backend/` |
-| 接続元 | ブラウザから到達できるURLを指定。Docker内のサービス名はブラウザから名前解決できる場合のみ使用可能 |
+| 接続元 | ブラウザから到達できるURLを指定。APIプロキシ使用時は公開Frontend Originを指定し、内部サービス名はBACKEND_UPSTREAMへ設定 |
 | APIパス | `/api/` を含めない。Axiosが `api/` を付与する |
 | 末尾スラッシュ | `getApiBaseUrl()` が1つに正規化する |
 | スキーム | HTTPまたはHTTPSの絶対URL |
@@ -56,9 +91,10 @@ API URL専用の `src/config/apiBaseUrl.ts` が `getApiBaseUrl()` を公開す�
 
 ### 開発Backendとの通信確認
 
-現在の開発BackendはFrontendのoriginとして `http://localhost:5173` のみを許可している。
-上記の5174番では画面配信を確認できるが、ブラウザのAPI通信はCORSで拒否される。
-本番のCORS・認証Cookie・HTTPSの設定は接続先環境側で整える。CHRON-150ではBackend設定を変更しない。
+開発Backendの既定の許可Originは `http://localhost:5173`。
+上記の5174番からBackendへ直接接続する場合は、Backend側のFRONTEND_ORIGINへ5174番を
+追加して再起動するか、下記のように既定の5173番で検証する。
+許可Originは環境設定で変更でき、Controllerの修正は不要。
 
 既存の開発Backendと通信確認する場合は、開発Frontendを一時停止し、本番Frontendを5173番で起動する。
 
@@ -74,6 +110,57 @@ docker stop chronolist-frontend-check
 docker rm chronolist-frontend-check
 docker compose start frontend
 ```
+
+## 同一OriginでのAPI公開（Cloud Run向け）
+
+本番は1つのCloud RunサービスにNginxとBackendを別コンテナとして配置する。
+入口は既存のNginxコンテナの80番ポートとし、Cloud Run側でも入口ポートを80に設定する。
+Backendは入口に指定せず、サービス外から直接アクセスさせない。
+
+| コンテナ | 設定 |
+| --- | --- |
+| Frontend Nginx | `API_BASE_URL=https://<service-url>.run.app` |
+| Frontend Nginx | `BACKEND_UPSTREAM=http://127.0.0.1:8080` |
+| Backend | `SPRING_PROFILES_ACTIVE=prod`、`FRONTEND_ORIGIN=https://<service-url>.run.app` |
+| Backend | `SERVER_PORT=8080`、既存の本番DB接続設定 |
+
+API_BASE_URLとFRONTEND_ORIGINは同じ公開Originを指定する。BACKEND_UPSTREAM指定時の
+API_BASE_URLはパスなしのOrigin（末尾 `/` は可）が必須。BACKEND_UPSTREAMはプライベートな
+HTTP Originだけを受け付け、認証情報・パス・クエリ・フラグメントや不正ポートを拒否する。
+同一Cloud Runサービス内ではlocalhost経由で通信でき、独自ドメインは不要。
+
+Nginxは `/api/*` のパスを維持して転送し、Cookie・Set-Cookie・Originをそのまま扱う。
+HostとX-Forwarded-Host / Proto / Portは公開API_BASE_URLから生成し、呼出元が指定した
+Forwarded・X-Forwarded-Prefix / Sslは除去する。X-Forwarded-Forは入口の接続元アドレスで上書きする。
+Backendはprodで転送情報を解釈するため、バックエンドのポートを直接外部公開しない。
+Cookie属性はBackendが管理し、Nginxでは書き換えない。
+
+APIの401 / 403等をSPAのindex.htmlへ置き換えない。`/api` 自体はJSONの404を返す。
+BACKEND_UPSTREAM未設定なら静的配信・外部API直接接続の既存モードを維持し、Nginxへの
+`/api/*` はJSONの404（API_PROXY_NOT_CONFIGURED）とする。
+設定変更にはコンテナの再作成が必要。Cloud Runの配置・起動順・Secret設定はCHRON-152で扱う。
+
+### 転送設定とローカルHTTPSの検証
+
+```powershell
+docker build --target production -t chronolist-frontend:chron-151-step6 ./frontend
+$testDirectory = (Resolve-Path ./frontend/tests).Path
+docker run --rm --mount "type=bind,source=$testDirectory,target=/tests,readonly" --entrypoint sh chronolist-frontend:chron-151-step6 /tests/api-config.test.sh
+docker run --rm --mount "type=bind,source=$testDirectory,target=/tests,readonly" --entrypoint sh chronolist-frontend:chron-151-step6 /tests/api-proxy.test.sh
+docker compose exec -T backend sh ./gradlew bootJar --no-daemon
+./frontend/tests/api-proxy-integration.ps1
+```
+
+HTTPS結合スクリプトは既存のJava 25入りBackendイメージ（既定chronolist-backend:latest）を利用し、
+ビルド済みJARを直接起動する。イメージ名が異なる場合はBackendImage / FrontendImage引数で指定する。
+PowerShell 7・Docker・curl.exeを使用し、27項目を検証する。
+prod設定のBackendを使うが、DB接続とSQL初期化は使い捨てH2向けにテスト時だけ上書きする。
+本番DB接続情報やローカル.envは読み込まない。この上書きを実デプロイへコピーしない。
+
+一時TLS入口→HTTPのFrontend Nginx→HTTPのBackendという構成で、Cloud RunのTLS終端を模擬する。
+curlの `--cacert` で一時証明書とホスト名を検証し、TLS検証の無効化やPCの信頼設定変更は行わない。
+終了時に専用コンテナ・ネットワーク・証明書を削除する。通常の開発コンテナは停止しない。
+実際のCloud RunやTiDBの検証とは区別する。
 
 ## API URLの変更
 
@@ -115,7 +202,7 @@ docker run -d --name chronolist-frontend-local -p 127.0.0.1:5174:80 -e API_BASE_
 9. 検証後に開発Frontendを戻し、ログイン・API通信が動くことを確認する。
 
 設定生成・欠落の検証には使い捨てコンテナを使用する。
-本番ホスティング構築・CI/CD・BackendのCORS変更は別チケットで扱う。
+本番ホスティング構築・CI/CDは別チケットで扱う。CORS・API転送設定はCHRON-151で整備する。
 
 ### 起動時URL検証の回帰テスト
 

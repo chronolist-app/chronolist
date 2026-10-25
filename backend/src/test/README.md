@@ -20,6 +20,80 @@ testプロファイルは専用H2 DBを作成し、通常のschema.sqlを使う�
 共通基盤がテストユーザーを登録する。テーブル追加時はcleanup.sqlも更新する。
 並列実行は共有DBの初期化と競合するため無効にしている。
 
+### JDBCセッションの保存基盤
+
+`JdbcSessionRepositoryTests`はtestプロファイルの実際のSpring Session JDBC RepositoryとH2を使い、
+認証情報（LoginUserを含むSecurityContext）・CSRFトークンの保存／復元、属性更新・ID変更・削除、
+期限切れ拒否と期限切れ属性の削除を確認する。ログインAPIやCookieを使ったフロー、
+TiDB互換性、Backend再起動・別インスタンス間の継続は、このテストの検証範囲に含まない。
+
+開発用Composeコンテナで全テストを実行する場合は、コンテナのdevプロファイル指定が
+「プロファイル未指定」を検証するDatabaseProfileTestsへ影響しないよう、実行時のみ外す。
+起動済みBackendの環境変数は変更しない。
+
+```sh
+docker compose exec -T backend env -u SPRING_PROFILES_ACTIVE sh ./gradlew test --no-daemon
+```
+
+2026-10-25、CHRON-151ステップ1で上記コマンドを実行：全92件中90成功・2失敗。
+追加したJDBCセッション4件、DatabaseProfileTests4件、API基盤2件はすべて成功。
+失敗は下記の既知TimeBlocking不具合2件（getHoldBlocksIncludesTasks、
+updateStartAtPreservesScheduleLink）。TiDB実機へのV2適用・セッション操作は未実施。
+
+### ログインとJDBCセッションの連携
+
+`LoginSessionTests`は認証済みPrincipalの注入やMockHttpSessionの引継ぎを使わず、
+JSONログインとCookieを使って後続APIへアクセスする。認証情報の保存・復元、パスワード等の
+消去、既存セッションIDの変更と旧CSRFトークンの破棄、ログイン失敗、GETでのログイン拒否、
+ログアウト後のDBセッション削除と古いCookieの拒否を確認する。
+ログイン前セッションの直接準備が必要なケース以外は、CsrfApiClientで実際の取得APIから
+トークンを取得し、Cookieと共に送信する。
+
+2026-10-25、CHRON-151ステップ2で全テストを実行：全97件中95成功・2失敗。
+追加したLoginSessionTests5件はすべて成功。失敗はステップ1と同じ既知TimeBlocking不具合2件。
+
+### Cookie属性と継続更新
+
+ステップ3ではLoginSessionTestsにDB上の期限とCookieの継続更新、期限切れ拒否を追加し、
+ログイン・ログアウト時のCookie属性も確認する。時刻を待たずにDB上の最終アクセス日時と期限を
+調整する。`SessionCookieConfigurationTests`はdev / test / prodの発行・削除属性、外部設定による
+保持期間の変更を確認する。`SessionCookieRefreshFilterTests`は早期レスポンス確定時にも
+Cookieが更新されることと、匿名アクセスでセッションを作らないことを確認する。
+これらはMockMvc・モックServlet環境での検証であり、実ブラウザやCloud Runの検証とは区別する。
+
+2026-10-25、CHRON-151ステップ3でCookie・ログイン・保存基盤の19件がすべて成功。
+全テストは107件中105成功・2失敗。失敗は前ステップと同じ既知TimeBlocking不具合2件。
+
+### CSRF保護
+
+既存の業務APIテストではApiIntegrationTestの共通ヘルパーが状態変更リクエストだけに
+Spring Security TestのCSRFサポートを付与する。参照系はトークンなしで実行する。
+`CsrfProtectionTests`とLoginSessionTestsではこのヘルパーを使わず、実際の `/api/csrf`、
+ログインAPIとCookieで連携を確認する。マスク済みトークン、ログイン・ログアウト前後の更新、
+POST / PUT / DELETEの成功、POST / PUT / PATCH / DELETEの欠落・不正トークン拒否とDB不変性、
+公開認証APIの保護、期限切れ401とCSRF403・権限不足403の区別、GET / HEAD・CORS preflightを検証する。
+
+2026-10-26、CHRON-151ステップ4で全テストを実行：全131件中129成功・2失敗。
+CsrfProtectionTestsの24件と、CSRF取得方式へ更新したLoginSessionTestsの7件はすべて成功。
+失敗は前ステップと同じ既知TimeBlocking不具合2件。FrontendのCSRF自動送信は未実装。
+
+### 環境別CORSとHTTPSプロキシ
+
+CorsPropertiesTestsはdev / testの既定Origin、prodの明示設定必須、複数Origin、不正なOriginの拒否を検証する。
+CorsApiTestsは開発既定値と異なるOriginを使い、許可Originのcredentials付き応答、未許可Origin拒否、
+HEAD / POST / PUT / PATCH / DELETEのpreflight、同一Originの扱いを検証する。
+2026-10-26、CHRON-151ステップ6で全159件中157成功・2失敗。追加したCORSの28件はすべて成功。
+失敗は以前と同じTimeBlockingの既知2件。bootJarも生成済み。
+Nginx本番イメージの設定回帰と、prod設定＋使い捨てH2によるHTTPS結合27項目は
+[Frontend検証記録](../../../frontend/VERIFICATION.md) を参照。TiDB実機・Cloud Runの確認は含まない。
+
+2026-10-26、CHRON-151ステップ7では別途TiDB実機の結合検証37項目がすべて成功した。
+Flyway V1・V2、独立したBackend JVM間と再起動後の認証・CSRF継続、7日間の期限更新、
+ログアウトの共有反映、期限切れ拒否・削除を確認した。既存DBを変更せず専用一時DBを使い、
+終了後に削除した。再実行手順・詳細・Cloud Runへの引継ぎは
+[TiDB共有セッション検証](../../verification/README.md) を参照。
+通常のH2テストはTiDBへ接続しない。このステップではアプリ本体の変更はなく、全H2テストの再実行はしていない。
+
 テスト全体に@Transactionalは付けない。アプリ側のトランザクション境界を維持する。
 追加の@Sqlは共通cleanup.sqlにマージされるが、ユーザー作成より先に実行されるため、
 共通ユーザーに依存するデータは@BeforeEachで用意する。

@@ -6,7 +6,7 @@ Java 25を使用する。環境は `SPRING_PROFILES_ACTIVE` で切り替える�
 | --- | --- | --- |
 | dev | H2（jdbc:h2:mem:testdb、ユーザーadmin、パスワードなし） | schema.sqlとdata.sql |
 | prod | 環境変数で指定するTiDB Cloud | 実行しない |
-| 未指定 | Spring Bootの自動設定 | 実行しない |
+| 未指定 | Spring Bootの自動設定 | 実行しない。アプリ起動にはCORS許可Originの明示設定が必要 |
 | test | 専用H2 | schema.sqlとテスト専用データ |
 
 ## 開発
@@ -29,10 +29,118 @@ CLIではbackendから `sh ./gradlew bootRun --args='--spring.profiles.active=de
 - `DB_URL`: `jdbc:mysql://<host>:4000/<database>?sslMode=VERIFY_IDENTITY`
 - `DB_USERNAME`: TiDB Cloudのユーザー名
 - `DB_PASSWORD`: TiDB Cloudのパスワード
+- `FRONTEND_ORIGIN`: 本番FrontendのOrigin（例: `https://<service-url>.run.app`。末尾スラッシュやパスなし）
 
 prodの接続情報は必須。DBスキーマはアプリ起動前に別途用意する。
 FlywayのSQL・専用コンテナと実行方法は [flyway/README.md](flyway/README.md) を参照。
 Cloud Run Jobの設定と運用手順は [flyway/CLOUD_RUN.md](flyway/CLOUD_RUN.md) を参照。
+
+## HTTPセッションの保存先
+
+Spring Session JDBCが既存DataSourceを使用する。prodはTiDB、dev / testはH2へ
+`SPRING_SESSION`・`SPRING_SESSION_ATTRIBUTES` を保存する。Redis等の追加サービスは不要。
+Spring Sessionによる自動テーブル作成は全環境で無効化し、dev / testは既存の
+`schema.sql`、prodはFlywayでスキーマを管理する。
+
+prodへ対応Backendをデプロイする前に、Flyway V2（セッション用テーブル追加）まで適用する。
+適用済みV1は変更しない。devのH2は再起動時に初期化されるため、セッションも消える。
+期限切れセッションの物理削除はSpring Session JDBCの標準定期処理が担当する。
+既定cronは `0 * * * * *`（毎分0秒）。必要な場合は
+`SPRING_SESSION_JDBC_CLEANUP_CRON` / `spring.session.jdbc.cleanup-cron` で変更する。
+Cloud Runが停止中は定期処理も停止するが、有効期限の判定と物理削除は別である。
+
+CHRON-151の段階的な実装として、現時点は保存基盤・ログインフィルタ連携・Cookie期限更新・
+BackendのCSRF保護・Frontend共通層のトークン自動取得と送信・環境別CORS・Nginx転送まで対応済み。
+ログイン時のセッションID変更、旧CSRFトークンの破棄、認証情報の保存はSecurity側で行い、
+成功ハンドラは200応答のみを返す。独自ログインフィルタはSecurity内で生成し、Servlet Filterとして
+別途自動登録しない。ログインはPOST `/api/login` のみで受け付ける。
+CSRFはdev / prod共通で有効。ログイン時のトークン破棄とログアウト時の削除は
+CsrfConfigurerの標準処理に任せ、独自のセッション戦略へ重複登録しない。
+TiDB上のDDL・セッション操作の互換性、および実際の再起動・複数インスタンス間の継続は
+H2上のテストと区別して検証する。
+
+`LoginUser` は明示的なserialVersionUIDを持つ。今後も認証情報の保存形式の互換性を確認し、
+互換性のない変更時は旧セッションを失効させ、再ログインを求める。必要な場合はデプロイ時に
+対象DBのセッション属性・セッション本体の順で削除する手順を用意する（業務データは削除しない）。
+今回のserialVersionUID明示前に作成されたセッションは継続利用を保証しない。
+
+### ログイン維持期間とCookie
+
+無操作期限は既定7日。Spring Sessionがセッション利用時に最終アクセス日時とDB上の期限を更新する。
+認証済みの `/api/*` アクセスでは、レスポンス確定前にCookieも再発行し、Cookieだけが当初の
+ログイン日から7日で先に切れないようにする。維持用の定期通信は追加しない。
+自動ポーリングを今後追加する場合は、それだけで無操作期限を延長し続けない扱いを検討する。
+
+| 設定 | 既定値・用途 |
+| --- | --- |
+| `SESSION_TIMEOUT` / `spring.session.timeout` | `7d`。サーバー側の無操作期限 |
+| `SESSION_COOKIE_MAX_AGE` / `server.servlet.session.cookie.max-age` | 無操作期限と同じ値。Cookie保持期間を別に設定する場合のみ指定。正の秒数が必要 |
+| Cookie名 / Path / Domain | `JSESSIONID` / `/` / 指定なし（host-only） |
+| HttpOnly / SameSite | `true` / `Lax` |
+| Secure | dev・testは `false`、prodは `true`。prodはHTTP転送経由でもSecureを付ける |
+
+Cookieは永続Cookieとして発行し、ブラウザ終了後も期限内なら再利用できる。
+Cookie保持期間を長くしても、サーバー側で失効したセッションが有効になることはない。
+設定変更のためのDBマイグレーションは不要。無操作期限の設定は新しく作るセッションへ適用される。
+ログアウトはDBセッションを無効化し、発行・更新と同じCookie生成処理で削除Cookieを返す。
+期限切れ・匿名リクエストで認証用Cookieを延長せず、Cookie更新処理自体はセッションを新規作成しない。
+SPA APIは401を直接返すため、未認証リクエストの保存（Spring Security RequestCache）は無効化する。
+
+以前の段階でSpring Session標準の `SESSION` Cookieを受け取ったブラウザは再ログインが必要。
+Cookie属性と期限更新はローカルのテストで確認し、Cloud Run・Nginx経由の実ブラウザでの確認は
+CHRON-152と連携して行う。
+
+### CSRFトークンの取得・送信とエラー応答
+
+未ログインでも `GET /api/csrf` にアクセスでき、`Cache-Control: no-store` と
+`{"token":"...","headerName":"X-CSRF-TOKEN"}` を返す。同時にセッションCookieを受け取る。
+トークンは共通のHttpSessionCsrfTokenRepositoryを通してDBセッションに保存し、取得APIでは
+Spring Security標準のマスク済みトークンを返す。マスクは取得ごとに変わるが、同じセッションの
+既存トークンが取得のたびに無効になるわけではない。
+
+状態変更リクエストには同じセッションのCookieと `X-CSRF-TOKEN` ヘッダーを送る。
+ログイン・サインアップ・ログアウトも対象。GET / HEAD / OPTIONS等の参照・事前確認には
+トークンを要求しない。ログイン・ログアウト成功後は古いトークンが破棄されるため再取得する。
+拒否された更新要求をBackendが再実行することはない。
+
+| 状況 | HTTP / JSON code |
+| --- | --- |
+| 認証必須APIへの未認証・期限切れアクセス | `401` / `UNAUTHENTICATED`（CSRF不備が先に検出されても同じ） |
+| ログイン資格情報の不一致 | `401` / `UNAUTHENTICATED` |
+| ログイン・サインアップのCSRF不備、認証済みリクエストのCSRF不備 | `403` / `CSRF_TOKEN_INVALID` |
+| 通常の権限不足 | `403` / `ACCESS_DENIED` |
+
+エラー応答は `{"code":"..."}` のJSONで、例外詳細やトークンを含めない。
+CSRFの発行・検証に伴い匿名セッションが作成される場合があるが、これは認証状態の復元や
+期限切れした認証セッションの延長ではない。
+CORSでは設定したOriginに対し `X-CSRF-TOKEN` とGET / HEAD / POST / PUT / PATCH / DELETE / OPTIONSを許可する。
+設定はSecurityConfigへ集約し、Controllerごとの固定CrossOriginは使用しない。
+
+Frontendの共通Axiosがトークンを取得・送信し、ログイン・ログアウト成功後に再取得する。
+ローカル実ブラウザでの認証・CSRFフロー確認は [Frontendの検証記録](../frontend/VERIFICATION.md) を参照。
+TiDBの共有セッション検証は [専用の再実行手順](verification/README.md) を参照。
+本番Cloud Run・Nginx経由の確認は引き続きCHRON-152で実施する。
+
+### CORSとプロキシからの転送情報
+
+`chronolist.cors.allowed-origins` を `FRONTEND_ORIGIN` から取得する。dev / testは未設定なら
+`http://localhost:5173` を使用し、従来のCompose・VSCode起動で追加設定は不要。
+prodは必須で、未設定・空値・ワイルドカード・パス／認証情報／クエリ／フラグメント付きの値は
+起動時に拒否する。複数Originを許可する場合はカンマ区切りで明示する。
+独自ドメインは必要ない。本番はFrontendとBackendの公開OriginをNginx経由で1つにする。
+
+devの許可Originを変更する場合のみ、起動プロセスの `FRONTEND_ORIGIN` または
+`chronolist.cors.allowed-origins` を上書きする。Compose利用時はoverrideファイル等の
+backend.environmentへ設定する。通常の開発では不要。
+
+prodは `server.forward-headers-strategy=framework` を使用する。Nginxが公開URLから設定した
+Host・X-Forwarded-Host / Proto / Portを使い、HTTPS終端後のHTTP転送でも公開URLを正しく認識する。
+BackendはCloud Runの入口コンテナに指定せず、Nginxからだけ到達できる構成にする。
+信頼境界はNginxであり、外部のForwardedヘッダーをそのまま信用しない。
+本番配置時のポート・同一Origin公開設定は [Frontend手順](../frontend/README.md) と合わせる。
+
+prod設定＋使い捨てH2＋一時TLS入口を使うローカル結合検証は実施済み。
+この成功はTiDB互換性や実際のCloud Run配置の確認を意味しない。
 
 ## Dockerイメージの使い分け
 
