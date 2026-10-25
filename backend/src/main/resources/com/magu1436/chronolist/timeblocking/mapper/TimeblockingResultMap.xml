@@ -48,7 +48,7 @@
             <result property="endDate" column="end_date" />
             <result property="title" column="schedule_title" />
         </association>
-        <collection property="tasks" javaType="com.magu1436.chronolist.timeblocking.entity.TimeBlockTask" >
+        <collection property="tasks" ofType="com.magu1436.chronolist.timeblocking.entity.TimeBlockTask" >
             <id property="id" column="task_id" />
             <result property="timeBlockId" column="task_block_id" />
             <result property="title" column="task_title" />
