@@ -15,6 +15,41 @@ Dockerを使わない場合は `frontend` で `npm ci` を実行し、シェル�
 `VITE_API_BASE_URL` を設定して `npm run dev` を実行する。
 開発時は `config.js` を生成・読み込みしない。
 
+## CSRF保護付きAPI通信
+
+API呼び出しは既存の `src/utils/axios.ts` を通す。共通層が `GET /api/csrf` からトークンを取得し、
+POST / PUT / PATCH / DELETEへ `X-CSRF-TOKEN` を付ける。Cookie送信は従来どおり
+`withCredentials: true`。参照リクエストのためにトークンを取得・付与しない。
+個々のAPI関数にCSRF処理を追加する必要はない。
+
+トークンはメモリだけに保持し、同時取得は1つにまとめる。ログイン・ログアウト成功後は
+古い取得処理を中止して再取得し、旧世代の取得結果や遅れて到着した403で新しい値を上書きしない。
+API URLの設定方式（devのVITE_API_BASE_URL、prodの起動時API_BASE_URL）は変更しない。
+共通クライアントに別OriginやAPI外のURLを渡しても、CSRFトークンを付与しない。
+
+`403` かつ `code=CSRF_TOKEN_INVALID` の場合だけトークンを再取得し、全画面共通の通知で
+画面の再読み込み・再操作を促す。失敗した状態変更要求はログイン・ログアウトを含めて自動再送しない。
+既存画面が表示を楽観的に変更している場合もあるため、再読み込みで実際の保存状態を確認する。
+通常の権限不足403をCSRFエラーとして扱わず、401は従来どおりログイン画面へ遷移する。
+ログインAPIの401は画面遷移せず、既存の資格情報エラー表示に任せる。
+
+初回トークン取得に失敗した場合は状態変更要求を送らず、通信確認を促す。
+認証成功後の再取得失敗ではログイン・ログアウト自体の成功を維持し、次の操作時に再取得する。
+ホーム画面のログアウトボタンも共通Axiosを使い、成功後に `/login?logout` へ遷移する。
+
+### 自動テスト
+
+既存のNode.js 24で標準テストランナーとTypeScriptの型除去を利用する。追加のテスト依存は不要。
+
+```sh
+docker compose exec -T frontend npm test
+docker compose exec -T frontend npm run build
+```
+
+`tests/csrf-token-manager.test.ts` と `tests/api-client.test.ts` では実際のAxios interceptorと
+テスト用adapterを使い、同時取得、認証世代の競合、取得・復旧失敗、再送防止、401と403の区別を検証する。
+ブラウザ・Cookie・Backendとの結合確認は [VERIFICATION.md](VERIFICATION.md) のCHRON-151記録を参照。
+
 ## 本番イメージのビルド
 
 ```sh

@@ -47,7 +47,7 @@ prodへ対応Backendをデプロイする前に、Flyway V2（セッション用
 Cloud Runが停止中は定期処理も停止するが、有効期限の判定と物理削除は別である。
 
 CHRON-151の段階的な実装として、現時点は保存基盤・ログインフィルタ連携・Cookie期限更新・
-BackendのCSRF保護まで。Frontendのトークン自動取得・送信はステップ5で対応する。
+BackendのCSRF保護とFrontend共通層のトークン自動取得・送信まで対応済み。
 ログイン時のセッションID変更、旧CSRFトークンの破棄、認証情報の保存はSecurity側で行い、
 成功ハンドラは200応答のみを返す。独自ログインフィルタはSecurity内で生成し、Servlet Filterとして
 別途自動登録しない。ログインはPOST `/api/login` のみで受け付ける。
@@ -113,8 +113,9 @@ CSRFの発行・検証に伴い匿名セッションが作成される場合が�
 CORSでは既存の開発Originに対し `X-CSRF-TOKEN` とPATCHを許可する。Originの環境別切替・
 Controller単位のCORS整理はステップ6で扱う。
 
-この段階のFrontendはまだトークンを送らないため、画面からのログイン・状態変更は403になる。
-Frontend連携の完成と実ブラウザの認証・CSRFフロー確認はステップ5以降で実施する。
+Frontendの共通Axiosがトークンを取得・送信し、ログイン・ログアウト成功後に再取得する。
+ローカル実ブラウザでの認証・CSRFフロー確認は [Frontendの検証記録](../frontend/VERIFICATION.md) を参照。
+本番Cloud Run・Nginx経由の確認、およびTiDB互換性確認は引き続き別途実施する。
 
 ## Dockerイメージの使い分け
 
