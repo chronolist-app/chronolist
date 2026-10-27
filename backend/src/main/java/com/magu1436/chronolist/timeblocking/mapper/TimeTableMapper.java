@@ -28,6 +28,8 @@ public interface TimeTableMapper {
      */
     TimeTable getTimeTableByDate(@Param("userId") int userId, @Param("date") LocalDate date);
 
+    TimeTable getTimeTableById(@Param("userId") int userId, @Param("id") int id);
+
     /**
      * 新しい TimeTable をデータベースに登録する。
      * 
