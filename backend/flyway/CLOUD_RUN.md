@@ -9,9 +9,10 @@ TiDB実機検証（ステップ3）に合格するまでは本番へのmigrate�
 - `gcloud` とDockerを利用でき、対象GCPプロジェクトに認証済みであること。
   Cloud Run Admin API、Artifact Registry API、Secret Manager APIを有効にする。
 - Docker形式のArtifact Registryリポジトリを用意する。
-- Job専用サービスアカウントを用意し、参照する3つのSecretだけに
+- Job専用サービスアカウントを用意し、参照するパスワードのSecretだけに
   `roles/secretmanager.secretAccessor` を付与する。アプリの実行アカウントと分ける。
-  TiDB側もマイグレーション用ユーザーを使い、対象DBのDDL・履歴管理に必要な権限を付与する。
+  TiDB側のアプリ用・マイグレーション用ユーザーの分離はCHRON-154で扱う。
+  CHRON-152の初回構築では、ユーザーと合意した既存rootユーザーを両方で使用する。
 - 設定する担当者には `roles/run.developer`、Jobサービスアカウントへの
   `roles/iam.serviceAccountUser`、イメージの読み取り権限が必要。
   イメージをpushする担当者には対象リポジトリの `roles/artifactregistry.writer` が必要。
@@ -27,17 +28,26 @@ Cloud RunからのDNS解決と外向きTCP 4000接続が必要。TiDBのIPアク
 別途設定し、そのIPをTiDB側へ許可する。このスクリプトはVPC/NATを構築しない。
 開発用環境のHTTP許可リストはCloud Runの通信設定とは別。
 
-## Secretの用意
+## 接続設定とSecretの用意
 
-Secret Managerに `FLYWAY_URL`・`FLYWAY_USER`・`FLYWAY_PASSWORD` 相当の
-3つのSecretを作り、値をバージョンとして登録する。
+`FLYWAY_URL`（認証情報を含まないJDBC URL）と `FLYWAY_USER` は、Jobの通常の環境変数として設定する。
+URLにユーザー名・パスワードを埋め込まない。実環境の値はGitへコミットしない。
+スクリプトはカンマを含む値を保持するため、gcloudの区切り文字に `|` を使用する。
+URL・ユーザー名に `|` または改行を含む値は拒否する。
+
+Secret Managerへ登録するのは `FLYWAY_PASSWORD` 相当のパスワードのみ。
 値はコンソールまたは保護された標準入力から登録し、シェル履歴・Git・Jobの平文環境変数へ
 保存しない。末尾の改行が値へ混入しないようにする。`set -x` やFlywayの `-X` は使わない。
 URL・ユーザー名も接続エラーのログに含まれることがあるため、Cloud Loggingの閲覧権限を
 制限し、ログを共有する際は接続情報をマスクする。
 
-次の変数は値そのものではなくSecret名と数値バージョンを指定する。
+`FLYWAY_PASSWORD_SECRET` は値そのものではなくSecret名と数値バージョンを指定する。
 `latest` は使わず、ローテーション時はJobを再設定する。
+
+本番ではアプリ用 `chronolist-prod-db-password` とJob用
+`chronolist-prod-flyway-password` を分け、各実行アカウントに対応するSecretだけの読み取り権限を付与する。
+Backendの `DB_URL`・`DB_USERNAME` も通常の環境変数、`DB_PASSWORD` のみSecret参照とする。
+CHRON-154でのDBユーザー分離時に、ユーザー名とパスワードを用途ごとに切り替える。
 
 ## イメージの公開とJob設定
 
@@ -48,8 +58,8 @@ export GCP_PROJECT_ID=your-project
 export GCP_REGION=asia-northeast1
 export FLYWAY_JOB_NAME=chronolist-flyway-verification
 export FLYWAY_SERVICE_ACCOUNT="chronolist-flyway@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
-export FLYWAY_URL_SECRET=chronolist-verification-flyway-url:1
-export FLYWAY_USER_SECRET=chronolist-verification-flyway-user:1
+export FLYWAY_URL='jdbc:mysql://<host>:4000/<database>?sslMode=VERIFY_IDENTITY'
+export FLYWAY_USER='<database-user>'
 export FLYWAY_PASSWORD_SECRET=chronolist-verification-flyway-password:1
 export ARTIFACT_REPOSITORY=your-repository
 
@@ -69,6 +79,14 @@ Jobはdigest固定、タスク1・並列数1・リトライ0、タイムアウ�
 タイムアウトは実測とDDLの所要時間を踏まえて見直す。DDLの途中終了時は復旧手順へ進む。
 `deploy` はJobを作成・更新するだけで実行しない。標準引数は `info`。
 既存Jobを更新する際は、VPC・送信経路等の既存設定も確認する。
+`deploy` は通常の環境変数とSecret参照の一覧を置き換えるため、追加の設定がある場合は事前に確認する。
+旧方式のURL・ユーザー名のSecret参照は残さず、通常の環境変数へ切り替える。
+
+CHRON-152の本番では `GCP_PROJECT_ID=chronolist-512706`、
+`ARTIFACT_REPOSITORY=chronolist-images`、`GCP_REGION=asia-northeast1` を使用する。
+Job名は本番専用名とし、`FLYWAY_PASSWORD_SECRET=chronolist-prod-flyway-password:1` を指定する。
+URL・ユーザー名は手元の本番DB接続情報を使用する。上の検証用Job名・Secret名をそのまま使わない。
+GCPの作成・更新・実行は、手順の意味と確認項目を説明した上でユーザーが実施する。
 
 ## 検証環境での実行確認
 
@@ -145,7 +163,8 @@ TiDBのDDLは全体をトランザクションで取り消せない。Job失敗�
    成功済みの共有マイグレーションを編集してチェックサムを合わせない。
 5. 前進修正が困難なら、書き込みを止めてバックアップを別DB/クラスタへ復元する。
    データ・スキーマ・履歴を検証し、必要な移行を復元先に適用してから、
-   アプリとJob両方の接続先Secretを復元先へ更新する。
+   アプリとJob両方の接続先URL・ユーザー名の環境変数を復元先へ更新する。
+   パスワードも変わる場合は、対応するSecretバージョンを更新する。
    復元時点以降の書き込みの欠損・再投入方針を確認し、スモークテスト後に利用を再開する。
 
 アプリだけを前のリビジョンへ戻してもスキーマは戻らない。追加変更が後方互換なら
@@ -153,12 +172,31 @@ TiDBのDDLは全体をトランザクションで取り消せない。Job失敗�
 
 ## 確認状況
 
+### CHRON-152：パスワードだけをSecret参照へ変更（2026-10-28 JST）
+
+URL・ユーザー名を通常の環境変数、パスワードだけを数値バージョン固定のSecret参照へ変更した。
+構文確認と、実際のgcloudを呼ばない代替コマンドによるオフライン検証に成功した。
+URLのカンマ・クエリとユーザー名のカンマ・等号の保持、Secret参照の内容、
+必須設定不足・区切り文字/改行・latest指定・未対応操作の拒否、
+info/validate/migrateの完了待機とgcloud失敗終了コードの伝播を確認した。
+
+```sh
+bash -n backend/flyway/cloud-run-job.sh
+bash backend/flyway/tests/cloud-run-job.test.sh
+```
+
+テストは一時ディレクトリのgcloud代替を使用し、終了時に一時ファイルを削除する。
+GCPリソースの作成・更新、Secretの読み取り、DB接続・migrationは実施していない。
+既存JobのSecret参照から通常の環境変数への変更も、実際のCloud Runでは未検証。
+
+### CHRON-145の過去の検証記録
+
 2026-10-22時点で、Bashの構文と差分の書式チェックに成功。
 `gcloud` の代替コマンドを使い、deployの設定引数、3種類の実行の完了待機、
 失敗終了コードの伝播、未対応操作・可変タグ・数値以外のSecretバージョン・
 必須設定不足の拒否を確認した。これはCloud RunやTiDBとの接続を検証するものではない。
 
-Cloud Run上でのJob作成・実行は未確認。作業環境に `gcloud` とGCP認証設定がなく、
+以下は2026-10-22時点の記録。Cloud Run上でのJob作成・実行は未確認。作業環境に `gcloud` とGCP認証設定がなく、
 プロジェクト・リージョン・Artifact Registryは未定。
 Secret・サービスアカウントの実環境値も未設定のため。
 ステップ3ではローカルのWindows版Flyway 11.15.0とMySQL Connector/J 9.4.0で、

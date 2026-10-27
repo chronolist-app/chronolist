@@ -11,8 +11,8 @@ Required for all commands:
 Additional variables for deploy:
   FLYWAY_IMAGE                 Artifact Registry image URI pinned to @sha256:...
   FLYWAY_SERVICE_ACCOUNT       Dedicated Job service account email
-  FLYWAY_URL_SECRET            Secret Manager secret-name:numeric-version
-  FLYWAY_USER_SECRET           Secret Manager secret-name:numeric-version
+  FLYWAY_URL                   JDBC URL without credentials (ordinary environment variable)
+  FLYWAY_USER                  Database username (ordinary environment variable)
   FLYWAY_PASSWORD_SECRET       Secret Manager secret-name:numeric-version
 
 deploy creates/updates the Job with info as its default command; it does not run it.
@@ -36,7 +36,17 @@ if [[ $# != 1 ]]; then usage >&2; exit 2; fi
 if [[ "$action" == deploy ]]; then
   : "${FLYWAY_IMAGE:?Set FLYWAY_IMAGE}"
   : "${FLYWAY_SERVICE_ACCOUNT:?Set FLYWAY_SERVICE_ACCOUNT}"
-  for name in FLYWAY_URL_SECRET FLYWAY_USER_SECRET FLYWAY_PASSWORD_SECRET; do
+  : "${FLYWAY_URL:?Set FLYWAY_URL}"
+  : "${FLYWAY_USER:?Set FLYWAY_USER}"
+  # gcloud's default comma separator can occur in JDBC URLs. Use a custom
+  # separator and reject it in values rather than silently splitting them.
+  for name in FLYWAY_URL FLYWAY_USER; do
+    if [[ ${!name} == *'|'* || ${!name} == *$'\n'* || ${!name} == *$'\r'* ]]; then
+      echo "$name must not contain a pipe or newline." >&2
+      exit 2
+    fi
+  done
+  for name in FLYWAY_PASSWORD_SECRET; do
     if [[ ! ${!name:-} =~ ^[a-zA-Z0-9_-]+:[1-9][0-9]*$ ]]; then
       echo "$name must be a secret name and a numeric version (secret-name:1)." >&2
       exit 2
@@ -57,7 +67,8 @@ if [[ "$action" == deploy ]]; then
     --tasks=1 --parallelism=1 --max-retries=0 --task-timeout=10m \
     --cpu=1 --memory=512Mi \
     --args=info \
-    --set-secrets="FLYWAY_URL=$FLYWAY_URL_SECRET,FLYWAY_USER=$FLYWAY_USER_SECRET,FLYWAY_PASSWORD=$FLYWAY_PASSWORD_SECRET"
+    --set-env-vars="^|^FLYWAY_URL=$FLYWAY_URL|FLYWAY_USER=$FLYWAY_USER" \
+    --set-secrets="FLYWAY_PASSWORD=$FLYWAY_PASSWORD_SECRET"
 else
   gcloud run jobs execute "$FLYWAY_JOB_NAME" "${common[@]}" \
     --args="$action" --wait
