@@ -1,5 +1,6 @@
 package com.magu1436.chronolist.timeblocking.mapper;
 
+import java.time.LocalTime;
 import java.util.List;
 
 import org.apache.ibatis.annotations.Mapper;
@@ -75,6 +76,12 @@ public interface TimeBlockMapper {
     int updateTimeBlock(
         @Param("userId") int userId,
         @Param("timeBlock") TimeBlock timeBlock
+    );
+
+    int updateTimeBlockStartAt(
+        @Param("userId") int userId,
+        @Param("id") int id,
+        @Param("startAt") LocalTime startAt
     );
 
     /**
