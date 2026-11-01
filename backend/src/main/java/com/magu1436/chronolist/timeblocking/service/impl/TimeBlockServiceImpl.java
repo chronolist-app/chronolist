@@ -1,6 +1,5 @@
 package com.magu1436.chronolist.timeblocking.service.impl;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -10,10 +9,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.magu1436.chronolist.timeblocking.exception.TimeBlockReferenceNotFoundException;
 
 import com.magu1436.chronolist.timeblocking.entity.TimeBlock;
+import com.magu1436.chronolist.timeblocking.entity.TimeBlockStatus;
 import com.magu1436.chronolist.timeblocking.entity.TimeTable;
 import com.magu1436.chronolist.timeblocking.mapper.TimeBlockMapper;
 import com.magu1436.chronolist.timeblocking.mapper.TimeTableMapper;
 import com.magu1436.chronolist.scheduler.entity.Schedule;
+import com.magu1436.chronolist.scheduler.entity.ScheduleKind;
 import com.magu1436.chronolist.scheduler.mapper.SchedulerMapper;
 import com.magu1436.chronolist.timeblocking.service.TimeBlockService;
 
@@ -74,22 +75,24 @@ public class TimeBlockServiceImpl implements TimeBlockService {
         }
         if(timeBlock.getRelatedSchedule() == null){
             return true;
-        }else{
-            Schedule updateSchedule = timeBlock.getRelatedSchedule();
+        }
+
+        Schedule updateSchedule = timeBlock.getRelatedSchedule();
+        updateSchedule.setTitle(timeBlock.getTitle());
+        // HOLDには配置日時がなく、ALL_DAYには時刻を設定できないため、
+        // 配置済みの日時付き予定だけブロックから開始・終了日時を計算する。
+        if (timeBlock.getStatus() == TimeBlockStatus.PLACED && updateSchedule.getKind() == ScheduleKind.DATED) {
             TimeTable relatedTimeTable = timeTableMapper.getTimeTableById(loginUser, timeBlock.getTimeTableId());
             LocalDateTime scheduleStartTime = LocalDateTime.of(relatedTimeTable.getDate(), timeBlock.getStartAt());
             LocalDateTime scheduleEndTime = scheduleStartTime.plusMinutes(timeBlock.getWidth());
-            updateSchedule.setTitle(timeBlock.getTitle());
             updateSchedule.setStartAt(scheduleStartTime);
             updateSchedule.setEndAt(scheduleEndTime);
-            updateSchedule.setUserId(loginUser);
-            int updateScheduleRows = schedulerMapper.updateSchedule(updateSchedule);
-            if(updateScheduleRows==1){
-                return true;
-            }else{
-                throw new RuntimeException("関連スケジュールの更新に失敗");
-            }
         }
+        updateSchedule.setUserId(loginUser);
+        if (schedulerMapper.updateSchedule(updateSchedule) != 1) {
+            throw new RuntimeException("関連スケジュールの更新に失敗");
+        }
+        return true;
     }
 
     @Override 
