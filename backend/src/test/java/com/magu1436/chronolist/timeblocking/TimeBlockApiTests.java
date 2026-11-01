@@ -45,6 +45,47 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         assertThat(titles).containsExactlyInAnyOrderEntriesOf(Map.of(first, "作業1", second, "作業2"));
     }
 
+    /** タスク件数の異なるHOLDを混在させても親子と所有者を分離する. */
+    @Test
+    void getHoldBlocksSeparatesBlocksAndTasks() throws Exception {
+        int empty = block(null, "HOLD", null);
+        int single = block(null, "HOLD", null);
+        int one = task(single, "単独");
+        int multiple = block(null, "HOLD", null);
+        int first = task(multiple, "複数1");
+        int second = task(multiple, "複数2");
+        task(block(table("2026-10-12"), "PLACED", null), "配置済み");
+        jdbcTemplate.update("INSERT INTO users (login_id,password,role) VALUES (?,?,?)",
+                "other-user", "unused", "GENERAL");
+        int otherUser = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE login_id='other-user'", Integer.class);
+        int other = block(null, "HOLD", null);
+        task(other, "他ユーザー");
+        jdbcTemplate.update("UPDATE time_blocks SET user_id=? WHERE id=?", otherUser, other);
+
+        var result = performAsUser(get(BASE + "timeBlock/getHoldBlocks"))
+                .andExpect(status().isOk()).andReturn();
+        var blocks = objectMapper.readTree(result.getResponse().getContentAsByteArray());
+        assertThat(blocks.size()).isEqualTo(3);
+        Map<Integer, Map<Integer, String>> actual = new LinkedHashMap<>();
+        blocks.forEach(b -> {
+            int id = b.get("id").asInt();
+            assertThat(b.get("status").asText()).isEqualTo("HOLD");
+            assertThat(b.get("userId").asInt()).isEqualTo(loginUser.getId());
+            assertThat(actual).doesNotContainKey(id);
+            assertThat(b.get("tasks").isArray()).isTrue();
+            Map<Integer, String> tasks = new LinkedHashMap<>();
+            b.get("tasks").forEach(t -> {
+                assertThat(t.get("timeBlockId").asInt()).isEqualTo(id);
+                assertThat(tasks).doesNotContainKey(t.get("id").asInt());
+                tasks.put(t.get("id").asInt(), t.get("title").asText());
+            });
+            actual.put(id, tasks);
+        });
+        assertThat(actual).containsExactlyInAnyOrderEntriesOf(Map.of(
+                empty, Map.of(), single, Map.of(one, "単独"),
+                multiple, Map.of(first, "複数1", second, "複数2")));
+    }
     /** 配置・保持の両形式を登録できる. */
     @ParameterizedTest
     @ValueSource(strings = {"HOLD", "PLACED"})
