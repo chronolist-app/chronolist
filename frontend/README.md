@@ -113,6 +113,8 @@ docker compose start frontend
 
 ## 同一OriginでのAPI公開（Cloud Run向け）
 
+手動デプロイの再現手順と実環境の確認状況は [本番デプロイ手順](../docs/deployment/README.md) を参照。
+
 本番は1つのCloud RunサービスにNginxとBackendを別コンテナとして配置する。
 入口は既存のNginxコンテナの80番ポートとし、Cloud Run側でも入口ポートを80に設定する。
 Backendは入口に指定せず、サービス外から直接アクセスさせない。

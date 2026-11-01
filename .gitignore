@@ -5,3 +5,5 @@
 
 # Local Cloud Run configuration containing deployment-specific values.
 /service.yaml
+/service.yaml~
+/.service.yaml.un~

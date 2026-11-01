@@ -1,0 +1,81 @@
+# Copy to /service.yaml (gitignored) and replace every <...> placeholder.
+# Apply manually; see docs/deployment/README.md. Never put password values here.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: chronolist
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/maxScale: '1'
+    run.googleapis.com/invoker-iam-disabled: 'true'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: '0'
+        autoscaling.knative.dev/maxScale: '1'
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/cpu-throttling: 'true'
+        run.googleapis.com/container-dependencies: '{"frontend":["backend"]}'
+    spec:
+      serviceAccountName: 'chronolist-app@<PROJECT_ID>.iam.gserviceaccount.com'
+      containerConcurrency: 8
+      timeoutSeconds: 300
+      containers:
+        - name: frontend
+          image: '<REGION>-docker.pkg.dev/<PROJECT_ID>/<REPOSITORY>/frontend@sha256:<FRONTEND_DIGEST>'
+          ports:
+            - containerPort: 80
+              name: http1
+          resources:
+            limits:
+              cpu: '1'
+              memory: 128Mi
+          env:
+            - name: API_BASE_URL
+              value: '<PUBLIC_ORIGIN>'
+            - name: BACKEND_UPSTREAM
+              value: 'http://127.0.0.1:8080'
+          startupProbe:
+            tcpSocket:
+              port: 80
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 24
+        - name: backend
+          image: '<REGION>-docker.pkg.dev/<PROJECT_ID>/<REPOSITORY>/backend@sha256:<BACKEND_DIGEST>'
+          resources:
+            limits:
+              cpu: '1'
+              memory: 512Mi
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: 'prod'
+            - name: SERVER_PORT
+              value: '8080'
+            - name: FRONTEND_ORIGIN
+              value: '<PUBLIC_ORIGIN>'
+            - name: DB_URL
+              value: 'jdbc:mysql://<DB_HOST>:<DB_PORT>/<DB_NAME>?sslMode=VERIFY_IDENTITY'
+            - name: DB_USERNAME
+              value: '<DB_USERNAME>'
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: chronolist-prod-db-password
+                  key: '<DB_PASSWORD_SECRET_VERSION>'
+            - name: SESSION_TIMEOUT
+              value: '7d'
+            - name: SESSION_COOKIE_MAX_AGE
+              value: '7d'
+            - name: SPRING_SESSION_JDBC_CLEANUP_CRON
+              value: '0 * * * * *'
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 24
+  traffic:
+    - latestRevision: true
+      percent: 100
