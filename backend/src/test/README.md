@@ -35,11 +35,6 @@ TiDB互換性、Backend再起動・別インスタンス間の継続は、この
 docker compose exec -T backend env -u SPRING_PROFILES_ACTIVE sh ./gradlew test --no-daemon
 ```
 
-2026-10-25、CHRON-151ステップ1で上記コマンドを実行：全92件中90成功・2失敗。
-追加したJDBCセッション4件、DatabaseProfileTests4件、API基盤2件はすべて成功。
-失敗は下記の既知TimeBlocking不具合2件（getHoldBlocksIncludesTasks、
-updateStartAtPreservesScheduleLink）。TiDB実機へのV2適用・セッション操作は未実施。
-
 ### ログインとJDBCセッションの連携
 
 `LoginSessionTests`は認証済みPrincipalの注入やMockHttpSessionの引継ぎを使わず、
@@ -49,20 +44,14 @@ JSONログインとCookieを使って後続APIへアクセスする。認証情�
 ログイン前セッションの直接準備が必要なケース以外は、CsrfApiClientで実際の取得APIから
 トークンを取得し、Cookieと共に送信する。
 
-2026-10-25、CHRON-151ステップ2で全テストを実行：全97件中95成功・2失敗。
-追加したLoginSessionTests5件はすべて成功。失敗はステップ1と同じ既知TimeBlocking不具合2件。
-
 ### Cookie属性と継続更新
 
-ステップ3ではLoginSessionTestsにDB上の期限とCookieの継続更新、期限切れ拒否を追加し、
+LoginSessionTestsではDB上の期限とCookieの継続更新、期限切れ拒否を扱い、
 ログイン・ログアウト時のCookie属性も確認する。時刻を待たずにDB上の最終アクセス日時と期限を
 調整する。`SessionCookieConfigurationTests`はdev / test / prodの発行・削除属性、外部設定による
 保持期間の変更を確認する。`SessionCookieRefreshFilterTests`は早期レスポンス確定時にも
 Cookieが更新されることと、匿名アクセスでセッションを作らないことを確認する。
-これらはMockMvc・モックServlet環境での検証であり、実ブラウザやCloud Runの検証とは区別する。
-
-2026-10-25、CHRON-151ステップ3でCookie・ログイン・保存基盤の19件がすべて成功。
-全テストは107件中105成功・2失敗。失敗は前ステップと同じ既知TimeBlocking不具合2件。
+これらはMockMvc・モックServlet環境での検証であり、実ブラウザや配置先の検証とは区別する。
 
 ### CSRF保護
 
@@ -73,26 +62,11 @@ Spring Security TestのCSRFサポートを付与する。参照系はトーク�
 POST / PUT / DELETEの成功、POST / PUT / PATCH / DELETEの欠落・不正トークン拒否とDB不変性、
 公開認証APIの保護、期限切れ401とCSRF403・権限不足403の区別、GET / HEAD・CORS preflightを検証する。
 
-2026-10-26、CHRON-151ステップ4で全テストを実行：全131件中129成功・2失敗。
-CsrfProtectionTestsの24件と、CSRF取得方式へ更新したLoginSessionTestsの7件はすべて成功。
-失敗は前ステップと同じ既知TimeBlocking不具合2件。FrontendのCSRF自動送信は未実装。
-
 ### 環境別CORSとHTTPSプロキシ
 
 CorsPropertiesTestsはdev / testの既定Origin、prodの明示設定必須、複数Origin、不正なOriginの拒否を検証する。
 CorsApiTestsは開発既定値と異なるOriginを使い、許可Originのcredentials付き応答、未許可Origin拒否、
 HEAD / POST / PUT / PATCH / DELETEのpreflight、同一Originの扱いを検証する。
-2026-10-26、CHRON-151ステップ6で全159件中157成功・2失敗。追加したCORSの28件はすべて成功。
-失敗は以前と同じTimeBlockingの既知2件。bootJarも生成済み。
-Nginx本番イメージの設定回帰と、prod設定＋使い捨てH2によるHTTPS結合27項目は
-[Frontend検証記録](../../../frontend/VERIFICATION.md) を参照。TiDB実機・Cloud Runの確認は含まない。
-
-2026-10-26、CHRON-151ステップ7では別途TiDB実機の結合検証37項目がすべて成功した。
-Flyway V1・V2、独立したBackend JVM間と再起動後の認証・CSRF継続、7日間の期限更新、
-ログアウトの共有反映、期限切れ拒否・削除を確認した。既存DBを変更せず専用一時DBを使い、
-終了後に削除した。再実行手順・詳細・Cloud Runへの引継ぎは
-[TiDB共有セッション検証](../../verification/README.md) を参照。
-通常のH2テストはTiDBへ接続しない。このステップではアプリ本体の変更はなく、全H2テストの再実行はしていない。
 
 テスト全体に@Transactionalは付けない。アプリ側のトランザクション境界を維持する。
 追加の@Sqlは共通cleanup.sqlにマージされるが、ユーザー作成より先に実行されるため、
@@ -100,9 +74,9 @@ Flyway V1・V2、独立したBackend JVM間と再起動後の認証・CSRF継続
 
 MockMvcは実サーバーやネットワークを起動せず、SecurityとSpring MVCを経由して実際の処理とDBを呼ぶ。
 LoginUserを認証済みPrincipalとして注入するため、ログインAPIを呼ばない。
-ServiceやMapperはモック化しない。認証API・IDOR固有のケースはCHRON-135の対象外。
+ServiceやMapperはモック化しない。認証API・IDOR固有のケースは、以下の専用テストで扱う。
 
-### CHRON-137 SchedulerのIDORテスト
+### SchedulerのIDORテスト
 
 `SchedulerIdorTests`は2ユーザーを用意し、一覧の所有者分離、他人・存在しないIDへの
 更新と削除の404、scheduleId/userIdの偽装、対象6Mapperの所有者条件とDB不変性を確認する。
@@ -114,22 +88,6 @@ ServiceやMapperはモック化しない。認証API・IDOR固有のケースは
 
 実行例: `docker compose exec -T backend sh ./gradlew test --tests '*Scheduler*'`
 
-2026-10-12に`feature/scheduler_idor`で実行: 既存12ケース＋追加14ケースの26ケース中、
-16成功・10失敗。CalendarEvent更新・削除のJOIN構文がH2非対応であるため、既存正常系4件、
-偽装ID更新2件、Mapper更新・削除2件が失敗する。削除ロールバック1件も先行DELETEの
-構文エラーで後続の故障注入まで到達しない。更新ロールバック1件は、後続更新0件でも
-204を返し先行Schedule更新をコミットするため失敗する。期待値は変更せず残す。
-
-同日の`feature/move-Logic-to-service_scheduler`でupdateEventのロールバック対応後に再実行:
-28ケース中24成功・4失敗。先行Schedule更新を実DBで確認した後、後続更新0件で404となり、
-先行変更が取り消されることを検証済み。先行更新が0件・2件の場合も404となり、
-CalendarEvent更新を実行しない。残る4件は削除SQLのH2構文エラーによるもの。
-
-同日の削除SQL修正・deleteEventのロールバック対応後に再実行: 既存12ケース＋IDOR18ケースの
-30ケースがすべて成功。先行CalendarEvent削除を実DBで確認した後、後続削除0件で404となり、
-削除済みイベントが復元されることを検証済み。先行削除が0件・2件の場合も404となり、
-Schedule削除を実行しない。
-
 ApiIntegrationInfrastructureTestsはToDoの登録・取得を2回繰り返し、基盤とデータ分離を検証する。
 ToDoListApiTestsはToDoの5エンドポイントについて、期限の3形式、優先度、完了状態、
 更新時の項目保持、単体・複数削除、実装済みの400・404応答とDB状態を検証する。
@@ -140,17 +98,17 @@ TimeTableApiTests・TimeBlockApiTests・TimeBlockTaskApiTests・TemplateBlockApi
 TimeBlockingの14エンドポイントを検証する。日付重複409、未登録IDの404、配置・保持の切り替え、
 開始時刻だけの更新、ブロック削除時の子タスク削除と関連予定削除を含む。
 
-## TimeBlockingで検出した既存不具合
+## TimeBlockingの回帰ケース
 
-以下の2ケースは現在の実装では失敗する。仕様を保証するため、テストは無効化せず残している。
+以下の回帰ケースで保持データと関連予定を検証する。失敗時は期待値の緩和やテストの無効化ではなく、
+ResultMapと更新時の関連情報を確認する。
 
-- `TimeBlockApiTests.getHoldBlocksIncludesTasks`: タスク付きHOLDブロック取得は200が期待されるが、
-  MyBatisSystemExceptionにより500になる。TimeblockingResultMap.xmlのtasksのcollectionで
-  javaTypeにコレクション型ではなくTimeBlockTaskが指定されている。
-- `TimeBlockApiTests.updateStartAtPreservesScheduleLink`: 開始時刻だけの更新でschedule_idがNULLになる。
-  getTimeBlockByIdが関連予定を取得しない状態で、updateTimeBlockがschedule_idも上書きするため。
+- `TimeBlockApiTests.getHoldBlocksIncludesTasks`: タスク付きHOLDブロックを200で取得できること。
+  失敗時はTimeblockingResultMap.xmlのtasksのcollectionとjavaTypeを確認する。
+- `TimeBlockApiTests.updateStartAtPreservesScheduleLink`: 開始時刻だけの更新でschedule_idが保持されること。
+  失敗時は取得時の関連予定と、更新対象に含める列を確認する。
 
-全64ケース中62成功・2失敗。既存不具合の修正後に全件を再実行する必要がある。
+過去の成功・失敗件数は現在の結果を示さない。実際の結果はテストレポートで確認する。
 
 ## ToDoの仕様差分・未確定事項
 
@@ -160,4 +118,11 @@ TimeBlockingの14エンドポイントを検証する。日付重複409、未登
   `DATETIME`、`DATED`、`isCompleted` を使用する。
 - 複数削除で存在するIDと存在しないIDが混在すると、現実装では途中まで削除されうる。
   原子性について仕様が定まっていないため、その部分削除を期待するテストは追加しない。
-- 任意のnullや不正な配列要素に対するエラー応答の整備は今回行わない。
+- 任意のnullや不正な配列要素に対するエラー応答は、実装と仕様の対応を確認してからテストを追加する。
+
+## 外部DB・HTTPSとの結合
+
+通常のH2テストはTiDBへ接続しない。MockMvcで成功しても実ブラウザ・HTTPS・配置先の振り分けを保証しない。
+プロキシ・Cookie・CSRFは [ローカルHTTPS検証](../../../frontend/README.md#転送設定とローカルhttpsの検証)、
+TiDB上の保存・共有・再起動は [TiDB共有セッション検証](../../verification/README.md) を使う。
+各環境での過去の実行結果は、開発者向けの再実行手順から分離して管理する。

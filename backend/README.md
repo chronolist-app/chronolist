@@ -29,11 +29,11 @@ CLIではbackendから `sh ./gradlew bootRun --args='--spring.profiles.active=de
 - `DB_URL`: `jdbc:mysql://<host>:4000/<database>?sslMode=VERIFY_IDENTITY`
 - `DB_USERNAME`: TiDB Cloudのユーザー名
 - `DB_PASSWORD`: TiDB Cloudのパスワード
-- `FRONTEND_ORIGIN`: 本番FrontendのOrigin（例: `https://<service-url>.run.app`。末尾スラッシュやパスなし）
+- `FRONTEND_ORIGIN`: 本番FrontendのOrigin（例: `https://app.example.com`。末尾スラッシュやパスなし）
 
 prodの接続情報は必須。DBスキーマはアプリ起動前に別途用意する。
 FlywayのSQL・専用コンテナと実行方法は [flyway/README.md](flyway/README.md) を参照。
-Cloud Run Jobの設定と運用手順は [flyway/CLOUD_RUN.md](flyway/CLOUD_RUN.md) を参照。
+実行先は配置環境に応じて選ぶ。任意の例として [Cloud Runへの配置例](../examples/cloud-run/README.md) を用意している。
 
 ## HTTPセッションの保存先
 
@@ -47,10 +47,8 @@ prodへ対応Backendをデプロイする前に、Flyway V2（セッション用
 期限切れセッションの物理削除はSpring Session JDBCの標準定期処理が担当する。
 既定cronは `0 * * * * *`（毎分0秒）。必要な場合は
 `SPRING_SESSION_JDBC_CLEANUP_CRON` / `spring.session.jdbc.cleanup-cron` で変更する。
-Cloud Runが停止中は定期処理も停止するが、有効期限の判定と物理削除は別である。
+アプリ停止中やCPUが割り当てられない時間は定期処理の実行を前提にしない。有効期限の判定と物理削除は別である。
 
-CHRON-151の段階的な実装として、現時点は保存基盤・ログインフィルタ連携・Cookie期限更新・
-BackendのCSRF保護・Frontend共通層のトークン自動取得と送信・環境別CORS・Nginx転送まで対応済み。
 ログイン時のセッションID変更、旧CSRFトークンの破棄、認証情報の保存はSecurity側で行い、
 成功ハンドラは200応答のみを返す。独自ログインフィルタはSecurity内で生成し、Servlet Filterとして
 別途自動登録しない。ログインはPOST `/api/login` のみで受け付ける。
@@ -62,7 +60,7 @@ H2上のテストと区別して検証する。
 `LoginUser` は明示的なserialVersionUIDを持つ。今後も認証情報の保存形式の互換性を確認し、
 互換性のない変更時は旧セッションを失効させ、再ログインを求める。必要な場合はデプロイ時に
 対象DBのセッション属性・セッション本体の順で削除する手順を用意する（業務データは削除しない）。
-今回のserialVersionUID明示前に作成されたセッションは継続利用を保証しない。
+古い保存形式のセッションとの継続利用は、形式ごとに互換性を確認する。
 
 ### ログイン維持期間とCookie
 
@@ -86,9 +84,8 @@ Cookie保持期間を長くしても、サーバー側で失効したセッシ�
 期限切れ・匿名リクエストで認証用Cookieを延長せず、Cookie更新処理自体はセッションを新規作成しない。
 SPA APIは401を直接返すため、未認証リクエストの保存（Spring Security RequestCache）は無効化する。
 
-以前の段階でSpring Session標準の `SESSION` Cookieを受け取ったブラウザは再ログインが必要。
-Cookie属性と期限更新はローカルのテストで確認し、Cloud Run・Nginx経由の実ブラウザでの確認は
-CHRON-152と連携して行う。
+Cookie名や保存形式を変える場合は、既存セッションの扱いと再ログインの必要性を確認する。
+配置先では、実ブラウザとHTTPS入口を通してCookie属性・期限更新を確認する。
 
 ### CSRFトークンの取得・送信とエラー応答
 
@@ -117,9 +114,9 @@ CORSでは設定したOriginに対し `X-CSRF-TOKEN` とGET / HEAD / POST / PUT 
 設定はSecurityConfigへ集約し、Controllerごとの固定CrossOriginは使用しない。
 
 Frontendの共通Axiosがトークンを取得・送信し、ログイン・ログアウト成功後に再取得する。
-ローカル実ブラウザでの認証・CSRFフロー確認は [Frontendの検証記録](../frontend/VERIFICATION.md) を参照。
-TiDBの共有セッション検証は [専用の再実行手順](verification/README.md) を参照。
-本番Cloud Run・Nginx経由の確認は引き続きCHRON-152で実施する。
+ローカルHTTPSでの認証・CSRF・Cookie確認は [Frontendの結合検証方法](../frontend/README.md#転送設定とローカルhttpsの検証)、
+TiDBの共有セッションは [専用の再実行手順](verification/README.md) を参照。
+配置先の実ネットワーク・ブラウザを通す検証は、それらと別に行う。
 
 ### CORSとプロキシからの転送情報
 
@@ -127,7 +124,8 @@ TiDBの共有セッション検証は [専用の再実行手順](verification/RE
 `http://localhost:5173` を使用し、従来のCompose・VSCode起動で追加設定は不要。
 prodは必須で、未設定・空値・ワイルドカード・パス／認証情報／クエリ／フラグメント付きの値は
 起動時に拒否する。複数Originを許可する場合はカンマ区切りで明示する。
-独自ドメインは必要ない。本番はFrontendとBackendの公開OriginをNginx経由で1つにする。
+提供するNginxイメージは同一Originで画面とAPIを公開できる。
+別Originで公開する場合も、許可Origin・Cookie送信・ブラウザのCookie制限を合わせて検証する。
 
 devの許可Originを変更する場合のみ、起動プロセスの `FRONTEND_ORIGIN` または
 `chronolist.cors.allowed-origins` を上書きする。Compose利用時はoverrideファイル等の
@@ -135,12 +133,12 @@ backend.environmentへ設定する。通常の開発では不要。
 
 prodは `server.forward-headers-strategy=framework` を使用する。Nginxが公開URLから設定した
 Host・X-Forwarded-Host / Proto / Portを使い、HTTPS終端後のHTTP転送でも公開URLを正しく認識する。
-BackendはCloud Runの入口コンテナに指定せず、Nginxからだけ到達できる構成にする。
+このprod設定では、Backendを信頼するNginxプロキシからだけ到達できる構成にする。
 信頼境界はNginxであり、外部のForwardedヘッダーをそのまま信用しない。
 本番配置時のポート・同一Origin公開設定は [Frontend手順](../frontend/README.md) と合わせる。
 
-prod設定＋使い捨てH2＋一時TLS入口を使うローカル結合検証は実施済み。
-この成功はTiDB互換性や実際のCloud Run配置の確認を意味しない。
+prod設定＋使い捨てH2＋一時TLS入口の検証は、プロキシ・認証の検証方法である。
+TiDB互換性や配置先の実際の起動・振り分けは別に確認する。
 
 ## Dockerイメージの使い分け
 
@@ -194,7 +192,7 @@ devのデータはインメモリのため、コンテナ再起動で初期化�
 アプリコンテナはマイグレーションもSQL自動初期化も実行しない。
 データを書き込む動作検証には使い捨て検証DBを使用する。
 
-起動するシェルの環境変数に、冒頭の `DB_URL`・`DB_USERNAME`・`DB_PASSWORD` を設定しておく。
+起動するシェルの環境変数に、冒頭の `DB_URL`・`DB_USERNAME`・`DB_PASSWORD`・`FRONTEND_ORIGIN` を設定しておく。
 接続元からTiDBへ通信できることも必要。
 Secret管理機能などから値を取得し、コマンド引数やGit管理対象ファイルへ値を直接記述しない。
 リポジトリの `.env` にある `FLYWAY_*` はFlyway用なので、下記の `docker run` には自動適用されない。
@@ -204,10 +202,11 @@ Secret管理機能などから値を取得し、コマンド引数やGit管理�
 | `SPRING_PROFILES_ACTIVE` | 起動時に `prod` を指定 |
 | `DB_URL` | 対象DBを含むJDBC URL。`sslMode=VERIFY_IDENTITY` を指定 |
 | `DB_USERNAME` / `DB_PASSWORD` | 対象DBの認証情報 |
+| `FRONTEND_ORIGIN` | 公開FrontendのHTTPS Origin |
 | `SERVER_PORT` | 任意。コンテナ内のHTTPポート。既定8080 |
 
 ```sh
-docker run -d --name chronolist-image-prod -p 127.0.0.1:18082:8080 -e SPRING_PROFILES_ACTIVE=prod -e DB_URL -e DB_USERNAME -e DB_PASSWORD chronolist-backend:local
+docker run -d --name chronolist-image-prod -p 127.0.0.1:18082:8080 -e SPRING_PROFILES_ACTIVE=prod -e DB_URL -e DB_USERNAME -e DB_PASSWORD -e FRONTEND_ORIGIN chronolist-backend:local
 docker logs chronolist-image-prod
 ```
 
@@ -231,53 +230,16 @@ $baseUrl = 'http://127.0.0.1:18082'
 (Invoke-WebRequest "$baseUrl/api/todolist/getAll" -SkipHttpErrorCheck).StatusCode
 ```
 
-DB接続を確認する場合は、使い捨て検証DBに対して以下を実行する。
-検証用ユーザーを1件作成し、セッションを使ったDB読み取りまで確認する。
-各HTTP操作が200になることを確認する。認証情報・Cookieは出力しない。
+DBの読み書き・ログインは、HTTPS入口と同じCookieを使って検証する。
+prodはSecure Cookieを発行するため、上のHTTPループバックへの通常のCookieクライアントだけで
+ログイン継続を検証しない。状態変更の前に `/api/csrf` から取得したトークンを送り、
+ログイン成功後は新しいトークンを取得する。
 
-```powershell
-$credentials = @{
-    loginId = 'c149' + [guid]::NewGuid().ToString('N').Substring(0, 16)
-    password = 'Check149!' + [guid]::NewGuid().ToString('N')
-} | ConvertTo-Json
-$session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
-(Invoke-WebRequest "$baseUrl/api/signup" -Method Post -ContentType 'application/json' -Body $credentials).StatusCode
-(Invoke-WebRequest "$baseUrl/api/login" -Method Post -ContentType 'application/json' -Body $credentials -WebSession $session).StatusCode
-$tasks = Invoke-WebRequest "$baseUrl/api/todolist/getAll" -WebSession $session
-$tasks.StatusCode
-$tasks.Content # 新規ユーザーなら []
-```
+- [ローカルHTTPS結合検証](../frontend/README.md#転送設定とローカルhttpsの検証)：使い捨てH2でプロキシ・Cookie・CSRFを確認。
+- [TiDB共有セッション検証](verification/README.md)：専用DBで読み書き・独立JVM間の共有・再起動を確認。
 
-続けて、同じ使い捨て検証DBにToDoを1件作り、再起動前の内容を保存する。
-
-```powershell
-$taskBody = @{
-    title = 'Docker image verification'
-    dueKind = 'NONE'
-    priority = 'LOW'
-    memo = 'Synthetic verification data'
-    isCompleted = $false
-} | ConvertTo-Json
-(Invoke-WebRequest "$baseUrl/api/todolist/register" -Method Post -ContentType 'application/json' -Body $taskBody -WebSession $session).StatusCode
-$beforeRestart = (Invoke-WebRequest "$baseUrl/api/todolist/getAll" -WebSession $session).Content
-docker restart chronolist-image-prod
-docker logs --tail 20 chronolist-image-prod
-```
-
-ログで再度 `Started Application` を確認した後、同じPowerShellで次を実行する。
-新しいセッションで同じユーザーにログインし、取得内容の完全一致（`True`）を確認する。
-
-```powershell
-$newSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
-(Invoke-WebRequest "$baseUrl/api/login" -Method Post -ContentType 'application/json' -Body $credentials -WebSession $newSession).StatusCode
-$afterRestart = (Invoke-WebRequest "$baseUrl/api/todolist/getAll" -WebSession $newSession).Content
-$beforeRestart -ceq $afterRestart
-```
-
-prodのユーザー・ToDoはコンテナを削除してもDBに残る。
-
-CHRON-149で実施したAPI操作・再起動後の比較結果は
-[Dockerイメージ検証記録](DOCKER_VERIFICATION.md) を参照。
+永続DBの業務データとセッションはコンテナの再作成とは独立して保持される。
+配置先では同一Cookieでの再起動後の認証、CSRF付き更新とデータ保持を確認する。
 
 ## 停止・後片付け
 
@@ -303,5 +265,4 @@ Profile未指定の動作を検証するテストへの影響を避けるため�
 docker compose exec -T backend env -u SPRING_PROFILES_ACTIVE sh ./gradlew test
 ```
 
-テストは専用H2を使用する。詳細は [API統合テスト](src/test/README.md)、
-今回の全件実行結果は [検証記録](DOCKER_VERIFICATION.md) を参照。
+テストは専用H2を使用する。追加方法と検証範囲は [API統合テスト](src/test/README.md) を参照。
