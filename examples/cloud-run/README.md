@@ -1,5 +1,7 @@
 # Cloud Runへの配置例
 
+GitHub Actionsによる承認付きの自動化は [CI/CD設定手順](CI_CD.md) を参照する。
+
 ChronolistをCloud Runへ配置する場合の一例。アプリ自体はCloud Runを必須としない。
 共通の設定・ビルド・DB要件は [ルートREADME](../../README.md)、
 [Backend](../../backend/README.md)、[Frontend](../../frontend/README.md)、

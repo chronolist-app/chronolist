@@ -21,17 +21,13 @@ const update = async (block: TimeBlockSource) => {
         color: block.color,
     };
 
-    try {
-        await customizedFetch<void>(
-            {
-                url: "/timeblocking/timeBlock/update",
-                method: "PUT",
-                data: newBlock,
-            }
-        )
-    } catch (error) {
-        throw error;
-    }
+    await customizedFetch<void>(
+        {
+            url: "/timeblocking/timeBlock/update",
+            method: "PUT",
+            data: newBlock,
+        }
+    )
 };
 
 export default update;

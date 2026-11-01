@@ -1,0 +1,80 @@
+name: Production release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a migration/deployment already in progress. All production
+# mutations, including manual releases, must share this concurrency group.
+concurrency:
+  group: chronolist-production
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Approve and deploy production
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      ARTIFACT_REPOSITORY: ${{ vars.ARTIFACT_REPOSITORY }}
+      SERVICE_NAME: ${{ vars.SERVICE_NAME }}
+      FLYWAY_JOB_NAME: ${{ vars.FLYWAY_JOB_NAME }}
+      PUBLIC_ORIGIN: ${{ vars.PUBLIC_ORIGIN }}
+      RELEASE_SHA: ${{ github.sha }}
+      RELEASE_ID: r${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Require completed production setup
+        env:
+          ENABLED: ${{ secrets.PRODUCTION_DEPLOY_ENABLED }}
+        run: |
+          test "$ENABLED" = true || { echo 'Configure production reviewers, branch restriction and environment settings before enabling deployment.' >&2; exit 1; }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Reject a superseded release before cloud changes
+        run: |
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$RELEASE_SHA" || { echo 'main has advanced. Release its latest commit instead.' >&2; exit 1; }
+      - name: Build release images before obtaining short-lived credentials
+        run: |
+          IMAGE_ROOT="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REPOSITORY}"
+          docker build --platform linux/amd64 --target runtime -t "$IMAGE_ROOT/backend:$RELEASE_SHA" backend
+          docker build --platform linux/amd64 --target production -t "$IMAGE_ROOT/frontend:$RELEASE_SHA" frontend
+          docker build --platform linux/amd64 -t "$IMAGE_ROOT/flyway:$RELEASE_SHA" backend/flyway
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        id: auth
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          token_format: access_token
+          access_token_lifetime: 3600s
+          create_credentials_file: false
+          export_environment_variables: false
+      - name: Publish, migrate, stage, check and switch traffic
+        env:
+          CLOUDSDK_AUTH_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$RELEASE_SHA" || { echo 'main advanced during the build. Release its latest commit instead.' >&2; exit 1; }
+          bash examples/cloud-run/deploy.sh
+      - name: Preserve release record even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-record.json
+          if-no-files-found: ignore
+          retention-days: 90

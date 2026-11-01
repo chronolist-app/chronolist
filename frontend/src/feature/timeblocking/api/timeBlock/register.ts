@@ -13,19 +13,15 @@ const register = async (block: TimeBlockSource) => {
         color: block.color,
     };
 
-    try {
-        const res = await customizedFetch<number>(
-            {
-                url: "/timeblocking/timeBlock/register",
-                method: "PUT",
-                data,
-            }
-        )
-        console.log("new id: ", res);
-        return res;
-    } catch (error) {
-        throw error;
-    }
+    const res = await customizedFetch<number>(
+        {
+            url: "/timeblocking/timeBlock/register",
+            method: "PUT",
+            data,
+        }
+    )
+    console.log("new id: ", res);
+    return res;
 };
 
 export default register;
