@@ -1,0 +1,3 @@
+#todolist-page {
+    font-size: clamp(20px, 1.2vw, 40px);
+}

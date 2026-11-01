@@ -1,0 +1,34 @@
+# Version control and editor settings
+**/.git
+**/.gitignore
+**/.idea
+**/.vscode
+**/.settings
+**/.classpath
+**/.project
+**/.factorypath
+**/*.iml
+**/*.ipr
+**/*.iws
+
+# Local caches, build output, and logs
+**/.gradle
+**/build
+**/out
+**/bin
+**/*.log
+
+# Local configuration and credentials
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+**/.aws
+**/.ssh
+
+# Separate migration image and documentation
+flyway/
+**/*.md

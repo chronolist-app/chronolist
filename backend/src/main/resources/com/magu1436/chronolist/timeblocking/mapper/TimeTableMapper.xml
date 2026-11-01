@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.magu1436.chronolist.timeblocking.mapper.TimeTableMapper">
+
+    <select id="getTimeTableById" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeTableResult">
+        SELECT
+            tt.id AS table_id, tt.user_id AS table_user_id, tt.date
+        FROM time_tables tt
+        WHERE (tt.user_id = #{userId}) AND (tt.id = #{id})
+    </select>
+
+    <select id="getTimeTableByDate" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeTableResult">
+        SELECT
+            tt.id AS table_id, tt.user_id AS table_user_id, tt.date
+        FROM time_tables tt
+        WHERE (tt.user_id = #{userId}) AND (tt.date = #{date})
+    </select>
+
+    <insert id="insertTimeTable" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO time_tables (user_id, date)
+        VALUES
+        (#{userId}, #{date})
+    </insert>
+
+    <update id="updateTimeTable">
+        UPDATE time_tables SET date = #{timeTable.date}
+        WHERE id = #{timeTable.id} AND user_id = #{userId}
+    </update>
+
+    <delete id="deleteTimeTable">
+        DELETE FROM time_tables WHERE id = #{id} AND user_id = #{userId}
+    </delete>
+</mapper>

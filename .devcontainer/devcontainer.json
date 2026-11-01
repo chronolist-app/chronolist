@@ -1,0 +1,21 @@
+{
+  "name": "Chronolist",
+  "dockerComposeFile": "../compose.yaml",
+  "service": "devcontainer",
+  "workspaceFolder": "/workspace",
+
+  "runServices": [
+    "backend",
+    "frontend",
+    "devcontainer"
+  ],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
+}

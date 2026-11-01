@@ -1,0 +1,19 @@
+.todolabel-checkbox {
+    width: 10%;
+}
+
+.todolabel-title {
+    width: 50%;
+}
+
+.todolabel-priority {
+    width: 10%;
+}
+
+.todolabel-due {
+    width: 30%;
+}
+
+.selected-label {
+    background-color: #00d9ff;
+}

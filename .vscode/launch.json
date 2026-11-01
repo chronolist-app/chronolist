@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot - Chronolist (dev)",
+            "request": "launch",
+            "mainClass": "com.magu1436.chronolist.Application",
+            "cwd": "${workspaceFolder}/backend",
+            "env": {
+                "SPRING_PROFILES_ACTIVE": "dev"
+            }
+        }
+    ]
+}

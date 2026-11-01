@@ -1,0 +1,59 @@
+import { useState } from "react"
+
+import type CalendarEvent from "./entity/calendarEvent";
+import CalendarEventsContext from "./components/contexts/calendar-events-context"
+import SelectedCalendarEventContext from "./components/contexts/selected-event"
+import Calendar from "./components/calendar";
+
+import { Box, Stack } from "@mui/material";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import SidePanel from "./components/SidePanel/SidePanel";
+import updateCalendarEvent from "./api/update";
+
+
+const SchedulerPage = () => {
+
+    const [events, setEvents] = useState<CalendarEvent[]>([]);
+    const updateEvent = (clientId: string, updatedEvent: CalendarEvent | ((updatedEvent: CalendarEvent) => CalendarEvent)) => {
+        const oldEvent = events.find(e => e.clientId === clientId);
+        if (!oldEvent) throw new Error("Event not found.");
+        const newEvent = typeof updatedEvent === "function" ? updatedEvent(oldEvent) : updatedEvent;
+        setEvents(events.map(event => event.clientId === newEvent.clientId ? newEvent : event));
+        updateCalendarEvent(newEvent);
+    };
+
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+    const DynamicCalendar = (
+        <>
+            <Box sx={{ flex: (selectedEventId ? 3 : 1), minWidth: 0, minHeight: 0 }}>
+                <Calendar />
+            </Box>
+        </>
+    );
+    const DynamicSidePanel = selectedEventId && (
+        <>
+            <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto" }}>
+                <SidePanel />
+            </Box>
+        </>
+    )
+
+    return (
+        <>
+            <CalendarEventsContext value={{events, setEvents, updateEvent}} >
+                <SelectedCalendarEventContext value={{eventClientId: selectedEventId, setEventClientId: setSelectedEventId}} >
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <Stack sx={{ height: "100%", width: "100%", minHeight: 0, flexShrink: 0, border: "1px solid red", alignItems: "stretch" }} direction={"row"}>
+                            {DynamicCalendar}
+                            {DynamicSidePanel}
+                        </Stack>
+                    </LocalizationProvider>
+                </SelectedCalendarEventContext>
+            </CalendarEventsContext>
+        </>
+    )
+}
+
+export default SchedulerPage;

@@ -1,0 +1,56 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      target: development
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+      - backend_gradle_cache:/root/.gradle
+      - backend_project_gradle_cache:/app/.gradle
+
+  flyway:
+    build:
+      context: ./backend/flyway
+    profiles: ["migration"]
+    environment:
+      FLYWAY_URL: ${FLYWAY_URL:-}
+      FLYWAY_USER: ${FLYWAY_USER:-}
+      FLYWAY_PASSWORD: ${FLYWAY_PASSWORD:-}
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080
+
+  devcontainer:
+    build:
+      context: .
+      dockerfile: ./.devcontainer/Dockerfile
+
+    volumes:
+      - ./:/workspace
+      - devcontainer_gradle_cache:/root/.gradle
+      - devcontainer_project_gradle_cache:/workspace/backend/.gradle
+      - frontend_node_modules:/workspace/frontend/node_modules
+
+    command: sleep infinity
+
+volumes:
+  backend_gradle_cache:
+  backend_project_gradle_cache:
+  frontend_node_modules:
+  devcontainer_gradle_cache:
+  devcontainer_project_gradle_cache:

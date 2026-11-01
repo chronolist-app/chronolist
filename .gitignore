@@ -1,3 +1,13 @@
 
-.vscode/
+.vscode/*
+!.vscode/launch.json
 .env
+
+# Local Cloud Run configuration containing deployment-specific values.
+/service.yaml
+/service.yaml~
+/.service.yaml.un~
+
+# Generated deployment records are uploaded as Actions artifacts.
+/release-record.json
+/release-record.json.tmp

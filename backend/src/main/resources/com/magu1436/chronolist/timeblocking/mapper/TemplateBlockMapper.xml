@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.magu1436.chronolist.timeblocking.mapper.TemplateBlockMapper">
+    <select id="getAllTemplateBlocks" resultType="com.magu1436.chronolist.timeblocking.entity.TemplateBlock">
+        SELECT id, user_id, title, width, color
+        FROM template_blocks
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="getTemplateBlockById" resultType="com.magu1436.chronolist.timeblocking.entity.TemplateBlock">
+        SELECT id, user_id, title, width, color
+        FROM template_blocks
+        WHERE id = #{id} AND user_id = #{userId}
+    </select>
+
+    <insert id="insertTemplateBlock" useGeneratedKeys="true" keyProperty="id" parameterType="com.magu1436.chronolist.timeblocking.entity.TemplateBlock">
+        INSERT INTO template_blocks (user_id, title, width, color)
+        VALUES
+        (#{userId}, #{title}, #{width}, #{color})
+    </insert>
+
+    <update id="updateTemplateBlock" parameterType="com.magu1436.chronolist.timeblocking.entity.TemplateBlock">
+        UPDATE template_blocks SET title = #{title}, width = #{width}, color = #{color}
+        WHERE id = #{id} AND user_id = #{userId}
+    </update>
+
+    <delete id="deleteTemplateBlock">
+        DELETE FROM template_blocks WHERE id = #{id} AND user_id = #{userId}
+    </delete>
+</mapper>
