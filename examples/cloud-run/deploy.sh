@@ -15,10 +15,12 @@ for tool in gcloud docker jq curl; do command -v "$tool" >/dev/null; done
 common=(--project="$GCP_PROJECT_ID" --region="$GCP_REGION" --quiet)
 image_root="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REPOSITORY}"
 revision="${SERVICE_NAME}-${RELEASE_ID}"
-# Only status and container names are fetched; DB configuration is never exported.
+# Read unprojected JSON: gcloud cannot project a field through containers[]
+# without changing/dropping its structure. Immediately retain only status/names;
+# never log or persist the full service configuration.
 service=$(gcloud run services describe "$SERVICE_NAME" "${common[@]}" \
-  --format='json(status,spec.template.spec.containers.name)')
-jq -e '[.spec.template.spec.containers[].name] | sort == ["backend","frontend"]' <<<"$service" >/dev/null
+  --format=json | jq '{status, containers: [.spec.template.spec.containers[] | {name}]}')
+jq -e '[.containers[].name] | sort == ["backend","frontend"]' <<<"$service" >/dev/null
 previous=$(jq -er '[.status.traffic[] | select(.percent > 0)] | if length == 1 and .[0].percent == 100 then .[0].revisionName else error("Expected one current revision at 100%") end' <<<"$service")
 [[ -n $previous && $previous != null ]] || exit 2
 jq -n --arg commit "$RELEASE_SHA" --arg previous "$previous" --arg candidate "$revision" \
@@ -64,7 +66,7 @@ gcloud run services update "$SERVICE_NAME" "${common[@]}" \
   --format='value(status.latestReadyRevisionName)' \
   --container=frontend --image="$frontend_image" \
   --container=backend --image="$backend_image"
-candidate=$(gcloud run services describe "$SERVICE_NAME" "${common[@]}" --format='json(status)')
+candidate=$(gcloud run services describe "$SERVICE_NAME" "${common[@]}" --format=json | jq '{status}')
 [[ $(jq -r '.status.latestReadyRevisionName' <<<"$candidate") == "$revision" ]] || { echo 'Candidate not ready' >&2; exit 1; }
 candidate_url=$(jq -er --arg tag "$RELEASE_ID" --arg revision "$revision" \
   '.status.traffic[] | select(.tag == $tag and .revisionName == $revision) | .url' <<<"$candidate")

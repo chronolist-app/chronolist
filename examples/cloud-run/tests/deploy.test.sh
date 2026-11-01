@@ -15,6 +15,9 @@ cat > "$temp/bin/gcloud" <<'MOCK'
 set -eu
 echo "$*" >> "$LOG"
 if [[ $* == 'run services describe '* ]]; then
+  # The real CLI drops containers.name when projecting through the array.
+  # Require unprojected JSON so the raw service shape reaches our jq parser.
+  [[ $* == *'--format=json'* ]] || { echo 'Expected raw service JSON' >&2; exit 47; }
   if [[ -f "$LOG.staged" ]]; then
     printf '{"status":{"latestReadyRevisionName":"test-service-r123-1","traffic":[{"revisionName":"test-service-r123-1","tag":"r123-1","url":"https://candidate.example"}]}}'
   else
