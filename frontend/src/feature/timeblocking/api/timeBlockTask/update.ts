@@ -9,17 +9,13 @@ const update = async (task: TimeBlockTask) => {
         title: task.title
     }
 
-    try {
-        await customizedFetch<void>(
-            {
-                url: "/timeblocking/timeBlockTask/update",
-                method: "PUT",
-                data: submitData,
-            }
-        );
-    } catch (error) {
-        throw error;
-    }
+    await customizedFetch<void>(
+        {
+            url: "/timeblocking/timeBlockTask/update",
+            method: "PUT",
+            data: submitData,
+        }
+    );
 }
 
 export default update;

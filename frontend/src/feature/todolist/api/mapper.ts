@@ -23,5 +23,6 @@ export const toToDoTaskApiFormat = (toDoTask: ToDoTask): ToDoTaskApiFormat => {
  */
 export const toInsertApiFormat = (toDoTask: ToDoTask): InsertApiFormat => {
     const { id, ...rest } = toToDoTaskApiFormat(toDoTask);
+    void id;
     return rest;
 };

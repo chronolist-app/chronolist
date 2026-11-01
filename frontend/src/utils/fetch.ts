@@ -7,7 +7,7 @@ type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 type FetchConfig = {
     url: string;
     method: HttpMethod;
-    data?: any;
+    data?: unknown;
 }
 
 export const customizedFetch = async <T,>(config: FetchConfig) => {
@@ -25,7 +25,7 @@ export const customizedFetch = async <T,>(config: FetchConfig) => {
  * @param app アプリケーション名
  * @returns 返却データを保持する連想配列
  */
-const useFetch = <T,>(app: string, method?: HttpMethod, body?: {}) => {
+const useFetch = <T,>(app: string, method?: HttpMethod, body?: unknown) => {
     
     const url = app.startsWith("/")? app : `/${app}`;
 

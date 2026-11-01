@@ -87,7 +87,7 @@ const Table: FC = () => {
         // 衝突が起こっているかどうかによって分割したタイムブロックのノードのリストを作成
         let blockNodes: ReactElement[] = [];
         for(const group of blockGroups) {
-            let columns: TimeBlockSource[][] = [];
+            const columns: TimeBlockSource[][] = [];
             for(const block of group) {
                 for(let i = 0; i < group.length; i++) {
                     if (!columns[i]) {
