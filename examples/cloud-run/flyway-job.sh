@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: bash backend/flyway/cloud-run-job.sh deploy|info|validate|migrate
+Usage: bash examples/cloud-run/flyway-job.sh deploy|info|validate|migrate
 
 Required for all commands:
   GCP_PROJECT_ID, GCP_REGION, FLYWAY_JOB_NAME

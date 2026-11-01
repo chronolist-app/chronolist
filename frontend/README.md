@@ -48,7 +48,7 @@ docker compose exec -T frontend npm run build
 
 `tests/csrf-token-manager.test.ts` と `tests/api-client.test.ts` では実際のAxios interceptorと
 テスト用adapterを使い、同時取得、認証世代の競合、取得・復旧失敗、再送防止、401と403の区別を検証する。
-ブラウザ・Cookie・Backendとの結合確認は [VERIFICATION.md](VERIFICATION.md) のCHRON-151記録を参照。
+ブラウザ・Cookie・Backendとの結合確認は、下記のローカルHTTPS検証と実ブラウザの確認を組み合わせる。
 
 ## 本番イメージのビルド
 
@@ -111,25 +111,24 @@ docker rm chronolist-frontend-check
 docker compose start frontend
 ```
 
-## 同一OriginでのAPI公開（Cloud Run向け）
+## 同一OriginでのAPI公開
 
-手動デプロイの再現手順と実環境の確認状況は [本番デプロイ手順](../docs/deployment/README.md) を参照。
+提供するNginxイメージは、静的配信に加えて内部BackendへのAPI転送を扱う。
+この機能はホスティングサービスに依存しない。配置先のネットワークに応じて到達先を指定する。
 
-本番は1つのCloud RunサービスにNginxとBackendを別コンテナとして配置する。
-入口は既存のNginxコンテナの80番ポートとし、Cloud Run側でも入口ポートを80に設定する。
-Backendは入口に指定せず、サービス外から直接アクセスさせない。
-
-| コンテナ | 設定 |
+| 設定 | 内容 |
 | --- | --- |
-| Frontend Nginx | `API_BASE_URL=https://<service-url>.run.app` |
-| Frontend Nginx | `BACKEND_UPSTREAM=http://127.0.0.1:8080` |
-| Backend | `SPRING_PROFILES_ACTIVE=prod`、`FRONTEND_ORIGIN=https://<service-url>.run.app` |
-| Backend | `SERVER_PORT=8080`、既存の本番DB接続設定 |
+| Frontend API_BASE_URL | ブラウザから到達できる公開HTTPS Origin |
+| Frontend BACKEND_UPSTREAM | Nginxからだけ到達できるBackendのHTTP Origin |
+| Backend FRONTEND_ORIGIN | 公開FrontendのOrigin |
+| Backend SERVER_PORT | 内部HTTP待受ポート。既定8080 |
+
+Cloud Runの2コンテナ配置は [任意の配置例](../examples/cloud-run/README.md) に分離している。
 
 API_BASE_URLとFRONTEND_ORIGINは同じ公開Originを指定する。BACKEND_UPSTREAM指定時の
 API_BASE_URLはパスなしのOrigin（末尾 `/` は可）が必須。BACKEND_UPSTREAMはプライベートな
 HTTP Originだけを受け付け、認証情報・パス・クエリ・フラグメントや不正ポートを拒否する。
-同一Cloud Runサービス内ではlocalhost経由で通信でき、独自ドメインは不要。
+上流の名前・アドレスは配置先で決める。別コンテナ同士のlocalhost通信が使えるかは実行環境による。
 
 Nginxは `/api/*` のパスを維持して転送し、Cookie・Set-Cookie・Originをそのまま扱う。
 HostとX-Forwarded-Host / Proto / Portは公開API_BASE_URLから生成し、呼出元が指定した
@@ -140,29 +139,30 @@ Cookie属性はBackendが管理し、Nginxでは書き換えない。
 APIの401 / 403等をSPAのindex.htmlへ置き換えない。`/api` 自体はJSONの404を返す。
 BACKEND_UPSTREAM未設定なら静的配信・外部API直接接続の既存モードを維持し、Nginxへの
 `/api/*` はJSONの404（API_PROXY_NOT_CONFIGURED）とする。
-設定変更にはコンテナの再作成が必要。Cloud Runの配置・起動順・Secret設定はCHRON-152で扱う。
+設定変更にはコンテナの再作成が必要。配置先に応じてBackendの起動順・疎通確認を設定する。
 
 ### 転送設定とローカルHTTPSの検証
 
 ```powershell
-docker build --target production -t chronolist-frontend:chron-151-step6 ./frontend
+docker build --target production -t chronolist-frontend:local ./frontend
 $testDirectory = (Resolve-Path ./frontend/tests).Path
-docker run --rm --mount "type=bind,source=$testDirectory,target=/tests,readonly" --entrypoint sh chronolist-frontend:chron-151-step6 /tests/api-config.test.sh
-docker run --rm --mount "type=bind,source=$testDirectory,target=/tests,readonly" --entrypoint sh chronolist-frontend:chron-151-step6 /tests/api-proxy.test.sh
+docker run --rm --mount "type=bind,source=$testDirectory,target=/tests,readonly" --entrypoint sh chronolist-frontend:local /tests/api-config.test.sh
+docker run --rm --mount "type=bind,source=$testDirectory,target=/tests,readonly" --entrypoint sh chronolist-frontend:local /tests/api-proxy.test.sh
 docker compose exec -T backend sh ./gradlew bootJar --no-daemon
-./frontend/tests/api-proxy-integration.ps1
+docker build --target development -t chronolist-backend:local ./backend
+./frontend/tests/api-proxy-integration.ps1 -FrontendImage chronolist-frontend:local -BackendImage chronolist-backend:local
 ```
 
-HTTPS結合スクリプトは既存のJava 25入りBackendイメージ（既定chronolist-backend:latest）を利用し、
+HTTPS結合スクリプトはJava 25入りBackendイメージを利用し、
 ビルド済みJARを直接起動する。イメージ名が異なる場合はBackendImage / FrontendImage引数で指定する。
-PowerShell 7・Docker・curl.exeを使用し、27項目を検証する。
+PowerShell 7・Docker・curl.exeを使用する。
 prod設定のBackendを使うが、DB接続とSQL初期化は使い捨てH2向けにテスト時だけ上書きする。
 本番DB接続情報やローカル.envは読み込まない。この上書きを実デプロイへコピーしない。
 
-一時TLS入口→HTTPのFrontend Nginx→HTTPのBackendという構成で、Cloud RunのTLS終端を模擬する。
+一時TLS入口→HTTPのFrontend Nginx→HTTPのBackendという構成で、外部のTLS終端と内部転送を検証する。
 curlの `--cacert` で一時証明書とホスト名を検証し、TLS検証の無効化やPCの信頼設定変更は行わない。
 終了時に専用コンテナ・ネットワーク・証明書を削除する。通常の開発コンテナは停止しない。
-実際のCloud RunやTiDBの検証とは区別する。
+配置先のネットワークやTiDB互換性の検証とは区別する。
 
 ## API URLの変更
 
@@ -191,7 +191,7 @@ docker run -d --name chronolist-frontend-local -p 127.0.0.1:5174:80 -e API_BASE_
 
 ## 動作確認
 
-実施済みの確認結果は [VERIFICATION.md](VERIFICATION.md) を参照。
+以下は再実行するための確認項目。各環境の実施結果は運用・リリース記録として別途管理する。
 
 1. API URL未指定で本番イメージをビルドする。
 2. `API_BASE_URL` を指定して起動し、`/config.js` の値と `no-store` を確認する。
@@ -204,7 +204,7 @@ docker run -d --name chronolist-frontend-local -p 127.0.0.1:5174:80 -e API_BASE_
 9. 検証後に開発Frontendを戻し、ログイン・API通信が動くことを確認する。
 
 設定生成・欠落の検証には使い捨てコンテナを使用する。
-本番ホスティング構築・CI/CDは別チケットで扱う。CORS・API転送設定はCHRON-151で整備する。
+本番の配置先ではHTTPS、認証・CSRF、データ保持を実際のネットワーク経由で別途確認する。
 
 ### 起動時URL検証の回帰テスト
 

@@ -1,9 +1,11 @@
 # Copy to /service.yaml (gitignored) and replace every <...> placeholder.
-# Apply manually; see docs/deployment/README.md. Never put password values here.
+# Optional Cloud Run deployment example; see examples/cloud-run/README.md.
+# Resource limits and scaling values below are example choices, not app requirements.
+# Never put password values here.
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: chronolist
+  name: '<SERVICE_NAME>'
   annotations:
     run.googleapis.com/ingress: all
     run.googleapis.com/maxScale: '1'
@@ -18,7 +20,7 @@ spec:
         run.googleapis.com/cpu-throttling: 'true'
         run.googleapis.com/container-dependencies: '{"frontend":["backend"]}'
     spec:
-      serviceAccountName: 'chronolist-app@<PROJECT_ID>.iam.gserviceaccount.com'
+      serviceAccountName: '<APP_SERVICE_ACCOUNT>'
       containerConcurrency: 8
       timeoutSeconds: 300
       containers:
@@ -62,7 +64,7 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: chronolist-prod-db-password
+                  name: '<DB_PASSWORD_SECRET>'
                   key: '<DB_PASSWORD_SECRET_VERSION>'
             - name: SESSION_TIMEOUT
               value: '7d'
