@@ -2,3 +2,6 @@
 .vscode/*
 !.vscode/launch.json
 .env
+
+# Local Cloud Run configuration containing deployment-specific values.
+/service.yaml
