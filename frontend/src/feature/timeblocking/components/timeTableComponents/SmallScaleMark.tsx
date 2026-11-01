@@ -2,7 +2,6 @@ import { Typography } from "@mui/material";
 import { useContext, type FC } from "react";
 
 import TimeTableConfigure from "../../contexts/TimeTableConfigure";
-import HourScaleMark from "./HourScaleMark";
 
 /**
  * 小刻み目盛りを描画するコンポーネント.  

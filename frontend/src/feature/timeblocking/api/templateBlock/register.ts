@@ -9,18 +9,14 @@ const register = async (block: TemplateBlockSource) => {
         color: block.color,
     };
 
-    try {
-        const res = await customizedFetch<number>(
-            {
-                url: "/timeblocking/templateBlock/register",
-                method: "PUT",
-                data,
-            }
-        );
-        return res;
-    } catch (error) {
-        throw error;
-    }
+    const res = await customizedFetch<number>(
+        {
+            url: "/timeblocking/templateBlock/register",
+            method: "PUT",
+            data,
+        }
+    );
+    return res;
 }
 
 export default register;

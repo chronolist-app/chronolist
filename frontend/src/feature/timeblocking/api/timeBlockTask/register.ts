@@ -14,15 +14,11 @@ const register = async (task: TimeBlockTask) => {
     console.log("timeblocking/timeBlockTask/register");
     console.log("task: ", task);
 
-    try {
-        const res = await axios.put(
-            "timeblocking/timeBlockTask/register",
-            task,
-        );
-        return res.data as number;
-    } catch (error) {
-        throw error;
-    }
+    const res = await axios.put(
+        "timeblocking/timeBlockTask/register",
+        task,
+    );
+    return res.data as number;
 };
 
 export default register;

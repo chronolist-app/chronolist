@@ -7,3 +7,7 @@
 /service.yaml
 /service.yaml~
 /.service.yaml.un~
+
+# Generated deployment records are uploaded as Actions artifacts.
+/release-record.json
+/release-record.json.tmp
