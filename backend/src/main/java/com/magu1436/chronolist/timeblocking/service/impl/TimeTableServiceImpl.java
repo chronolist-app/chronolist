@@ -43,7 +43,7 @@ public class TimeTableServiceImpl implements TimeTableService{
         }
 
         // DBに該当するブロックがなかった場合には, blocks には空のリストを設定
-        List<TimeBlock> blocks = timeBlockService.getTimeBlocksByTimeTableId(userId, table.getId());
+        List<TimeBlock> blocks = timeBlockService.getTimeBlocksByTimeTableId(userId,table.getId());
         if (blocks == null) {
             blocks = List.of();
         }
@@ -90,10 +90,9 @@ public class TimeTableServiceImpl implements TimeTableService{
         timeTable.setUserId(userId);
         timeTable.setDate(date);
         timeTable.setTimeBlocks(List.of());
-        try {
-            return this.createAt(timeTable);
-        } catch (TimeTableConflictException e) {
-            throw new RuntimeException(e);
-        }
+        
+        return this.createAt(timeTable);
+
     }
+
 }

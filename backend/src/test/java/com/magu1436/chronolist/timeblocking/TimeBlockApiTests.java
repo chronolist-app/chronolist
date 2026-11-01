@@ -5,11 +5,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** ブロックの取得・登録・更新・削除と関連データを検証する. */
@@ -75,21 +77,90 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         assertThat(row(other)).isEqualTo(before);
     }
 
-    /** 関連する予定も全体更新で反映する. */
+    /** 予定側の古い値に依存せず、移動先の日付・時刻・幅から日時を計算する（日跨ぎを含む）. */
+    @ParameterizedTest
+    @CsvSource({"15:00:00, 2026-11-01 16:30:00", "23:30:00, 2026-11-02 01:00:00"})
+    void updateRelatedSchedule(String startAt, String endAt) throws Exception {
+        int originalTable = table("2026-10-12");
+        int table = table("2026-11-01");
+        jdbcTemplate.update("""
+                INSERT INTO schedule (user_id,kind,start_at,end_at,title)
+                VALUES (?,'DATED','2026-10-12 09:30:00','2026-10-12 10:30:00','ブロック')
+                """, loginUser.getId());
+        int schedule = jdbcTemplate.queryForObject("SELECT MAX(id) FROM schedule", Integer.class);
+        int id = block(originalTable, "PLACED", schedule);
+        var body = blockBody(table, "PLACED");
+        body.put("id", id);
+        body.put("startAt", startAt);
+        body.put("relatedSchedule", Map.of("id", schedule, "kind", "DATED",
+                "startAt", "2026-10-12T09:30:00", "endAt", "2026-10-12T10:30:00",
+                "title", "同期前の予定"));
+        performJsonAsUser(put(BASE + "timeBlock/update"), body).andExpect(status().isNoContent());
+        assertThat(row(id)).containsEntry("SCHEDULE_ID", schedule)
+                .containsEntry("TITLE", "変更後のブロック")
+                .containsEntry("TABLE_ID", table)
+                .containsEntry("START_AT", Time.valueOf(startAt))
+                .containsEntry("WIDTH", 90);
+        assertThat(jdbcTemplate.queryForMap("SELECT * FROM schedule WHERE id=?", schedule))
+                .containsEntry("KIND", "DATED")
+                .containsEntry("TITLE", "変更後のブロック")
+                .containsEntry("USER_ID", loginUser.getId())
+                .containsEntry("START_AT", Timestamp.valueOf("2026-11-01 " + startAt))
+                .containsEntry("END_AT", Timestamp.valueOf(endAt))
+                .containsEntry("START_DATE", null)
+                .containsEntry("END_DATE", null);
+    }
+
+    /** 関連予定付きブロックをHOLDへ戻しても、予定の日時と関連付けを保持する. */
     @Test
-    void updateRelatedSchedule() throws Exception {
-        int schedule = schedule();
-        int id = block(null, "HOLD", schedule);
+    void moveLinkedBlockToHoldPreservesScheduleTimes() throws Exception {
+        int table = table("2026-10-12");
+        jdbcTemplate.update("""
+                INSERT INTO schedule (user_id,kind,start_at,end_at,title)
+                VALUES (?,'DATED','2026-10-12 09:30:00','2026-10-12 10:30:00','ブロック')
+                """, loginUser.getId());
+        int schedule = jdbcTemplate.queryForObject("SELECT MAX(id) FROM schedule", Integer.class);
+        int id = block(table, "PLACED", schedule);
         var body = blockBody(null, "HOLD");
         body.put("id", id);
-        body.put("relatedSchedule", Map.of("id", schedule, "kind", "ALL_DAY", "startDate", "2026-11-01",
-                "endDate", "2026-11-02", "title", "更新予定"));
+        body.put("relatedSchedule", Map.of("id", schedule, "kind", "DATED",
+                "startAt", "2026-10-12T09:30:00", "endAt", "2026-10-12T10:30:00", "title", "ブロック"));
+
         performJsonAsUser(put(BASE + "timeBlock/update"), body).andExpect(status().isNoContent());
-        assertThat(row(id).get("SCHEDULE_ID")).isEqualTo(schedule);
+
+        assertThat(row(id)).containsEntry("STATUS", "HOLD").containsEntry("TABLE_ID", null)
+                .containsEntry("START_AT", null).containsEntry("SCHEDULE_ID", schedule)
+                .containsEntry("TITLE", "変更後のブロック");
         assertThat(jdbcTemplate.queryForMap("SELECT * FROM schedule WHERE id=?", schedule))
-                .containsEntry("TITLE", "更新予定").containsEntry("USER_ID", loginUser.getId())
+                .containsEntry("KIND", "DATED").containsEntry("TITLE", "変更後のブロック")
+                .containsEntry("START_AT", Timestamp.valueOf("2026-10-12 09:30:00"))
+                .containsEntry("END_AT", Timestamp.valueOf("2026-10-12 10:30:00"))
+                .containsEntry("START_DATE", null).containsEntry("END_DATE", null);
+    }
+
+    /** HOLD・PLACEDのどちらでも終日予定の日付更新を維持し、時刻を設定しない. */
+    @ParameterizedTest
+    @ValueSource(strings = {"HOLD", "PLACED"})
+    void updateRelatedAllDaySchedule(String status) throws Exception {
+        int schedule = schedule();
+        Integer table = status.equals("HOLD") ? null : table("2026-10-12");
+        int id = block(table, status, schedule);
+        var body = blockBody(table, status);
+        body.put("id", id);
+        body.put("relatedSchedule", Map.of("id", schedule, "kind", "ALL_DAY",
+                "startDate", "2026-11-01", "endDate", "2026-11-02", "title", "同期前の予定"));
+
+        performJsonAsUser(put(BASE + "timeBlock/update"), body).andExpect(status().isNoContent());
+
+        assertThat(row(id)).containsEntry("STATUS", status).containsEntry("TABLE_ID", table)
+                .containsEntry("START_AT", status.equals("HOLD") ? null : Time.valueOf("15:00:00"))
+                .containsEntry("TITLE", "変更後のブロック").containsEntry("SCHEDULE_ID", schedule);
+        assertThat(jdbcTemplate.queryForMap("SELECT * FROM schedule WHERE id=?", schedule))
+                .containsEntry("KIND", "ALL_DAY").containsEntry("TITLE", "変更後のブロック")
+                .containsEntry("USER_ID", loginUser.getId())
                 .containsEntry("START_DATE", java.sql.Date.valueOf("2026-11-01"))
-                .containsEntry("END_DATE", java.sql.Date.valueOf("2026-11-02"));
+                .containsEntry("END_DATE", java.sql.Date.valueOf("2026-11-02"))
+                .containsEntry("START_AT", null).containsEntry("END_AT", null);
     }
 
     /** 開始時刻だけを変更し、他のフィールドとタスクを保持する. */

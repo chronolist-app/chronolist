@@ -4,7 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.magu1436.chronolist.timeblocking.entity.TimeBlockTask;
-import com.magu1436.chronolist.timeblocking.exception.TimeBlockTaskNotFound;
+import com.magu1436.chronolist.timeblocking.exception.TimeBlockReferenceNotFoundException;
 import com.magu1436.chronolist.timeblocking.mapper.TimeBlockTaskMapper;
 import com.magu1436.chronolist.timeblocking.service.TimeBlockTaskService;
 
@@ -17,18 +17,27 @@ public class TimeBlockTaskImpl implements TimeBlockTaskService {
 
     private final TimeBlockTaskMapper mapper;
     
-    /**
-     * DB上の {@code TimeBlockTask}を更新する.
-     * 
-     * @param task 更新する {@code TimeBlockTask}
-     * @throws TimeBlockTaskNotFound 指定するIDのデータが見つからないとき
-     * @author magu1436
-     */
     @Override
-    public void update(int userId, TimeBlockTask task) {
-        if (mapper.getTimeBlockTaskById(task.getId(), userId) == null) {
-            throw new TimeBlockTaskNotFound("TimeBlockTask not found.");
+    public int registerTimeBlockTask(int userId, TimeBlockTask timeBlockTask){
+        int insertRows = mapper.insertTimeBlockTask(userId, timeBlockTask);
+        if (insertRows != 1){
+            throw new TimeBlockReferenceNotFoundException(
+                "参照先のタイムブロックが見つかりません"
+            );
         }
-        mapper.updateTimeBlockTask(userId, task);
+        return timeBlockTask.getId();
     }
+
+    @Override 
+    public boolean updateTimeBlockTask(int userId, TimeBlockTask timeBlockTask){
+        int updateRows = mapper.updateTimeBlockTask(userId, timeBlockTask);
+        return updateRows == 1;
+    }
+
+    @Override 
+    public boolean deleteTimeBlockTask(int userId, int id){
+        int deleteRows = mapper.deleteTimeBlockTask(id, userId);
+        return deleteRows ==1;
+    }
+
 }
