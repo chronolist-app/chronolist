@@ -39,6 +39,7 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
+    @Transactional
     public Integer insertEvent(int userId, CalendarEvent calendarEvent){
 
         // 受け取ったCalendarEventを元にScheduleを生成(userIdは引数から取得)
