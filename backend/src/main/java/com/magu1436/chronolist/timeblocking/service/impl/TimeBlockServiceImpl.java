@@ -1,5 +1,6 @@
 package com.magu1436.chronolist.timeblocking.service.impl;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -65,6 +66,19 @@ public class TimeBlockServiceImpl implements TimeBlockService {
         }
 
         return timeBlock.getId();
+    }
+
+    @Override
+    public int registerFromSchedule(int userId, int timeTableId, Schedule schedule, String color) {
+        var block = new TimeBlock();
+        block.setTimeTableId(timeTableId);
+        block.setTitle(schedule.getTitle());
+        block.setStatus(TimeBlockStatus.PLACED);
+        block.setRelatedSchedule(schedule);
+        block.setStartAt(schedule.getStartAt().toLocalTime());
+        block.setWidth(Math.toIntExact(Duration.between(schedule.getStartAt(), schedule.getEndAt()).toMinutes()));
+        block.setColor(color);
+        return register(userId, block);
     }
 
     @Override
