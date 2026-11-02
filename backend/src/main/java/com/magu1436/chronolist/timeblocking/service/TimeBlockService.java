@@ -19,6 +19,12 @@ public interface TimeBlockService {
     /** 予定の内容を引き継いだ配置済みブロックを登録する。 */
     int registerFromSchedule(int userId, int timeTableId, Schedule schedule, String color);
 
+    /** 予定由来の項目だけを同期する。関連ブロックがない場合は作成する。 */
+    void updateFromSchedule(int userId, int timeTableId, Schedule schedule, String color);
+
+    /** 予定を残したまま、その予定に関連するブロックを削除する。 */
+    void deleteFromSchedule(int userId, int scheduleId);
+
     boolean update(int loginUser, TimeBlock timeBlock);
 
     boolean delete(int loginUser, int id);

@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.magu1436.chronolist.timeblocking.mapper.TimeBlockMapper">
+    <select id="getTimeBlockByScheduleId" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeBlockByIdResult">
+        SELECT tb.id, tb.user_id, tb.table_id AS time_table_id, tb.title,
+               tb.status, tb.width, tb.start_at, tb.color, tb.schedule_id
+        FROM time_blocks tb
+        JOIN schedule s ON s.id = tb.schedule_id
+        WHERE tb.schedule_id = #{scheduleId}
+          AND tb.user_id = #{userId}
+          AND s.user_id = #{userId}
+    </select>
+
     <select id="getTimeBlockById" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeBlockByIdResult">
         SELECT
             tb.id,
