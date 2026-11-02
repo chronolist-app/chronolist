@@ -82,6 +82,31 @@ public class TimeBlockServiceImpl implements TimeBlockService {
     }
 
     @Override
+    public void updateFromSchedule(int userId, int timeTableId, Schedule schedule, String color) {
+        var block = mapper.getTimeBlockByScheduleId(userId, schedule.getId());
+        if (block == null) {
+            registerFromSchedule(userId, timeTableId, schedule, color);
+            return;
+        }
+        block.setTimeTableId(timeTableId);
+        block.setTitle(schedule.getTitle());
+        block.setStartAt(schedule.getStartAt().toLocalTime());
+        block.setWidth(Math.toIntExact(Duration.between(schedule.getStartAt(), schedule.getEndAt()).toMinutes()));
+        // Scheduleは呼び出し元が更新済み。逆方向の同期をせず既存SQLでブロックだけを更新する。
+        if (mapper.updateTimeBlock(userId, block) != 1) {
+            throw new TimeBlockReferenceNotFoundException("関連タイムブロックの更新に失敗しました");
+        }
+    }
+
+    @Override
+    public void deleteFromSchedule(int userId, int scheduleId) {
+        var block = mapper.getTimeBlockByScheduleId(userId, scheduleId);
+        if (block != null && mapper.deleteTimeBlock(block.getId(), userId) != 1) {
+            throw new TimeBlockReferenceNotFoundException("関連タイムブロックの削除に失敗しました");
+        }
+    }
+
+    @Override
     public boolean update(int loginUser, TimeBlock timeBlock){
         int updateRows = mapper.updateTimeBlock(loginUser, timeBlock);
         if(updateRows != 1){

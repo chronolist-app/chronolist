@@ -104,6 +104,16 @@ public class SchedulerServiceImpl implements SchedulerService {
         if (updatedRowsCalendarEvent != 1) {
             throw new EventNotFoundException();
         }
+
+        if (schedule.getKind() == ScheduleKind.DATED) {
+            // 日をまたぐ予定への変更でも、既存ブロックには手を加えない。
+            if (schedule.getStartAt().toLocalDate().equals(schedule.getEndAt().toLocalDate())) {
+                var table = timeTableService.getOrCreate(userId, schedule.getStartAt().toLocalDate());
+                timeBlockService.updateFromSchedule(userId, table.getId(), schedule, calendarEvent.getColor());
+            }
+        } else if (existingEvent.getKind() == ScheduleKind.DATED) {
+            timeBlockService.deleteFromSchedule(userId, schedule.getId());
+        }
     }
 
     @Override
