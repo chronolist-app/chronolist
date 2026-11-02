@@ -1,5 +1,8 @@
 package com.magu1436.chronolist.scheduler.service.impl;
 
+import com.magu1436.chronolist.timeblocking.service.TimeTableService;
+import com.magu1436.chronolist.timeblocking.service.TimeBlockService;
+import com.magu1436.chronolist.scheduler.entity.ScheduleKind;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -19,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 public class SchedulerServiceImpl implements SchedulerService {
 
     private final SchedulerMapper mapper;
+    private final TimeTableService timeTableService;
+    private final TimeBlockService timeBlockService;
 
     @Override
     public List<CalendarEvent> getEvents(
@@ -30,6 +35,7 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
+    @Transactional
     public Integer insertEvent(int userId, CalendarEvent calendarEvent){
 
         // 受け取ったCalendarEventを元にScheduleを生成(userIdは引数から取得)
@@ -51,6 +57,12 @@ public class SchedulerServiceImpl implements SchedulerService {
         calendarEvent.setScheduleId(scheduleId);
         // CalendarEventをcalendar_eventテーブルに登録
         mapper.insertCalendarEvent(calendarEvent);
+        // 日をまたぐ予定は別途対応する。
+        if (schedule.getKind() == ScheduleKind.DATED
+                && schedule.getStartAt().toLocalDate().equals(schedule.getEndAt().toLocalDate())) {
+            var table = timeTableService.getOrCreate(userId, schedule.getStartAt().toLocalDate());
+            timeBlockService.registerFromSchedule(userId, table.getId(), schedule, calendarEvent.getColor());
+        }
         // 自動生成されたcalendar_eventのidを取得
         int calendarEventId = calendarEvent.getId();
         // 取得したcalendar_eventのidを返す

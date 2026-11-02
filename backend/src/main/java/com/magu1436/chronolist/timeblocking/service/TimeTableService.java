@@ -5,6 +5,9 @@ import java.time.LocalDate;
 import com.magu1436.chronolist.timeblocking.entity.TimeTable;
 
 public interface TimeTableService {
+
+    /** 指定ユーザー・日付のテーブルを取得し、存在しなければ作成する。 */
+    TimeTable getOrCreate(int userId, LocalDate date);
     
     /**
      * 指定したユーザーIDと日付に対応する{@link TimeTable}を取得する
