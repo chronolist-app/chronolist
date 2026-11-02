@@ -218,16 +218,21 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks")).isEqualTo(tasks);
     }
 
-    /** 関連予定付きでも開始時刻だけが変更されるべき. */
+    /** 関連予定付きでも開始時刻だけを変更し、子タスクと関連予定の内容を保持する. */
     @Test
     void updateStartAtPreservesScheduleLink() throws Exception {
         int schedule = schedule();
         int id = block(table("2026-10-12"), "PLACED", schedule);
+        task(id, "保持");
         var expected = new LinkedHashMap<>(row(id));
         expected.put("START_AT", Time.valueOf("16:00:00"));
+        var tasks = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks WHERE time_block_id=?", id);
+        var relatedSchedule = jdbcTemplate.queryForMap("SELECT * FROM schedule WHERE id=?", schedule);
         performJsonAsUser(put(BASE + "timeBlock/update/startAt"), Map.of("id", id, "startAt", "16:00:00"))
                 .andExpect(status().isNoContent());
         assertThat(row(id)).isEqualTo(expected);
+        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks WHERE time_block_id=?", id)).isEqualTo(tasks);
+        assertThat(jdbcTemplate.queryForMap("SELECT * FROM schedule WHERE id=?", schedule)).isEqualTo(relatedSchedule);
     }
 
     /** 削除は子タスクを削除し、指定された関連予定も削除する. */
