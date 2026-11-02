@@ -1,5 +1,12 @@
 package com.magu1436.chronolist.scheduler.service.impl;
 
+import com.magu1436.chronolist.timeblocking.mapper.TimeTableMapper;
+import com.magu1436.chronolist.timeblocking.service.TimeBlockService;
+import com.magu1436.chronolist.scheduler.entity.ScheduleKind;
+import com.magu1436.chronolist.timeblocking.entity.TimeTable;
+import com.magu1436.chronolist.timeblocking.entity.TimeBlock;
+import com.magu1436.chronolist.timeblocking.entity.TimeBlockStatus;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -19,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 public class SchedulerServiceImpl implements SchedulerService {
 
     private final SchedulerMapper mapper;
+    private final TimeTableMapper timeTableMapper;
+    private final TimeBlockService timeBlockService;
 
     @Override
     public List<CalendarEvent> getEvents(
@@ -51,6 +60,27 @@ public class SchedulerServiceImpl implements SchedulerService {
         calendarEvent.setScheduleId(scheduleId);
         // CalendarEventをcalendar_eventテーブルに登録
         mapper.insertCalendarEvent(calendarEvent);
+        // 日をまたぐ予定は別途対応する。
+        if (schedule.getKind() == ScheduleKind.DATED
+                && schedule.getStartAt().toLocalDate().equals(schedule.getEndAt().toLocalDate())) {
+            var date = schedule.getStartAt().toLocalDate();
+            var table = timeTableMapper.getTimeTableByDate(userId, date);
+            if (table == null) {
+                table = new TimeTable();
+                table.setUserId(userId);
+                table.setDate(date);
+                timeTableMapper.insertTimeTable(table);
+            }
+            var block = new TimeBlock();
+            block.setTimeTableId(table.getId());
+            block.setTitle(schedule.getTitle());
+            block.setStatus(TimeBlockStatus.PLACED);
+            block.setRelatedSchedule(schedule);
+            block.setStartAt(schedule.getStartAt().toLocalTime());
+            block.setWidth(Math.toIntExact(Duration.between(schedule.getStartAt(), schedule.getEndAt()).toMinutes()));
+            block.setColor(calendarEvent.getColor());
+            timeBlockService.register(userId, block);
+        }
         // 自動生成されたcalendar_eventのidを取得
         int calendarEventId = calendarEvent.getId();
         // 取得したcalendar_eventのidを返す
