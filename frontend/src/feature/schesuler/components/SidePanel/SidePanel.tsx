@@ -36,11 +36,24 @@ const SidePanel: FC = () => {
 
     // 選択中のカレンダーイベントを拾う
     useEffect(() => {
-        if (!eventClientId) return;
+        if (!eventClientId) {
+            setTargetCalendarEvent(null);
+            return;
+        }
+
         const event = events.find(e => e.clientId === eventClientId);
-        if (!event) throw new Error("Event not found.");
+        if (!event) {
+            console.error("Selected calendar event not found.", {
+                eventClientId,
+                availableEventClientIds: events.map(e => e.clientId),
+            });
+            setTargetCalendarEvent(null);
+            setEventClientId(null);
+            return;
+        }
+
         setTargetCalendarEvent(event);
-    }, [eventClientId, setTargetCalendarEvent, events]);
+    }, [eventClientId, setEventClientId, setTargetCalendarEvent, events]);
 
     // 選択中のカレンダーイベントの更新を行い, カレンダーにも反映させる
     const changeCalendarEvent = (calendarEvent: CalendarEvent) => {
