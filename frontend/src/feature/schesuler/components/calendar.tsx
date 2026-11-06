@@ -20,6 +20,8 @@ const Calendar = () => {
 
     // 初期化時や月変更時に呼び出される関数
     const handleDatesSet = useCallback(async (arg: DatesSetArg) => {
+        setSelectedEventId(null);
+
         const start = arg.start;
         const end = prevDate(arg.end);
         const events = await getCalendarEvents(start, end);
@@ -29,7 +31,7 @@ const Calendar = () => {
         console.log("handleDatesSet");
         console.log(start.toISOString(), "|", end.toISOString());
         console.log("events: ", events);
-    }, [setEvents]);
+    }, [setEvents, setSelectedEventId]);
 
     // イベントラベル選択時に呼び出される関数
     const handleEventClick = useCallback((arg: EventClickArg) => {
