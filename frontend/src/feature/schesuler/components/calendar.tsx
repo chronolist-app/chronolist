@@ -12,6 +12,7 @@ import { prevDate } from "@/utils/date";
 import { formattedTime } from "@/utils/time";
 import { Box } from "@mui/material";
 import useRegisterEventModal from "../hooks/modal";
+import { clearSelectedCalendarEvent } from "../utils/selection";
 
 const Calendar = () => {
     const { events, setEvents } = useContext(CalendarEventsContext);
@@ -20,7 +21,7 @@ const Calendar = () => {
 
     // 初期化時や月変更時に呼び出される関数
     const handleDatesSet = useCallback(async (arg: DatesSetArg) => {
-        setSelectedEventId(null);
+        clearSelectedCalendarEvent(setSelectedEventId);
 
         const start = arg.start;
         const end = prevDate(arg.end);

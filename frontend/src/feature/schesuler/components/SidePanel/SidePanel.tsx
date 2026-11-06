@@ -11,6 +11,7 @@ import Memo from "./Memo";
 import type { ScheduleKind } from "../../types/statics";
 import deleteEvent from "../../api/delete";
 import { addDays } from "@/utils/date";
+import { resolveSelectedCalendarEvent } from "../../utils/selection";
 
 // ローカル暦日を日数として比較し、夏時間による一日の長さの違いを除く。
 const calendarDay = (date: Date): number =>
@@ -41,12 +42,8 @@ const SidePanel: FC = () => {
             return;
         }
 
-        const event = events.find(e => e.clientId === eventClientId);
+        const event = resolveSelectedCalendarEvent(events, eventClientId);
         if (!event) {
-            console.error("Selected calendar event not found.", {
-                eventClientId,
-                availableEventClientIds: events.map(e => e.clientId),
-            });
             setTargetCalendarEvent(null);
             setEventClientId(null);
             return;
