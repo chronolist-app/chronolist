@@ -118,6 +118,31 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         assertThat(row(other)).isEqualTo(before);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"startAt", "timeTableId"})
+    void rejectsIncompletePlacement(String missingField) throws Exception {
+        int table = table("2026-10-12");
+        int id = block(table, "HOLD", null);
+        var before = row(id);
+        var body = blockBody(table, "PLACED");
+        body.put(missingField, null);
+        performJsonAsUser(put(BASE + "timeBlock/register"), body)
+                .andExpect(status().isBadRequest());
+        body.put("id", id);
+        performJsonAsUser(put(BASE + "timeBlock/update"), body)
+                .andExpect(status().isBadRequest());
+        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_blocks")).containsExactly(before);
+    }
+
+    @Test
+    void placedBlockCannotLoseItsStartTime() throws Exception {
+        int id = block(table("2026-10-12"), "PLACED", null);
+        var before = row(id);
+        performJsonAsUser(put(BASE + "timeBlock/update/startAt"), Map.of("id", id))
+                .andExpect(status().isBadRequest());
+        assertThat(row(id)).isEqualTo(before);
+    }
+
     /** 予定側の古い値に依存せず、移動先の日付・時刻・幅から日時を計算する（日跨ぎを含む）. */
     @ParameterizedTest
     @CsvSource({"15:00:00, 2026-11-01 16:30:00", "23:30:00, 2026-11-02 01:00:00"})
@@ -265,7 +290,8 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         task(block(null, "HOLD", null), "保持");
         var before = jdbcTemplate.queryForList("SELECT * FROM time_blocks");
         var tasks = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks");
-        performJsonAsUser(operation.equals("delete") ? delete(BASE + "timeBlock/delete") : put(BASE + "timeBlock/" + operation), Map.of("id", -1))
+        var body = operation.equals("update/startAt") ? Map.of("id", -1, "startAt", "09:30:00") : Map.of("id", -1);
+        performJsonAsUser(operation.equals("delete") ? delete(BASE + "timeBlock/delete") : put(BASE + "timeBlock/" + operation), body)
                 .andExpect(status().isNotFound()).andExpect(content().string(""));
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_blocks")).isEqualTo(before);
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks")).isEqualTo(tasks);

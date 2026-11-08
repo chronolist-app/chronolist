@@ -32,7 +32,11 @@ class TimeTableApiTests extends TimeBlockingApiTest {
     @Test
     void getTableIncludesItsBlocks() throws Exception {
         int table = table("2026-10-12");
-        int block = block(table, "PLACED", null);
+        int schedule = schedule();
+        int block = block(table, "PLACED", schedule);
+        int task = task(block, "作業");
+        int held = block(table, "HOLD", null);
+        block(table, "HOLD", null);
         block(table("2026-10-13"), "PLACED", null);
         performAsUser(get(BASE + "timeTable/getByDate/2026-10-12"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(table))
@@ -43,7 +47,13 @@ class TimeTableApiTests extends TimeBlockingApiTest {
                 .andExpect(jsonPath("$.timeBlocks[0].status").value("PLACED"))
                 .andExpect(jsonPath("$.timeBlocks[0].width").value(60))
                 .andExpect(jsonPath("$.timeBlocks[0].startAt").value("09:30:00"))
-                .andExpect(jsonPath("$.timeBlocks[0].color").value("#ff0000"));
+                .andExpect(jsonPath("$.timeBlocks[0].color").value("#ff0000"))
+                .andExpect(jsonPath("$.timeBlocks[0].tasks[0].id").value(task))
+                .andExpect(jsonPath("$.timeBlocks[0].relatedSchedule.id").value(schedule));
+        performAsUser(get(BASE + "timeBlock/getHoldBlocks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.id == " + held + ")]").isNotEmpty());
     }
 
     /** 未作成の日は404を返す. */

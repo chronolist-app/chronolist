@@ -14,6 +14,7 @@ import com.magu1436.chronolist.login.LoginUser;
 import com.magu1436.chronolist.scheduler.mapper.SchedulerMapper;
 import com.magu1436.chronolist.timeblocking.entity.TemplateBlock;
 import com.magu1436.chronolist.timeblocking.entity.TimeBlock;
+import com.magu1436.chronolist.timeblocking.entity.TimeBlockStatus;
 import com.magu1436.chronolist.timeblocking.entity.TimeBlockTask;
 import com.magu1436.chronolist.timeblocking.entity.TimeTable;
 import com.magu1436.chronolist.timeblocking.exception.TimeBlockReferenceNotFoundException;
@@ -150,6 +151,9 @@ public class TimeBlockingController {
      */
     @PutMapping("timeBlock/register")
     public ResponseEntity<Integer> register(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TimeBlock timeBlock){
+        if (isMissingPlacement(timeBlock)) {
+            return ResponseEntity.badRequest().build();
+        }
         // 受け取ったTimeBlockにuserIdを登録
         try{
             Integer idFromCreatedTimeBlock = timeBlockService.register(loginUser.getId(), timeBlock);
@@ -178,11 +182,19 @@ public class TimeBlockingController {
      */
     @PutMapping("timeBlock/update")
     public ResponseEntity<Void> update(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TimeBlock timeBlock){
+        if (isMissingPlacement(timeBlock)) {
+            return ResponseEntity.badRequest().build();
+        }
         if(!timeBlockService.update(loginUser.getId(), timeBlock)){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 
+    }
+
+    private static boolean isMissingPlacement(TimeBlock block) {
+        return block.getStatus() == TimeBlockStatus.PLACED
+                && (block.getTimeTableId() == null || block.getStartAt() == null);
     }
    
     /**
@@ -203,6 +215,9 @@ public class TimeBlockingController {
      */
     @PutMapping("timeBlock/update/startAt")
     public ResponseEntity<Void> startAtUpdate(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TimeBlock timeBlock){
+        if (timeBlock.getStartAt() == null) {
+            return ResponseEntity.badRequest().build();
+        }
         if(!timeBlockService.updateStartAt(loginUser.getId(), timeBlock.getId(), timeBlock.getStartAt())){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
