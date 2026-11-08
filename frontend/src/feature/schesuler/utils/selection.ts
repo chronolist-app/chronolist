@@ -22,6 +22,26 @@ export const clearSelectedCalendarEvent = (
     setEventClientId(null);
 };
 
+export const loadCalendarRange = async <T>(
+    latestRequest: { current: number },
+    setEventClientId: (eventClientId: string | null) => void,
+    fetchEvents: () => Promise<T[]>,
+    setEvents: (events: T[]) => void,
+): Promise<void> => {
+    const requestId = ++latestRequest.current;
+    clearSelectedCalendarEvent(setEventClientId);
+
+    let events: T[];
+    try {
+        events = await fetchEvents();
+    } catch (error) {
+        if (requestId === latestRequest.current) throw error;
+        return;
+    }
+
+    if (requestId === latestRequest.current) setEvents(events);
+};
+
 export const resolveSelectedCalendarEvent = <T extends CalendarEventReference>(
     events: T[],
     eventClientId: string | null,
