@@ -11,6 +11,7 @@ import Memo from "./Memo";
 import type { ScheduleKind } from "../../types/statics";
 import deleteEvent from "../../api/delete";
 import { addDays } from "@/utils/date";
+import { resolveSelectedCalendarEvent } from "../../utils/selection";
 
 // ローカル暦日を日数として比較し、夏時間による一日の長さの違いを除く。
 const calendarDay = (date: Date): number =>
@@ -36,11 +37,20 @@ const SidePanel: FC = () => {
 
     // 選択中のカレンダーイベントを拾う
     useEffect(() => {
-        if (!eventClientId) return;
-        const event = events.find(e => e.clientId === eventClientId);
-        if (!event) throw new Error("Event not found.");
+        if (!eventClientId) {
+            setTargetCalendarEvent(null);
+            return;
+        }
+
+        const event = resolveSelectedCalendarEvent(events, eventClientId);
+        if (!event) {
+            setTargetCalendarEvent(null);
+            setEventClientId(null);
+            return;
+        }
+
         setTargetCalendarEvent(event);
-    }, [eventClientId, setTargetCalendarEvent, events]);
+    }, [eventClientId, setEventClientId, setTargetCalendarEvent, events]);
 
     // 選択中のカレンダーイベントの更新を行い, カレンダーにも反映させる
     const changeCalendarEvent = (calendarEvent: CalendarEvent) => {
