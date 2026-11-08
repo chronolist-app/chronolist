@@ -8,6 +8,8 @@ import type { TimeBlockSource, TemplateBlockSource } from "../types/blockSourceT
 const BlockRepositories = createContext<{
     blocksOnTable: TimeBlockSource[],
     setBlocksOnTable: (blocks: TimeBlockSource[] | ((blocks: TimeBlockSource[]) => TimeBlockSource[])) => void
+    previewBlock: TimeBlockSource | null,
+    tableRevision: number,
     blocksAtField: TimeBlockSource[],
     setBlocksAtField: (blocks: TimeBlockSource[] | ((blocks: TimeBlockSource[]) => TimeBlockSource[])) => void,
     templateBlocks: TemplateBlockSource[],
@@ -15,6 +17,8 @@ const BlockRepositories = createContext<{
 }>({
     blocksOnTable: [],
     setBlocksOnTable: () => { return; },
+    previewBlock: null,
+    tableRevision: 0,
     blocksAtField: [],
     setBlocksAtField: () => { return; },
     templateBlocks: [],

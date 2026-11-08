@@ -1,6 +1,6 @@
 import { useContext, useState, type FC } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
 import TimeTableConfigure from "../contexts/TimeTableConfigure";
 import type { TimeBlockSource } from "../types/blockSourceTypes";
 import BlockRepositories from "../contexts/BlockRepositories";
@@ -16,7 +16,6 @@ type CreateBlockDialogProps = {
 const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
 
     const {
-        timeTableId,
         slotMinutes,
     } = useContext(TimeTableConfigure);
 
@@ -29,6 +28,8 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
     const [ width, setWidth ] = useState<number>(slotMinutes);
     const [ widthHasError, setWidthHasError ] = useState<boolean>(false);
     const [ color, setColor ] = useState<string>("gray");
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState(false);
 
     const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setTitle(e.target.value.trim());
@@ -47,13 +48,14 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
         setTitle("");
         setWidth(slotMinutes);
         setColor("gray");
+        setSaveError(false);
     };
 
     const buildBlock = () => {
         if (!title) throw new Error("title is undefined.");
         const block: TimeBlockSource = {
             clientId: uuidv4(),
-            timeTableId,
+            timeTableId: null,
             title,
             width,
             color,
@@ -75,18 +77,26 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
             return;
         }
         const block = buildBlock();
-        setBlocksAtField((blocks) => [...blocks, block]);
-        handleClose();
-
-        block.id = await register(block);
+        setSaving(true);
+        setSaveError(false);
+        try {
+            const id = await register(block);
+            setBlocksAtField((blocks) => [...blocks, { ...block, id }]);
+            handleClose();
+        } catch {
+            setSaveError(true);
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
         <>
-            <Dialog open={open} onClose={handleClose}>
+            <Dialog open={open} onClose={saving ? undefined : handleClose}>
                 <DialogTitle>ブロックを作成</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3} sx={{padding: 1}}>
+                        {saveError && <Alert severity="error">ブロックを作成できませんでした。</Alert>}
                         <TextField
                             label="ブロック名"
                             value={title}
@@ -109,8 +119,8 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
                     </Stack>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleClose}>キャンセル</Button>
-                    <Button onClick={handleClick}>作成</Button>
+                    <Button onClick={handleClose} disabled={saving}>キャンセル</Button>
+                    <Button onClick={handleClick} disabled={saving}>作成</Button>
                 </DialogActions>
             </Dialog>
         </>
