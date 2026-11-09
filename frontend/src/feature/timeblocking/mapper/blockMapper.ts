@@ -19,7 +19,7 @@ export const toTimeBlockSource = (api: TimeBlockApi, clientId?: string): TimeBlo
         timeTableId: api.timeTableId,
         title: api.title,
         status: api.status,
-        relatedSchedle: api.relatedSchedle && toScheduleSource(api.relatedSchedle),
+        relatedSchedle: api.relatedSchedule ? toScheduleSource(api.relatedSchedule) : null,
         width: api.width,
         startAt: api.startAt ? new Time(api.startAt) : null,
         tasks: api.tasks?.map(task => toTimeBlockTask(task)) || [],

@@ -5,10 +5,10 @@ import type { DateString } from "@/types/date";
 
 export type TimeBlockApi = {
     id: number,
-    timeTableId: number,
+    timeTableId: number | null,
     title: string,
     status: TimeBlockStatus,
-    relatedSchedle: ScheduleApi | null,
+    relatedSchedule: ScheduleApi | null,
     width: number,
     startAt: string | null,
     tasks: TimeBlockTaskApi[],

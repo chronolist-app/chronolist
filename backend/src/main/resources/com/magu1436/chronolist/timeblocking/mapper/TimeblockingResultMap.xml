@@ -25,7 +25,6 @@
         <id property="id" column="table_id" />
         <result property="userId" column="table_user_id" />
         <result property="date" column="date" />
-        <collection property="timeBlocks" resultMap="TimeBlockResult" />
     </resultMap>
 
     <resultMap id="TimeBlockResult"
@@ -36,13 +35,14 @@
         <result property="title" column="block_title" />
         <result property="status" column="status" />
         <result property="width" column="width" />
-        <result property="startAt" column="start_at" />
+        <result property="startAt" column="block_start_at" />
         <result property="color" column="color" />
-        <association property="relatedSchedule" javaType="com.magu1436.chronolist.scheduler.entity.Schedule">
+        <association property="relatedSchedule" javaType="com.magu1436.chronolist.scheduler.entity.Schedule"
+            notNullColumn="schedule_id" autoMapping="false">
             <id property="id" column="schedule_id" />
             <result property="userId" column="schedule_user_id" />
             <result property="kind" column="kind" />
-            <result property="startAt" column="start_at" />
+            <result property="startAt" column="schedule_start_at" />
             <result property="endAt" column="end_at" />
             <result property="startDate" column="start_date" />
             <result property="endDate" column="end_date" />

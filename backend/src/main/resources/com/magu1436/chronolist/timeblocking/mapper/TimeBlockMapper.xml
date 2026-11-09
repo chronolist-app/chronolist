@@ -26,32 +26,30 @@
         WHERE tb.id = #{id} AND tb.user_id = #{userId}
     </select>
 
-    <select id="getTimeBlocksByTimeTableId" resultType="com.magu1436.chronolist.timeblocking.entity.TimeBlock">
+    <sql id="blocksWithTasksAndSchedule">
         SELECT
-            b.id,
-            b.user_id,
-            b.table_id AS time_table_id,
-            b.title,
-            b.status,
-            b.width,
-            b.start_at,
-            b.color
-        FROM time_blocks b
-        JOIN time_tables t ON t.id = b.table_id
-        WHERE b.table_id = #{timeTableId}
-          AND b.user_id = #{userId}
+            tb.id AS block_id, tb.user_id AS block_user_id, tb.table_id AS block_table_id,
+            tb.title AS block_title, tb.status, tb.width, tb.start_at AS block_start_at, tb.color,
+            tbt.id AS task_id, tbt.time_block_id AS task_block_id, tbt.title AS task_title,
+            s.id AS schedule_id, s.user_id AS schedule_user_id, s.kind,
+            s.start_at AS schedule_start_at, s.end_at, s.start_date, s.end_date, s.title AS schedule_title
+        FROM time_blocks tb
+        LEFT JOIN time_block_tasks tbt ON tb.id = tbt.time_block_id
+        LEFT JOIN schedule s ON tb.schedule_id = s.id AND tb.user_id = s.user_id
+    </sql>
+
+    <select id="getTimeBlocksByTimeTableId" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeBlockResult">
+        <include refid="blocksWithTasksAndSchedule" />
+        JOIN time_tables t ON t.id = tb.table_id
+        WHERE tb.table_id = #{timeTableId}
+          AND tb.user_id = #{userId}
           AND t.user_id = #{userId}
+          AND tb.status = 'PLACED'
     </select>
 
     <select id="getHeldTimeBlocks" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeBlockResult">
-        SELECT
-            tb.id AS block_id, tb.user_id AS block_user_id, tb.table_id AS block_table_id, tb.title AS block_title, tb.status, tb.width, tb.start_at, tb.color,
-            tbt.id AS task_id, tbt.time_block_id AS task_block_id, tbt.title AS task_title,
-            s.id AS schedule_id, s.user_id AS schedule_user_id, s.kind, s.start_at, s.end_at, s.start_date, s.end_date, s.title AS schedule_title
-        FROM time_blocks tb
-        LEFT JOIN time_block_tasks tbt ON tb.id = tbt.time_block_id
-        LEFT JOIN schedule s ON tb.schedule_id = s.id
-        WHERE (tb.user_id = #{userId}) AND (tb.status = 'HOLD')
+        <include refid="blocksWithTasksAndSchedule" />
+        WHERE tb.user_id = #{userId} AND tb.status = 'HOLD'
     </select>
 
     <insert id="insertTimeBlock" useGeneratedKeys="true" keyProperty="id">
