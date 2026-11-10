@@ -1,6 +1,6 @@
 import { useContext, useCallback, type FC, type ReactElement, useLayoutEffect, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Alert, Box, Stack, Typography } from "@mui/material";
+import { Alert, Box, Typography } from "@mui/material";
 import { isAxiosError } from "axios";
 
 import type { Time } from "@/utils/time";
@@ -42,7 +42,6 @@ const Table: FC = () => {
 
     const {
         gridSize,
-        tableHeight,
         tableWidth,
         slotHeight,
         slotMinutes,
@@ -126,12 +125,11 @@ const Table: FC = () => {
 
     return (
         <Box
-            ref={setNodeRef} 
+            ref={setNodeRef}
             sx={{
-                height: tableHeight,
-                border: gridSize,
+                gridArea: "table",
                 width: tableWidth,
-                backgroundImage: `repeating-linear-gradient(180deg, white 0 ${slotHeight - gridSize}px, black ${slotHeight - gridSize}px ${slotHeight}px)`,
+                boxShadow: `inset -${gridSize}px 0 currentColor`,
                 position: "relative",
             }}
         >
@@ -154,6 +152,9 @@ const Table: FC = () => {
 const TimeTable: FC = () => {
 
     const {
+        gridSize,
+        slotHeight,
+        tableHeight,
         setTimeTableId,
     } = useContext(TimeTableConfigure);
 
@@ -213,19 +214,57 @@ const TimeTable: FC = () => {
                 overflowY: "scroll",
                 overflowX: "hidden",
                 height: "100%",
-                p: 4,
+                px: { xs: 1, sm: 2, md: 4 },
+                py: 4,
                 border: 1,
             }}
         >
             <Typography sx={{fontSize: 30}}>{table && toDateString(table.date)}</Typography>
             {loadError && <Alert severity="error">タイムテーブルを読み込めませんでした。</Alert>}
-            <Stack
-                direction={"row"}
-                alignItems={"flex-start"}
+            <Box
+                sx={{
+                    display: "grid",
+                    gridTemplateAreas: '". scheduleHeading tableHeading" "legend schedule table"',
+                    gridTemplateColumns: "max-content minmax(0, 1fr) minmax(0, 3fr)",
+                    gridTemplateRows: `auto ${tableHeight}px`,
+                }}
             >
+                <Typography component="h2" variant="subtitle2" sx={{ gridArea: "scheduleHeading", px: { xs: 0, sm: 0.5 }, overflowWrap: "anywhere" }}>
+                    予定
+                </Typography>
+                <Typography component="h2" variant="subtitle2" sx={{ gridArea: "tableHeading", px: 0.5, overflowWrap: "anywhere" }}>
+                    タイムブロック
+                </Typography>
                 <Legend />
-                <Table/>
-            </Stack>
+                <Box
+                    sx={{
+                        gridColumn: "schedule-start / table-end",
+                        gridRow: "schedule-start / schedule-end",
+                        position: "relative",
+                        backgroundImage: `repeating-linear-gradient(180deg, currentColor 0 ${gridSize}px, transparent ${gridSize}px ${slotHeight}px)`,
+                        "&::after": {
+                            content: '""',
+                            position: "absolute",
+                            top: "100%",
+                            insetInline: 0,
+                            height: `${gridSize}px`,
+                            bgcolor: "currentColor",
+                        },
+                    }}
+                />
+                <Box
+                    component="section"
+                    aria-label="予定"
+                    sx={{
+                        gridArea: "schedule",
+                        position: "relative",
+                        boxShadow: `inset ${gridSize}px 0 currentColor, inset -${gridSize}px 0 currentColor`,
+                    }}
+                >
+                    {/* 予定はこの領域の開始時刻を基準に配置する。 */}
+                </Box>
+                <Table />
+            </Box>
         </Box>
     )
 }

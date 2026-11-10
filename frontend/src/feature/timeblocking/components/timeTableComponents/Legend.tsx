@@ -1,41 +1,35 @@
-import { Stack } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { useContext } from "react";
 import TimeTableConfigure from "../../contexts/TimeTableConfigure";
-import { Time } from "@/utils/time";
-import HourScaleMark from "./HourScaleMark";
-import SmallScaleMark from "./SmallScaleMark";
-
-function* scaleRange(start: Time, end: Time, step: number) {
-    for (let i = start.toMinutes(); i <= end.toMinutes(); i += step) {
-        if (i % 60 === 0) {
-            yield (<HourScaleMark key={i} label={new Time(i).toString()} />);
-            continue;
-        }
-        yield (<SmallScaleMark key={i} label={new Time(i).toString()} />);
-    }
-}
-
-
 
 /**
- * 時間表の小刻み目盛りの凡例を描画するコンポーネント.
- * 
- * 一時間単位の目盛りは {@link HourScaleMark} を使用して描画され,  
- * そうでないスロットごとの目盛りは {@link SmallScaleMark} を使用して描画される.
+ * 予定とタイムブロックに共通する時刻目盛りを描画する。
  */
 const Legend = () => {
-
-    const {
-        startTime,
-        slotMinutes,
-    } = useContext(TimeTableConfigure);
-    const endTime = startTime.add(24 * 60);
+    const { gridSize, startTime, slotHeight, slotMinutes } = useContext(TimeTableConfigure);
+    const slotCount = 24 * 60 / slotMinutes;
 
     return (
-        <Stack alignItems={"flex-end"}>
-            {Array.from(scaleRange(startTime, endTime, slotMinutes))}
-        </Stack>
-    )
-}
+        <Box sx={{ gridArea: "legend", display: "grid", alignContent: "start", justifyItems: "end" }}>
+            {Array.from({ length: slotCount + 1 }, (_, slot) => {
+                const time = startTime.add(slot * slotMinutes);
+                return (
+                    <Typography
+                        key={slot}
+                        variant={time.minute === 0 ? "body2" : "caption"}
+                        sx={{
+                            gridArea: "1 / 1",
+                            position: "relative",
+                            top: slot * slotHeight,
+                            borderTop: gridSize,
+                        }}
+                    >
+                        {time.toString()}
+                    </Typography>
+                );
+            })}
+        </Box>
+    );
+};
 
 export default Legend;
