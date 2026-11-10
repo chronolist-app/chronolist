@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** ブロックの取得・登録・更新・削除と関連データを検証する. */
@@ -56,10 +57,7 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         int first = task(multiple, "複数1");
         int second = task(multiple, "複数2");
         task(block(table("2026-10-12"), "PLACED"), "配置済み");
-        jdbcTemplate.update("INSERT INTO users (login_id,password,role) VALUES (?,?,?)",
-                "other-user", "unused", "GENERAL");
-        int otherUser = jdbcTemplate.queryForObject(
-                "SELECT id FROM users WHERE login_id='other-user'", Integer.class);
+        int otherUser = createOtherUser();
         int other = block(null, "HOLD");
         task(other, "他ユーザー");
         jdbcTemplate.update("UPDATE time_blocks SET user_id=? WHERE id=?", otherUser, other);
@@ -247,6 +245,64 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
                 .andExpect(status().isNotFound()).andExpect(content().string(""));
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_blocks")).isEqualTo(before);
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks")).isEqualTo(tasks);
+    }
+
+    /** 他ユーザーのブロックへの更新と削除は404で、ブロックとタスクを保持する. */
+    @ParameterizedTest
+    @ValueSource(strings = {"update", "update/startAt", "delete"})
+    void foreignBlockReturns404(String operation) throws Exception {
+        int table = table("2026-10-12");
+        int foreignBlock = block(null, "HOLD");
+        int otherUser = createOtherUser();
+        jdbcTemplate.update("UPDATE time_blocks SET user_id=? WHERE id=?", otherUser, foreignBlock);
+        task(foreignBlock, "他ユーザーのタスク");
+        var blocks = jdbcTemplate.queryForList("SELECT * FROM time_blocks ORDER BY id");
+        var tasks = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks ORDER BY id");
+        var body = blockBody(table, "PLACED");
+        body.put("id", foreignBlock);
+        body.put("userId", otherUser);
+        var request = operation.equals("delete") ? delete(BASE + "timeBlock/delete")
+                : put(BASE + "timeBlock/" + operation);
+
+        performJsonAsUser(request, body).andExpect(status().isNotFound()).andExpect(content().string(""));
+
+        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_blocks ORDER BY id")).isEqualTo(blocks);
+        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks ORDER BY id")).isEqualTo(tasks);
+    }
+
+    /** 存在しない、または他ユーザーの配置先は404で、既存データを保持する. */
+    @ParameterizedTest
+    @CsvSource({"register, false", "register, true", "update, false", "update, true"})
+    void rejectsUnavailableDestinationTimeTable(String operation, boolean foreign) throws Exception {
+        int originalTable = table("2026-10-12");
+        int id = block(originalTable, "PLACED");
+        task(id, "保持");
+        int destination = -1;
+        if (foreign) {
+            destination = table("2026-10-13");
+            jdbcTemplate.update("UPDATE time_tables SET user_id=? WHERE id=?", createOtherUser(), destination);
+        }
+        var tables = jdbcTemplate.queryForList("SELECT * FROM time_tables ORDER BY id");
+        var blocks = jdbcTemplate.queryForList("SELECT * FROM time_blocks ORDER BY id");
+        var tasks = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks ORDER BY id");
+        var body = blockBody(destination, "PLACED");
+        if (operation.equals("update")) {
+            body.put("id", id);
+        }
+
+        performJsonAsUser(put(BASE + "timeBlock/" + operation), body)
+                .andExpect(status().isNotFound()).andExpect(content().string(""));
+
+        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_tables ORDER BY id")).isEqualTo(tables);
+        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_blocks ORDER BY id")).isEqualTo(blocks);
+        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks ORDER BY id")).isEqualTo(tasks);
+    }
+
+    /** アクセス制御の検証用に別のユーザーを作る. */
+    private int createOtherUser() {
+        jdbcTemplate.update("INSERT INTO users (login_id,password,role) VALUES (?,?,?)",
+                "other-user", "unused", "GENERAL");
+        return jdbcTemplate.queryForObject("SELECT id FROM users WHERE login_id=?", Integer.class, "other-user");
     }
 
     /** 保存項目を独立したSQLで確認する. */
