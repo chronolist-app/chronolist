@@ -39,23 +39,15 @@ abstract class TimeBlockingApiTest extends ApiIntegrationTest {
         return jdbcTemplate.queryForObject("SELECT MAX(id) FROM template_blocks", Integer.class);
     }
 
-    /** 旧仕様で予定に紐づけられたブロックを作る. */
-    protected int legacyLinkedBlock(Integer tableId, String status, int scheduleId) {
-        int id = block(tableId, status);
-        jdbcTemplate.update("UPDATE time_blocks SET schedule_id=? WHERE id=?", scheduleId, id);
-        return id;
-    }
-
-    /** カレンダーイベント付きの予定を作る. */
-    protected int scheduleWithCalendarEvent() {
+    /** 指定日にカレンダーイベント付きの終日予定を作る. */
+    protected void seedCalendarEvent(String date) {
         jdbcTemplate.update("""
                 INSERT INTO schedule (user_id,kind,start_date,end_date,title)
-                VALUES (?, 'ALL_DAY', '2026-10-12', '2026-10-12', '予定')
-                """, loginUser.getId());
+                VALUES (?, 'ALL_DAY', ?, ?, '予定')
+                """, loginUser.getId(), date, date);
         int id = jdbcTemplate.queryForObject("SELECT MAX(id) FROM schedule", Integer.class);
         jdbcTemplate.update("INSERT INTO calendar_event (schedule_id,color,memo) VALUES (?,?,?)",
                 id, "#345678", "予定のメモ");
-        return id;
     }
 
     /** ブロックの登録・更新本文を作る. */

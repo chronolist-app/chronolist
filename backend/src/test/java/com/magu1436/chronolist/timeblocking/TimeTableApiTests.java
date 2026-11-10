@@ -32,8 +32,8 @@ class TimeTableApiTests extends TimeBlockingApiTest {
     @Test
     void getTableIncludesItsBlocks() throws Exception {
         int table = table("2026-10-12");
-        int schedule = scheduleWithCalendarEvent();
-        int block = legacyLinkedBlock(table, "PLACED", schedule);
+        seedCalendarEvent("2026-10-12");
+        int block = block(table, "PLACED");
         int task = task(block, "作業");
         int held = block(table, "HOLD");
         block(table, "HOLD");

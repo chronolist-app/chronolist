@@ -6,7 +6,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +17,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.jdbc.core.ConnectionCallback;
 
 import com.magu1436.chronolist.support.ApiIntegrationTest;
 
@@ -21,6 +25,22 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
     private static final String BASE = "/api/scheduler/";
     private static final List<String> TIMEBLOCKING_TABLES =
             List.of("time_tables", "time_blocks", "time_block_tasks");
+
+    @Test
+    void schemaKeepsScheduleForeignKeyOnlyOnCalendarEvent() {
+        jdbcTemplate.execute((ConnectionCallback<Void>) connection -> {
+            var metadata = connection.getMetaData();
+            try (var columns = metadata.getColumns(connection.getCatalog(), "PUBLIC", "TIME_BLOCKS", "%")) {
+                assertThat(columns.next()).isTrue();
+                do {
+                    assertThat(columns.getString("COLUMN_NAME")).isNotEqualTo("SCHEDULE_ID");
+                } while (columns.next());
+            }
+            assertThat(scheduleForeignKeyColumns(connection, "TIME_BLOCKS")).isEmpty();
+            assertThat(scheduleForeignKeyColumns(connection, "CALENDAR_EVENT")).containsExactly("SCHEDULE_ID");
+            return null;
+        });
+    }
 
     @ParameterizedTest
     @CsvSource({"DATED,ALL_DAY", "ALL_DAY,CROSS_DAY", "CROSS_DAY,DATED", "DATED,DATED"})
@@ -48,26 +68,39 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
     }
 
     @Test
-    void changingToAllDayPreservesPreviouslyLinkedBlockAndTask() throws Exception {
+    void changingToAllDayPreservesBlockAndTaskOnTheSameDay() throws Exception {
         LocalDate date = LocalDate.of(2026, 11, 2);
         var created = performJsonAsUser(post(BASE + "register"), eventBody("DATED", date))
                 .andExpect(status().isCreated()).andReturn();
         int eventId = Integer.parseInt(created.getResponse().getContentAsString());
-        int blockId = seedTimeblockingRows(date);
-        jdbcTemplate.update("""
-                UPDATE time_blocks SET schedule_id = (SELECT schedule_id FROM calendar_event WHERE id = ?)
-                WHERE id = ?
-                """, eventId, blockId);
+        seedTimeblockingRows(date);
         var before = timeblockingRows();
 
         var updated = eventBody("ALL_DAY", date);
         updated.put("id", eventId);
         performJsonAsUser(put(BASE + "update"), updated).andExpect(status().isNoContent());
 
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT s.kind FROM schedule s JOIN calendar_event e ON e.schedule_id = s.id
+                WHERE e.id = ? AND s.start_date = ? AND s.end_date = ?
+                """, String.class, eventId, date, date)).isEqualTo("ALL_DAY");
         assertThat(timeblockingRows()).isEqualTo(before);
     }
 
-    private int seedTimeblockingRows(LocalDate date) {
+    private List<String> scheduleForeignKeyColumns(Connection connection, String table) throws SQLException {
+        var columns = new ArrayList<String>();
+        try (var keys = connection.getMetaData().getImportedKeys(connection.getCatalog(), "PUBLIC", table)) {
+            while (keys.next()) {
+                if ("SCHEDULE".equals(keys.getString("PKTABLE_NAME"))) {
+                    assertThat(keys.getString("PKCOLUMN_NAME")).isEqualTo("ID");
+                    columns.add(keys.getString("FKCOLUMN_NAME"));
+                }
+            }
+        }
+        return columns;
+    }
+
+    private void seedTimeblockingRows(LocalDate date) {
         int userId = loginUser.getId();
         jdbcTemplate.update("INSERT INTO time_tables (user_id, date) VALUES (?, ?)", userId, date);
         int tableId = jdbcTemplate.queryForObject(
@@ -79,7 +112,6 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
         int blockId = jdbcTemplate.queryForObject(
                 "SELECT id FROM time_blocks WHERE table_id = ?", Integer.class, tableId);
         jdbcTemplate.update("INSERT INTO time_block_tasks (time_block_id, title) VALUES (?, '既存タスク')", blockId);
-        return blockId;
     }
 
     private Map<String, List<Map<String, Object>>> timeblockingRows() {

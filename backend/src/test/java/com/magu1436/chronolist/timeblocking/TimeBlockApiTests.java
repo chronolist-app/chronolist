@@ -25,7 +25,8 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
     /** HOLDのみを取得し、複数タスクでも親ブロックが重複しない. */
     @Test
     void getHoldBlocksIncludesTasks() throws Exception {
-        int block = legacyLinkedBlock(null, "HOLD", scheduleWithCalendarEvent());
+        seedCalendarEvent("2026-10-12");
+        int block = block(null, "HOLD");
         int first = task(block, "作業1");
         int second = task(block, "作業2");
         block(table("2026-10-12"), "PLACED");
@@ -85,10 +86,12 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
                 empty, Map.of(), single, Map.of(one, "単独"),
                 multiple, Map.of(first, "複数1", second, "複数2")));
     }
-    /** 配置・保持の両形式を登録できる. */
+    /** 配置・保持の両形式を登録し、既存の予定とイベントを保持する. */
     @ParameterizedTest
     @ValueSource(strings = {"HOLD", "PLACED"})
     void registerBlock(String status) throws Exception {
+        seedCalendarEvent("2026-10-12");
+        var before = calendarRows();
         Integer table = status.equals("HOLD") ? null : table("2026-10-12");
         var body = blockBody(table, status);
         var result = performJsonAsUser(put(BASE + "timeBlock/register"), body)
@@ -97,6 +100,7 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         assertThat(id).isPositive();
         assertBlock(id, body);
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_blocks")).hasSize(1);
+        assertThat(calendarRows()).isEqualTo(before);
     }
 
     /** ブロックの配置・保持状態を変更して、他のブロックを維持する. */
@@ -140,91 +144,54 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         assertThat(row(id)).isEqualTo(before);
     }
 
-    /** 旧形式の予定情報を送っても、ブロックの登録で予定とイベントを変更しない. */
-    @Test
-    void registerIgnoresLegacySchedulePayload() throws Exception {
-        int schedule = scheduleWithCalendarEvent();
-        var before = calendarRows();
-        var body = blockBody(table("2026-10-12"), "PLACED");
-        body.put("relatedSchedule", legacySchedulePayload(schedule));
-
-        var result = performJsonAsUser(put(BASE + "timeBlock/register"), body)
-                .andExpect(status().isCreated()).andReturn();
-
-        int id = objectMapper.readValue(result.getResponse().getContentAsByteArray(), Integer.class);
-        assertBlock(id, body);
-        assertThat(row(id)).containsEntry("SCHEDULE_ID", null);
-        assertThat(calendarRows()).isEqualTo(before);
-    }
-
-    /** 旧仕様で予定に紐づけられたブロックも、予定やタスクに影響せず更新できる. */
+    /** 同じ日に予定があるブロックを更新し、予定やタスクを保持する. */
     @ParameterizedTest
     @ValueSource(strings = {"HOLD", "PLACED"})
-    void updateLegacyLinkedBlockLeavesCalendarAndTasksUnchanged(String status) throws Exception {
-        int schedule = scheduleWithCalendarEvent();
-        int id = legacyLinkedBlock(table("2026-10-12"), "PLACED", schedule);
+    void updateBlockLeavesCalendarAndTasksUnchanged(String status) throws Exception {
+        seedCalendarEvent("2026-10-12");
+        int id = block(table("2026-10-12"), "PLACED");
         task(id, "保持");
         var before = calendarRows();
         var tasks = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks WHERE time_block_id=?", id);
         var body = blockBody(status.equals("HOLD") ? null : table("2026-11-01"), status);
         body.put("id", id);
-        body.put("relatedSchedule", legacySchedulePayload(schedule));
 
         performJsonAsUser(put(BASE + "timeBlock/update"), body).andExpect(status().isNoContent());
 
         assertBlock(id, body);
-        assertThat(row(id)).containsEntry("SCHEDULE_ID", schedule);
         assertThat(calendarRows()).isEqualTo(before);
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks WHERE time_block_id=?", id)).isEqualTo(tasks);
     }
 
-    /** 開始時刻だけを変更し、他のフィールドとタスクを保持する. */
+    /** 開始時刻だけを変更し、他のフィールド・タスクと同日の予定を保持する. */
     @Test
     void updateStartAtPreservesFields() throws Exception {
+        seedCalendarEvent("2026-10-12");
         int id = block(table("2026-10-12"), "PLACED");
         task(id, "保持");
         var expected = new LinkedHashMap<>(row(id));
         expected.put("START_AT", Time.valueOf("16:00:00"));
         var tasks = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks");
+        var before = calendarRows();
         performJsonAsUser(put(BASE + "timeBlock/update/startAt"), Map.of("id", id, "startAt", "16:00:00"))
                 .andExpect(status().isNoContent()).andExpect(content().string(""));
         assertThat(row(id)).isEqualTo(expected);
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks")).isEqualTo(tasks);
-    }
-
-    /** 関連予定付きでも開始時刻だけを変更し、子タスクと関連予定の内容を保持する. */
-    @Test
-    void updateStartAtPreservesScheduleLink() throws Exception {
-        int schedule = scheduleWithCalendarEvent();
-        int id = legacyLinkedBlock(table("2026-10-12"), "PLACED", schedule);
-        task(id, "保持");
-        var expected = new LinkedHashMap<>(row(id));
-        expected.put("START_AT", Time.valueOf("16:00:00"));
-        var tasks = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks WHERE time_block_id=?", id);
-        var before = calendarRows();
-        performJsonAsUser(put(BASE + "timeBlock/update/startAt"), Map.of("id", id, "startAt", "16:00:00"))
-                .andExpect(status().isNoContent());
-        assertThat(row(id)).isEqualTo(expected);
-        assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks WHERE time_block_id=?", id)).isEqualTo(tasks);
         assertThat(calendarRows()).isEqualTo(before);
     }
 
     /** ブロックと子タスクを削除し、予定とカレンダーイベントを保持する. */
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void deleteBlockAndTasksLeavesCalendarUnchanged(boolean linked) throws Exception {
-        int schedule = scheduleWithCalendarEvent();
+    @Test
+    void deleteBlockAndTasksLeavesCalendarUnchanged() throws Exception {
+        seedCalendarEvent("2026-10-12");
         int table = table("2026-10-12");
-        int id = linked ? legacyLinkedBlock(table, "PLACED", schedule) : block(table, "PLACED");
+        int id = block(table, "PLACED");
         task(id, "削除");
         int other = block(null, "HOLD");
         int remainingTask = task(other, "保持");
         var before = row(other);
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("id", id);
-        if (linked) body.put("relatedSchedule", legacySchedulePayload(schedule));
         var calendarBefore = calendarRows();
-        performJsonAsUser(delete(BASE + "timeBlock/delete"), body)
+        performJsonAsUser(delete(BASE + "timeBlock/delete"), Map.of("id", id))
                 .andExpect(status().isNoContent()).andExpect(content().string(""));
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_blocks")).containsExactly(before);
         assertThat(jdbcTemplate.queryForList("SELECT id FROM time_block_tasks"))
@@ -311,12 +278,6 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
                 .containsEntry("TITLE", body.get("title")).containsEntry("STATUS", body.get("status"))
                 .containsEntry("WIDTH", body.get("width")).containsEntry("COLOR", body.get("color"))
                 .containsEntry("START_AT", body.get("startAt") == null ? null : Time.valueOf((String) body.get("startAt")));
-    }
-
-    /** 旧クライアントが送っていた予定情報を作る. */
-    private Map<String, Object> legacySchedulePayload(int scheduleId) {
-        return Map.of("id", scheduleId, "kind", "ALL_DAY", "title", "旧クライアントからの予定",
-                "startDate", "2026-11-01", "endDate", "2026-11-02");
     }
 
     /** 予定とイベントの全項目を比較できる形で取得する. */
