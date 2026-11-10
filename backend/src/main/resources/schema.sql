@@ -139,16 +139,12 @@ CREATE TABLE time_blocks (
     table_id INT,
     title VARCHAR(64) NOT NULL,
     status VARCHAR(8) NOT NULL,
-    schedule_id INT,
     width INT NOT NULL,
     start_at TIME,
     color VARCHAR(8) NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (table_id)
         REFERENCES time_tables(id)
-        ON DELETE CASCADE,
-    FOREIGN KEY (schedule_id) 
-        REFERENCES schedule(id)
         ON DELETE CASCADE,
 
     -- statusがとれる値の制約

@@ -42,8 +42,10 @@ Spring Session JDBCが既存DataSourceを使用する。prodはTiDB、dev / test
 Spring Sessionによる自動テーブル作成は全環境で無効化し、dev / testは既存の
 `schema.sql`、prodはFlywayでスキーマを管理する。
 
-prodへ対応Backendをデプロイする前に、Flyway V2（セッション用テーブル追加）まで適用する。
-適用済みV1は変更しない。devのH2は再起動時に初期化されるため、セッションも消える。
+prodへ対応Backendをデプロイする前に、リリース対象のFlywayマイグレーションを適用する。
+V2でセッション用テーブルを追加し、V3でタイムブロックから予定への参照を削除する。
+適用済みV1・V2は保持する。CHRON-190は[計画停止と新規DBへの切り替え手順](../examples/cloud-run/DB_REBUILD.md)に従う。
+devのH2は再起動時に初期化されるため、セッションも消える。
 期限切れセッションの物理削除はSpring Session JDBCの標準定期処理が担当する。
 既定cronは `0 * * * * *`（毎分0秒）。必要な場合は
 `SPRING_SESSION_JDBC_CLEANUP_CRON` / `spring.session.jdbc.cleanup-cron` で変更する。

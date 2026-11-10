@@ -12,17 +12,22 @@ import com.fasterxml.jackson.databind.*;
 public class TidbSessionVerification {
     static final ObjectMapper JSON = new ObjectMapper();
     static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
+    static final String DATE = "2026-11-02";
+    static final String SCHEDULER = "/api/scheduler/";
+    static final String TIMEBLOCKING = "/api/timeblocking/";
     static int checks;
     static Connection db;
     static final List<Process> processes = new ArrayList<>();
     static final List<Path> logs = new ArrayList<>();
 
     public static void main(String[] args) throws Exception {
+        if (args.length != 1 || !Set.of("prepare", "empty", "verify", "drop").contains(args[0]))
+            throw new IllegalArgumentException("検証モードを指定してください");
         String schema = System.getenv("VERIFY_SCHEMA");
         if (schema == null || !schema.matches("chron151_verify_[0-9a-f]{12}"))
             throw new IllegalArgumentException("Invalid disposable schema name");
         String url = System.getenv("DB_URL");
-        if (url == null || !url.contains("sslMode=VERIFY_IDENTITY"))
+        if (url == null || !url.matches("jdbc:mysql://[^/@?]+/[^/?]+\\?(?:[^&]+&)*sslMode=VERIFY_IDENTITY(?:&[^&]+)*"))
             throw new IllegalArgumentException("Verified TLS JDBC URL required");
         try (Connection connection = DriverManager.getConnection(url,
                 System.getenv("DB_USERNAME"), System.getenv("DB_PASSWORD"))) {
@@ -39,12 +44,18 @@ public class TidbSessionVerification {
                 System.out.println("DisposableDatabaseRemoved=true");
             } else {
                 check(schema.equals(db.getCatalog()), "Verification uses disposable database");
-                verify();
-                System.out.println("TiDBSessionChecksPassed=true Checks=" + checks);
+                if (args[0].equals("empty")) {
+                    check(number("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()") == 0,
+                            "マイグレーション前の検証用DBが空");
+                } else {
+                    verify();
+                    System.out.println("TiDBSessionChecksPassed=true Checks=" + checks);
+                }
             }
         } catch (SQLException e) {
             // 例外メッセージには接続先の識別情報が含まれ得るため、出力しない。
-            throw new IllegalStateException("TiDB SQL failure: state=" + e.getSQLState() + " code=" + e.getErrorCode());
+            System.out.println("FAIL TiDBのSQL実行 (code=" + e.getErrorCode() + ")");
+            throw new IllegalStateException("TiDB SQL failure");
         } finally {
             for (Process p : processes) stop(p);
             for (Path log : logs) Files.deleteIfExists(log);
@@ -52,7 +63,7 @@ public class TidbSessionVerification {
     }
 
     static void verify() throws Exception {
-        check(number("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1") == 2, "V1 and V2 applied");
+        verifySchema();
         check(number("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='SPRING_SESSION' AND index_name IN ('SPRING_SESSION_IX1','SPRING_SESSION_IX2','SPRING_SESSION_IX3')") == 3,
                 "Session indexes exist");
         try (Statement s = db.createStatement(); ResultSet r = s.executeQuery("SHOW SESSION STATUS LIKE 'Ssl_cipher'")) {
@@ -91,6 +102,7 @@ public class TidbSessionVerification {
                 "Fresh JVM restores session and data");
         check(browser.call(a, "DELETE", "/api/todolist/delete", token, "{\"id\":"+id+"}").statusCode() == 204,
                 "Fresh JVM accepts pre-restart CSRF");
+        verifySchedulerAndTimeBlocking(a, b, browser, token);
         String savedCookie = browser.cookie;
         var logout = browser.call(a, "POST", "/api/logout", token, null);
         check(logout.statusCode() == 200 && logout.headers().allValues("set-cookie").stream().anyMatch(v -> v.contains("Max-Age=0")),
@@ -138,6 +150,192 @@ public class TidbSessionVerification {
         check(sessions.findById(live.getId())==null,"Repository explicit delete");
     }
 
+    static void verifySchema() throws SQLException {
+        check(rows("""
+                SELECT installed_rank, version, IF(success, 1, 0)
+                FROM flyway_schema_history ORDER BY installed_rank
+                """).equals(List.of(List.of("1", "1", "1"), List.of("2", "2", "1"), List.of("3", "3", "1"))),
+                "Flyway履歴は順にV1・V2・V3の成功3件");
+        check(number("SELECT @@foreign_key_checks = 1 AND @@tidb_enable_check_constraint = 1") == 1,
+                "外部キーとCHECK制約が有効");
+        check(number("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'time_blocks' AND column_name = 'schedule_id'
+                """) == 0, "time_blocks.schedule_id列が存在しない");
+        check(number("""
+                SELECT COUNT(*) FROM information_schema.key_column_usage
+                WHERE table_schema = DATABASE() AND table_name = 'time_blocks'
+                  AND (constraint_name = 'fk_3' OR column_name = 'schedule_id' OR referenced_table_name = 'schedule')
+                """) == 0, "time_blocksからscheduleへの外部キーが存在しない");
+        check(number("""
+                SELECT COUNT(*) FROM information_schema.statistics
+                WHERE table_schema = DATABASE() AND table_name = 'time_blocks'
+                  AND (index_name = 'fk_3' OR column_name = 'schedule_id')
+                """) == 0, "time_blocksの旧予定参照用索引が存在しない");
+        check(number("""
+                SELECT COUNT(*) FROM information_schema.key_column_usage
+                WHERE table_schema = DATABASE() AND table_name = 'calendar_event' AND column_name = 'schedule_id'
+                  AND referenced_table_schema = DATABASE() AND referenced_table_name = 'schedule'
+                  AND referenced_column_name = 'id'
+                """) == 1, "calendar_eventからscheduleへの外部キーが残っている");
+        check(number("SELECT COUNT(*) FROM schedule") == 0, "無効な外部キーの検証前に予定が存在しない");
+        try (Statement statement = db.createStatement()) {
+            statement.executeUpdate("INSERT INTO calendar_event (schedule_id, color) VALUES (1, '#123456')");
+            throw new IllegalStateException("存在しない予定IDを参照するイベントが登録された");
+        } catch (SQLException e) {
+            if (e.getErrorCode() != 1452) throw e;
+            check(number("SELECT COUNT(*) FROM calendar_event") == 0, "存在しない予定IDへの外部キーを拒否 (1452)");
+        }
+    }
+
+    static void verifySchedulerAndTimeBlocking(int a, int b, Client owner, String ownerToken) throws Exception {
+        Client other = new Client();
+        String otherToken = signupAndLogin(other, b, "chron190other");
+        long ownerTable = createdId(owner, a, "POST", TIMEBLOCKING + "timeTable/createAt", ownerToken,
+                Map.of("date", DATE), "所有者のタイムテーブル登録");
+        long otherTable = createdId(other, b, "POST", TIMEBLOCKING + "timeTable/createAt", otherToken,
+                Map.of("date", DATE), "別ユーザーの同日タイムテーブル登録");
+        var originalBlock = blockBody(ownerTable, "所有者のブロック");
+        long ownerBlock = createdId(owner, a, "PUT", TIMEBLOCKING + "timeBlock/register", ownerToken,
+                originalBlock, "所有者のブロック登録");
+        long ownerTask = createdId(owner, a, "PUT", TIMEBLOCKING + "timeBlockTask/register", ownerToken,
+                Map.of("timeBlockId", ownerBlock, "title", "保持するタスク"), "ブロックの子タスク登録");
+        var initialTimeBlocking = timeBlockingRows();
+
+        var timedEvent = Map.of("kind", "DATED", "startAt", DATE + "T09:15:00", "endAt", DATE + "T10:45:00",
+                "title", "同日の通常予定", "color", "#123456", "memo", "通常予定のメモ");
+        long ownerEvent = createdId(owner, b, "POST", SCHEDULER + "register", ownerToken,
+                timedEvent, "通常予定を別JVM経由で登録");
+        long otherEvent = createdId(other, a, "POST", SCHEDULER + "register", otherToken,
+                timedEvent, "別ユーザーの同日予定登録");
+        check(timeBlockingRows().equals(initialTimeBlocking), "予定の登録でタイムテーブル・ブロック・タスクが維持される");
+
+        var initialCalendar = calendarRows();
+        long otherBlock = createdId(other, a, "PUT", TIMEBLOCKING + "timeBlock/register", otherToken,
+                blockBody(otherTable, "別ユーザーのブロック"), "既存の予定がある日のブロック登録");
+        long otherTask = createdId(other, a, "PUT", TIMEBLOCKING + "timeBlockTask/register", otherToken,
+                Map.of("timeBlockId", otherBlock, "title", "連動して削除するタスク"), "削除対象の子タスク登録");
+        check(calendarRows().equals(initialCalendar), "ブロックとタスクの登録で予定とイベントが維持される");
+
+        check(onlyItem(events(owner, b), ownerEvent) && onlyItem(events(other, a), otherEvent),
+                "同日の予定一覧に各ユーザー自身のイベントだけが表示される");
+        var ownerTimeTable = timeTable(owner, b);
+        var otherTimeTable = timeTable(other, a);
+        check(ownerTimeTable.path("id").asLong() == ownerTable && otherTimeTable.path("id").asLong() == otherTable
+                && onlyItem(ownerTimeTable.path("timeBlocks"), ownerBlock)
+                && onlyItem(otherTimeTable.path("timeBlocks"), otherBlock), "同日のタイムテーブルとブロックが所有者ごとに分離される");
+
+        var allDayEvent = Map.of("id", ownerEvent, "kind", "ALL_DAY", "startDate", DATE, "endDate", DATE,
+                "title", "同日の終日予定", "color", "#654321", "memo", "終日予定のメモ");
+        var updatedBlock = blockBody(ownerTable, "変更後のブロック");
+        updatedBlock.put("id", ownerBlock);
+        var updatedStart = Map.of("id", ownerBlock, "startAt", "16:00:00");
+        var deleteBlock = Map.of("id", ownerBlock);
+        var beforeForeignMutations = timeBlockingRows();
+        expectStatus(other, b, "PUT", SCHEDULER + "update", otherToken, allDayEvent, 404, "他人の予定更新を拒否");
+        expectStatus(other, b, "DELETE", SCHEDULER + "delete/" + ownerEvent, otherToken, null, 404, "他人の予定削除を拒否");
+        expectStatus(other, b, "PUT", TIMEBLOCKING + "timeBlock/update", otherToken, updatedBlock, 404, "他人のブロック更新を拒否");
+        expectStatus(other, b, "PUT", TIMEBLOCKING + "timeBlock/update/startAt", otherToken, updatedStart, 404, "他人のブロック開始時刻更新を拒否");
+        expectStatus(other, b, "DELETE", TIMEBLOCKING + "timeBlock/delete", otherToken, deleteBlock, 404, "他人のブロック削除を拒否");
+        expectStatus(other, b, "PUT", TIMEBLOCKING + "timeBlock/register", otherToken, originalBlock, 404, "他人のタイムテーブルへの配置を拒否");
+        check(calendarRows().equals(initialCalendar) && timeBlockingRows().equals(beforeForeignMutations),
+                "他人のデータへの操作を拒否した後も全業務行が維持される");
+
+        expectStatus(owner, a, "PUT", TIMEBLOCKING + "timeBlock/update", ownerToken, updatedBlock, 204, "所有者のブロック更新");
+        check(calendarRows().equals(initialCalendar), "ブロックの更新で予定とイベントが維持される");
+        expectStatus(owner, b, "PUT", TIMEBLOCKING + "timeBlock/update/startAt", ownerToken, updatedStart, 204, "所有者のブロック開始時刻更新");
+        var changedBlock = timeTable(owner, a).path("timeBlocks").path(0);
+        check(changedBlock.path("id").asLong() == ownerBlock && "変更後のブロック".equals(changedBlock.path("title").asText())
+                && changedBlock.path("startAt").asText().matches("16:00(?::00)?")
+                && onlyItem(changedBlock.path("tasks"), ownerTask),
+                "開始時刻とブロックの更新が反映され、子タスクが取得できる");
+        check(calendarRows().equals(initialCalendar), "ブロックの開始時刻更新で予定とイベントが維持される");
+        expectStatus(other, b, "DELETE", TIMEBLOCKING + "timeBlock/delete", otherToken, Map.of("id", otherBlock), 204,
+                "同日に予定があるブロックを削除");
+        var remainingBlocks = timeTable(other, a).path("timeBlocks");
+        check(remainingBlocks.isArray() && remainingBlocks.isEmpty()
+                && number("SELECT COUNT(*) FROM time_block_tasks WHERE id = ?", otherTask) == 0,
+                "削除したブロックが一覧から消え、子タスクが連動して削除される");
+        check(calendarRows().equals(initialCalendar), "ブロックの削除で予定とイベントが維持される");
+
+        var survivingTimeBlocking = timeBlockingRows();
+        expectStatus(owner, b, "PUT", SCHEDULER + "update", ownerToken, allDayEvent, 204, "同日の通常予定を終日予定に更新");
+        var updatedEvents = events(owner, a);
+        check(onlyItem(updatedEvents, ownerEvent) && "ALL_DAY".equals(updatedEvents.path(0).path("kind").asText())
+                && DATE.equals(updatedEvents.path(0).path("startDate").asText()), "終日への更新が取得結果に反映される");
+        check(timeBlockingRows().equals(survivingTimeBlocking), "終日への更新でブロック・子タスクが維持される");
+        long scheduleId = number("SELECT schedule_id FROM calendar_event WHERE id = ?", ownerEvent);
+        expectStatus(owner, a, "DELETE", SCHEDULER + "delete/" + ownerEvent, ownerToken, null, 204, "所有者の予定削除");
+        var remainingOwnerEvents = events(owner, b);
+        check(remainingOwnerEvents.isArray() && remainingOwnerEvents.isEmpty() && onlyItem(events(other, a), otherEvent)
+                && number("SELECT COUNT(*) FROM schedule WHERE id = ?", scheduleId) == 0,
+                "予定とイベントが削除され、別ユーザーの同日イベントが残る");
+        check(timeBlockingRows().equals(survivingTimeBlocking), "予定の削除でタイムテーブル・ブロック・タスクが維持される");
+    }
+
+    static String signupAndLogin(Client client, int port, String loginId) throws Exception {
+        var credentials = Map.of("loginId", loginId, "password", "Session190Check!");
+        String preLogin = client.token(port);
+        expectStatus(client, port, "POST", "/api/signup", preLogin, credentials, 200, "独立性検証用ユーザー登録");
+        expectStatus(client, port, "POST", "/api/login", preLogin, credentials, 200, "独立性検証用ユーザーで認証");
+        return client.token(port);
+    }
+
+    static Map<String, Object> blockBody(long tableId, String title) {
+        return new HashMap<>(Map.of("timeTableId", tableId, "title", title, "status", "PLACED",
+                "width", 90, "startAt", "09:15:00", "color", "#123456"));
+    }
+
+    static JsonNode events(Client client, int port) throws Exception {
+        return JSON.readTree(expectStatus(client, port, "GET", SCHEDULER + "getEvents/" + DATE + "/" + DATE,
+                null, null, 200, "同日の予定一覧を取得").body());
+    }
+
+    static JsonNode timeTable(Client client, int port) throws Exception {
+        return JSON.readTree(expectStatus(client, port, "GET", TIMEBLOCKING + "timeTable/getByDate/" + DATE,
+                null, null, 200, "同日のタイムテーブルを取得").body());
+    }
+
+    static boolean onlyItem(JsonNode items, long id) {
+        return items.isArray() && items.size() == 1 && items.path(0).path("id").asLong() == id;
+    }
+
+    static long createdId(Client client, int port, String method, String path, String token, Map<String, ?> body,
+            String label) throws Exception {
+        long id = JSON.readTree(expectStatus(client, port, method, path, token, body, 201, label).body()).asLong();
+        check(id > 0, label + "のIDが返る");
+        return id;
+    }
+
+    static HttpResponse<String> expectStatus(Client client, int port, String method, String path, String token,
+            Map<String, ?> body, int expected, String label) throws Exception {
+        var response = client.call(port, method, path, token, body == null ? null : JSON.writeValueAsString(body));
+        check(response.statusCode() == expected, label + " (HTTP " + response.statusCode() + ")");
+        return response;
+    }
+
+    static List<List<List<String>>> calendarRows() throws SQLException {
+        return List.of(rows("SELECT * FROM schedule ORDER BY id"), rows("SELECT * FROM calendar_event ORDER BY id"));
+    }
+
+    static List<List<List<String>>> timeBlockingRows() throws SQLException {
+        return List.of(rows("SELECT * FROM time_tables ORDER BY id"), rows("SELECT * FROM time_blocks ORDER BY id"),
+                rows("SELECT * FROM time_block_tasks ORDER BY id"));
+    }
+
+    static List<List<String>> rows(String sql) throws SQLException {
+        List<List<String>> rows = new ArrayList<>();
+        try (Statement statement = db.createStatement(); ResultSet result = statement.executeQuery(sql)) {
+            int columns = result.getMetaData().getColumnCount();
+            while (result.next()) {
+                List<String> row = new ArrayList<>();
+                for (int column = 1; column <= columns; column++) row.add(result.getString(column));
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
     static String task() { return "{\"title\":\"TiDB session verification\",\"priority\":\"MIDDLE\",\"dueKind\":\"NONE\"}"; }
     static int port() throws Exception { try(ServerSocket s = new ServerSocket(0)) { return s.getLocalPort(); } }
     static Process start(int port) throws Exception {
@@ -167,7 +365,10 @@ public class TidbSessionVerification {
         }
     }
     static void check(boolean condition, String label) {
-        if(!condition) throw new IllegalStateException(label);
+        if (!condition) {
+            System.out.println("FAIL " + label);
+            throw new IllegalStateException(label);
+        }
         checks++; System.out.println("PASS " + label);
     }
     static class Client {
