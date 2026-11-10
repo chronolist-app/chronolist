@@ -10,12 +10,9 @@ import Color from "./Color";
 import Memo from "./Memo";
 import type { ScheduleKind } from "../../types/statics";
 import deleteEvent from "../../api/delete";
-import { addDays } from "@/utils/date";
+import { nextDate, prevDate } from "@/utils/date";
+import { adjustAllDayEnd } from "../../entity/allDayRange";
 import { resolveSelectedCalendarEvent } from "../../utils/selection";
-
-// ローカル暦日を日数として比較し、夏時間による一日の長さの違いを除く。
-const calendarDay = (date: Date): number =>
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
 
 /**
  * カレンダーイベントの詳細を表示・編集可能にするサイドパネル
@@ -84,10 +81,7 @@ const SidePanel: FC = () => {
             if (!oldStart || !oldEnd) throw new Error("The event has no date range.");
 
             updatedEvent.startDate = new Date(start.getTime());
-            if (calendarDay(start) > calendarDay(oldEnd)) {
-                const durationDays = calendarDay(oldEnd) - calendarDay(oldStart);
-                updatedEvent.endDate = addDays(start, durationDays);
-            }
+            updatedEvent.endDate = adjustAllDayEnd(oldStart, oldEnd, start);
         } else {
             const oldStart = targetCalendarEvent.startAt;
             const oldEnd = targetCalendarEvent.endAt;
@@ -106,15 +100,21 @@ const SidePanel: FC = () => {
 
     const handleChangeEnd = (end: Date) => {
         if (!targetCalendarEvent) return;
-        if (targetCalendarEvent.kind === "ALL_DAY") targetCalendarEvent.endDate = end;
-        else targetCalendarEvent.endAt = end;
-        changeCalendarEvent(targetCalendarEvent);
+        const updatedEvent = targetCalendarEvent.clone();
+        if (updatedEvent.kind === "ALL_DAY") {
+            if (!updatedEvent.startDate || end < updatedEvent.startDate) return;
+            updatedEvent.endDate = nextDate(end);
+        } else {
+            updatedEvent.endAt = end;
+        }
+        changeCalendarEvent(updatedEvent);
     }
 
     const handleChangeKind = (kind: ScheduleKind) => {
         if (!targetCalendarEvent) return;
-        targetCalendarEvent.kind = kind;
-        changeCalendarEvent(targetCalendarEvent);
+        const updatedEvent = targetCalendarEvent.clone();
+        updatedEvent.kind = kind;
+        changeCalendarEvent(updatedEvent);
     }
 
     const handleChangeColor = (color: string) => {
@@ -149,7 +149,9 @@ const SidePanel: FC = () => {
                 <Time
                     kind={targetCalendarEvent?.kind || "DATED"}
                     start={targetCalendarEvent?.startAt || targetCalendarEvent?.startDate || new Date()}
-                    end={targetCalendarEvent?.endAt || targetCalendarEvent?.endDate || new Date()}
+                    end={targetCalendarEvent?.endDate
+                        ? prevDate(targetCalendarEvent.endDate)
+                        : targetCalendarEvent?.endAt || new Date()}
                     onChangeStart={handleChangeStart}
                     onChangeEnd={handleChangeEnd}
                     onChangeKind={handleChangeKind}

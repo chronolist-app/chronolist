@@ -12,7 +12,7 @@ VALUES
 (1, 'RED', '12:00に集合');
 INSERT INTO schedule (user_id, kind, start_at, end_at, start_date, end_date, title)
 VALUES
-(1, 'ALL_DAY', null, null, '2025-11-01', '2025-11-03', 'バイト');
+(1, 'ALL_DAY', null, null, '2025-11-01', '2025-11-04', 'バイト');
 INSERT INTO calendar_event (schedule_id, color, memo)
 VALUES
 (2, 'BLUE', '働きたくない');

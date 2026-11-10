@@ -1,9 +1,9 @@
 # CHRON-190のDB再構築とCloud Run切り替え
 
-CHRON-190では、計画停止中に新しい空のTiDBデータベースを構築し、Cloud Runを切り替える。
+CHRON-190とCHRON-193を含むリリースでは、計画停止中に新しい空のTiDBデータベースを構築し、Cloud Runを切り替える。
 旧DBのデータ、ユーザー、セッションは新DBへ移行しない。実行前にこの扱いと停止時間を承認し、
 再ログインや必要なアカウント登録を利用者へ案内する。既存の本番DBは切り替え時に削除しない。
-本番作業の実行には、対象を特定した上で別途承認が必要。この手順はCHRON-190に限定し、他のリリースは
+本番作業の実行には、対象を特定した上で別途承認が必要。この手順は今回の再構築に限定し、他のリリースは
 [通常の配置手順](README.md)と[Flywayの復旧原則](../../backend/flyway/README.md#失敗時の扱い)に従う。
 
 ## 開発用H2とテスト
@@ -63,9 +63,9 @@ V1・V2は適用済みSQLとして保持する。V1とV2を新規適用したTiD
    JobはDDL・履歴管理用、Backendは業務・セッション用の別DBユーザーと権限、別のSecret参照を使う。
    候補の起動前に、承認済みの検証経路からJDBCクライアントで各ユーザーの認証情報を使って個別に接続し、
    `SELECT DATABASE()`、TLSと制約設定を照合する。候補起動後は実際のサービスから疎通と権限を確認する。
-3. [Job設定手順](README.md#3-migrationを先に実行する)を参照し、対象JobをV3入りのdigestと新DBへの接続設定に固定する。
+3. [Job設定手順](README.md#3-migrationを先に実行する)を参照し、対象JobをV4まで含むdigestと新DBへの接続設定に固定する。
    既存の実行アカウント・ネットワーク等を照合し、必要な設定を保持する。1タスク・並列1・リトライ0で実行する。
-   各Executionの終了を待ち、IDと結果を運用記録に残す。最初の `info` はV1〜V3がPendingであることを確認する。
+   各Executionの終了を待ち、IDと結果を運用記録に残す。最初の `info` はV1〜V4がPendingであることを確認する。
 
    ```sh
    bash examples/cloud-run/flyway-job.sh info
@@ -75,7 +75,7 @@ V1・V2は適用済みSQLとして保持する。V1とV2を新規適用したTiD
    ```
 
 4. 以下の読み取り専用SQLを新DBに接続して実行する。TLS cipherが空でなく、外部キーとCHECKの設定が有効であることを確認する。
-   JobとBackendの接続でも同じ制約設定を使う。履歴は順にV1・V2・V3の成功3件のみで、最終 `info` にPendingがないことを確認する。
+   JobとBackendの接続でも同じ制約設定を使う。履歴は順にV1・V2・V3・V4の成功4件のみで、最終 `info` にPendingがないことを確認する。
 
    ```sql
    SELECT DATABASE(), @@foreign_key_checks, @@tidb_enable_check_constraint;
@@ -102,12 +102,14 @@ V1・V2は適用済みSQLとして保持する。V1とV2を新規適用したTiD
    SHOW CREATE TABLE time_blocks;
    SHOW CREATE TABLE time_block_tasks;
    SHOW CREATE TABLE calendar_event;
+   SHOW CREATE TABLE schedule;
    ```
 
    `time_blocks.schedule_id`、その参照外部キー、専用索引 `fk_3` が存在しないことを確認する。
    `calendar_event.schedule_id` は同じDBの `schedule.id` を引き続き参照する。`time_blocks.user_id` → `users.id`、
    `time_blocks.table_id` → `time_tables.id` とタスク → ブロックの外部キー、V1のCASCADEとCHECK、
    V2のセッションテーブルと索引を保持する。V1・V2の他のテーブル・外部キー・制約もSQLと照合する。
+   `schedule` にV4の `chk_all_day_nonempty` 制約があり、終日予定の終了日が開始日より後に制限されていることを確認する。
    すべての照合に通ってから候補を起動する。
 
 ## 候補の検証と公開切り替え
@@ -141,6 +143,7 @@ V1・V2は適用済みSQLとして保持する。V1とV2を新規適用したTiD
    Cloud Runのリクエストログで到達したリビジョンを確認し、公開経路や旧DBへ書き込まれていないことを照合する。
 3. 候補でサインアップ、ログイン後のCSRF再取得、認証済みGET、ToDo・予定・タイムブロックのCRUDを試す。
    同日の予定を更新・削除してもブロックと子タスクが残り、ブロック変更後も予定が残ることを確認する。
+   1日だけの終日予定を登録し、その日の検索に含まれ、翌日の検索に含まれないことを確認する。
    ログアウトと旧Cookie拒否も確認する。検証で作成したデータは対象を識別し、残すものと削除するものを記録する。
 4. 公開入口を閉じたまま、候補をリビジョン名で100%へ切り替える。担当者の検証経路から公開Originの画面とAPIを
    確認し、ブラウザのリクエスト先・Cookie・認証付き操作と実際の到達リビジョンを照合する。

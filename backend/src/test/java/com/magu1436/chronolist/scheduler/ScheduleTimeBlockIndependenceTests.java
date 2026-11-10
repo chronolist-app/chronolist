@@ -83,7 +83,7 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT s.kind FROM schedule s JOIN calendar_event e ON e.schedule_id = s.id
                 WHERE e.id = ? AND s.start_date = ? AND s.end_date = ?
-                """, String.class, eventId, date, date)).isEqualTo("ALL_DAY");
+                """, String.class, eventId, date, date.plusDays(1))).isEqualTo("ALL_DAY");
         assertThat(timeblockingRows()).isEqualTo(before);
     }
 
@@ -129,7 +129,7 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
         if (kind.equals("ALL_DAY")) {
             body.put("kind", "ALL_DAY");
             body.put("startDate", date.toString());
-            body.put("endDate", date.toString());
+            body.put("endDate", date.plusDays(1).toString());
         } else {
             LocalDate endDate = kind.equals("CROSS_DAY") ? date.plusDays(1) : date;
             body.put("kind", "DATED");

@@ -1,5 +1,6 @@
 package com.magu1436.chronolist.timeblocking;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -44,7 +45,7 @@ abstract class TimeBlockingApiTest extends ApiIntegrationTest {
         jdbcTemplate.update("""
                 INSERT INTO schedule (user_id,kind,start_date,end_date,title)
                 VALUES (?, 'ALL_DAY', ?, ?, '予定')
-                """, loginUser.getId(), date, date);
+                """, loginUser.getId(), date, LocalDate.parse(date).plusDays(1));
         int id = jdbcTemplate.queryForObject("SELECT MAX(id) FROM schedule", Integer.class);
         jdbcTemplate.update("INSERT INTO calendar_event (schedule_id,color,memo) VALUES (?,?,?)",
                 id, "#345678", "予定のメモ");

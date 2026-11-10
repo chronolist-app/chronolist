@@ -43,14 +43,14 @@ class SchedulerIdorTests extends ApiIntegrationTest {
 
     private int seed(int owner, String kind) {
         // Offset the sequences so event ID cannot stand in for Schedule ID.
-        jdbcTemplate.update("INSERT INTO schedule (user_id,kind,start_date,end_date,title) VALUES (?,'ALL_DAY','2026-01-01','2026-01-01','standalone')", owner);
+        jdbcTemplate.update("INSERT INTO schedule (user_id,kind,start_date,end_date,title) VALUES (?,'ALL_DAY','2026-01-01','2026-01-02','standalone')", owner);
         jdbcTemplate.update("""
                 INSERT INTO schedule (user_id,kind,start_at,end_at,start_date,end_date,title)
                 VALUES (?,?,?,?,?,?,?)
                 """, owner, kind, kind.equals("DATED") ? "2026-10-12 09:00:00" : null,
                 kind.equals("DATED") ? "2026-10-12 10:00:00" : null,
                 kind.equals("ALL_DAY") ? "2026-10-12" : null,
-                kind.equals("ALL_DAY") ? "2026-10-12" : null, "original");
+                kind.equals("ALL_DAY") ? "2026-10-13" : null, "original");
         int schedule = jdbcTemplate.queryForObject("SELECT MAX(id) FROM schedule", Integer.class);
         jdbcTemplate.update("INSERT INTO calendar_event (schedule_id,color,memo) VALUES (?,'RED','original')", schedule);
         return jdbcTemplate.queryForObject("SELECT MAX(id) FROM calendar_event", Integer.class);
@@ -132,6 +132,13 @@ class SchedulerIdorTests extends ApiIntegrationTest {
         assertThat(jdbcTemplate.queryForMap("SELECT * FROM calendar_event WHERE id=?", own).get("MEMO")).isEqualTo("changed");
         assertThat(jdbcTemplate.queryForMap("SELECT * FROM schedule WHERE id=?", scheduleId(decoy))).isEqualTo(decoySchedule);
         assertThat(jdbcTemplate.queryForMap("SELECT * FROM calendar_event WHERE id=?", decoy)).isEqualTo(decoyEvent);
+    }
+
+    @Test
+    void updateChecksOwnershipBeforeValidatingAllDayRange() throws Exception {
+        var payload = body(seed(otherUser(), "ALL_DAY"));
+        payload.put("endDate", payload.get("startDate"));
+        performJsonAsUser(put(BASE + "update"), payload).andExpect(status().isNotFound());
     }
 
     @ParameterizedTest

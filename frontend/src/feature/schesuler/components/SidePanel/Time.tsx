@@ -26,6 +26,7 @@ type AllDayCheckBoxProps = {
 type DateTimeBox = {
     kind: ScheduleKind,
     time: Date,
+    minDate?: Date,
     onChange: (time: Date) => void,
 }
 
@@ -44,7 +45,7 @@ const Time: FC<TimeProps> = ({
                 <AllDayCheckBox kind={kind} onChangeKind={onChangeKind} />
                 <DateTimeBox kind={kind} time={start} onChange={onChangeStart} />
                 <ArrowDownwardIcon />
-                <DateTimeBox kind={kind} time={end} onChange={onChangeEnd} />
+                <DateTimeBox kind={kind} time={end} minDate={start} onChange={onChangeEnd} />
             </Stack>
         </>
     )
@@ -61,10 +62,10 @@ const AllDayCheckBox: FC<AllDayCheckBoxProps> = ({kind, onChangeKind}) => {
     );
 }
 
-const DateTimeBox: FC<DateTimeBox> = ({kind, time, onChange}) => {
+const DateTimeBox: FC<DateTimeBox> = ({kind, time, minDate, onChange}) => {
     const isAllDay = kind === "ALL_DAY";
 
-    if (isAllDay) return <EditableDateText value={time} onChange={onChange} />;
+    if (isAllDay) return <EditableDateText value={time} minDate={minDate} onChange={onChange} />;
 
     const onChangeDate = (date: Date) => {
         const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), time.getHours(), time.getMinutes());

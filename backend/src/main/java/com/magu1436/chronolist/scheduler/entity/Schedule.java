@@ -30,7 +30,7 @@ public class Schedule {
     private LocalDateTime endAt;
     /** 開始日 */
     private LocalDate startDate;
-    /** 終了日 */
+    /** 終日予定の範囲に含まれない終了日 */
     private LocalDate endDate;
     /** タイトル */
     private String title;

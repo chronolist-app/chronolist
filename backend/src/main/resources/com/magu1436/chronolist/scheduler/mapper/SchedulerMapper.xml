@@ -1,48 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.magu1436.chronolist.scheduler.mapper.SchedulerMapper">
-    <select id="getSchedulesFromTo" resultType="com.magu1436.chronolist.scheduler.entity.Schedule">
-        SELECT id, kind, start_at, end_at, start_date, end_date, title
-        FROM schedule
-        WHERE user_id = #{userId}
+    <sql id="scheduleRangeOverlap">
+        <bind name="rangeStartAt" value="startDate.atStartOfDay()"/>
+        <bind name="rangeEndAt" value="endDate.plusDays(1).atStartOfDay()"/>
         AND (
             (
-                kind = 'ALL_DAY'
-                AND start_date &lt;= #{endDate}
-                AND end_date &gt;= #{startDate}
+                s.kind = 'ALL_DAY'
+                AND s.start_date &lt; s.end_date
+                AND s.start_date &lt;= #{endDate}
+                AND s.end_date &gt; #{startDate}
             )
             OR
             (
-                kind = 'DATED'
-                AND CAST(start_at AS DATE) &lt;= #{endDate}
-                AND CAST(end_at AS DATE) &gt;= #{startDate}
+                s.kind = 'DATED'
+                AND s.start_at &lt; s.end_at
+                AND s.start_at &lt; #{rangeEndAt}
+                AND s.end_at &gt; #{rangeStartAt}
             )
         )
+    </sql>
+
+    <select id="getSchedulesFromTo" resultType="com.magu1436.chronolist.scheduler.entity.Schedule">
+        SELECT s.id, s.kind, s.start_at, s.end_at, s.start_date, s.end_date, s.title
+        FROM schedule s
+        WHERE s.user_id = #{userId}
+        <include refid="scheduleRangeOverlap"/>
     </select>
 
     <select id="getScheduleById" resultType="com.magu1436.chronolist.scheduler.entity.Schedule">
         SELECT id, kind, start_at, end_at, start_date, end_date, title
         FROM schedule
         WHERE id = #{id} AND user_id = #{userId}
-    </select>
-
-    <select id="getSchedulesByDate" resultType="com.magu1436.chronolist.scheduler.entity.Schedule">
-        SELECT id, kind, start_at, end_at, start_date, end_date, title
-        FROM schedule
-        WHERE user_id = #{userId}
-        AND (
-            (
-                kind = 'ALL_DAY'
-                AND start_date &lt;= #{date}
-                AND end_date &gt;= #{date}
-            )
-            OR
-            (
-                kind = 'DATED'
-                AND CAST(start_at AS DATE) &lt;= #{date}
-                AND CAST(end_at AS DATE) &gt;= #{date}
-            )
-        )
     </select>
 
     <insert id="insertSchedule" useGeneratedKeys="true" keyProperty="id" parameterType="com.magu1436.chronolist.scheduler.entity.Schedule">
@@ -67,19 +56,7 @@
         FROM calendar_event c
         INNER JOIN schedule s ON c.schedule_id = s.id
         WHERE s.user_id = #{userId}
-        AND (
-            (
-                s.kind = 'ALL_DAY'
-                AND s.start_date &lt;= #{endDate}
-                AND s.end_date &gt;= #{startDate}
-            )
-            OR
-            (
-                s.kind = 'DATED'
-                AND CAST(s.start_at AS DATE) &lt;= #{endDate}
-                AND CAST(s.end_at AS DATE) &gt;= #{startDate}
-            )
-        )
+        <include refid="scheduleRangeOverlap"/>
     </select>
 
     <select id="getCalendarEventById" resultType="com.magu1436.chronolist.scheduler.entity.CalendarEvent">
