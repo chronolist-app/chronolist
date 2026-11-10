@@ -8,6 +8,8 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import PullDown from "@/components/pulldown";
 import useModal from "@/hooks/use-modal";
 import CalendarEvent from "../entity/calendarEvent";
+import { fromInclusiveAllDayRange, fromTimedRange } from "../entity/allDayRange";
+import { prevDate } from "@/utils/date";
 import CheckBox from "@/components/checkbox";
 import registerEvent from "../api/register";
 import CalendarEventsContext from "../components/contexts/calendar-events-context";
@@ -88,6 +90,25 @@ const useRegisterEventModal = () => {
         )
     }
 
+    const handleChangeKind = (checked: boolean) => {
+        const kind = checked ? "ALL_DAY" : "DATED";
+        setValues((previous) => {
+            const { start, end } = previous;
+            if (kind === previous.kind || !start?.isValid() || !end?.isValid()) {
+                return { ...previous, kind };
+            }
+            const range = kind === "ALL_DAY"
+                ? fromTimedRange(start.toDate(), end.toDate())
+                : fromInclusiveAllDayRange(start.toDate(), end.toDate());
+            return {
+                ...previous,
+                kind,
+                start: dayjs(range.start),
+                end: dayjs(kind === "ALL_DAY" ? prevDate(range.end) : range.end),
+            };
+        });
+    };
+
     const renderModalBody = () => (
         <Stack direction={"column"} alignItems={"center"} spacing={2}>
             <TextField
@@ -105,7 +126,7 @@ const useRegisterEventModal = () => {
             <Stack direction={"column"} alignItems={"end"} spacing={1}>
                 <Stack direction={"row"}>
                     <Typography>終日</Typography>
-                    <CheckBox defaultChecked={values.kind === "ALL_DAY"} onChange={(checked) => setValues((v) => ({ ...v, kind: checked ? "ALL_DAY" : "DATED" }))} />
+                    <CheckBox defaultChecked={values.kind === "ALL_DAY"} onChange={handleChangeKind} />
                 </Stack>
                 <Stack direction={"column"} spacing={1} alignItems={"center"}>
                     <StartDateTimeField />
@@ -135,12 +156,16 @@ const useRegisterEventModal = () => {
             setErrorMessages((v) => ({ ...v, title: "タイトルを入力してください" }));
             return false;
         }
-        if (values.start === null) {
+        if (!values.start?.isValid()) {
             setErrorMessages((v) => ({ ...v, start: "開始日時を入力してください" }));
             return false;
         }
-        if (values.end === null) {
+        if (!values.end?.isValid()) {
             setErrorMessages((v) => ({ ...v, end: "終了日時を入力してください" }));
+            return false;
+        }
+        if (values.kind === "ALL_DAY" && values.end.isBefore(values.start, "day")) {
+            setErrorMessages((v) => ({ ...v, end: "終了日は開始日以降を指定してください" }));
             return false;
         }
         return true;
@@ -159,7 +184,7 @@ const useRegisterEventModal = () => {
         const event = values2event(values);
         setEvents((events) => [...events, event]);
         setSelectedEventId(event.clientId);
-        const id = await registerEvent(values2event(values));
+        const id = await registerEvent(event);
         event.id = id;
 
         // テスト出力
@@ -218,16 +243,10 @@ const initialModalFormValues = (): ModalFormValues => {
 
 const values2event = (v: ModalFormValues): CalendarEvent => {
     if (!v.start || !v.end) throw new Error("Invalid date.");
-    const e = new CalendarEvent(
-        undefined,
-        v.kind,
-        v.start.toDate(),
-        v.end.toDate(),
-        v.title,
-        v.color,
-    );
-    e.memo = v.memo;
-    return e;
+    const start = v.start.toDate();
+    const end = v.end.toDate();
+    const range = v.kind === "ALL_DAY" ? fromInclusiveAllDayRange(start, end) : { start, end };
+    return new CalendarEvent({ ...range, kind: v.kind, title: v.title, color: v.color, memo: v.memo });
 };
 
 export default useRegisterEventModal;

@@ -73,6 +73,10 @@ CREATE TABLE schedule (
             (kind = 'ALL_DAY' and start_date is not NULL and end_date is not NULL and start_date <= end_date)
         ),
 
+    -- 終日予定の終了日は範囲に含まない。
+    CONSTRAINT chk_all_day_nonempty
+        CHECK (kind <> 'ALL_DAY' OR start_date < end_date),
+
     CONSTRAINT chk_exclusive
         CHECK (
             -- 「通常予定」のときにstart_dateとend_dateが必ずnullを持つための制約

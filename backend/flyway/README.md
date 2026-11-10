@@ -53,6 +53,8 @@ OFFのままでは、DDLに記述したCHECK制約が作成・適用されない
 - `sql/V3__remove_time_block_schedule_key.sql` は `time_blocks.schedule_id` の外部キー、専用索引、列を
   順に削除する。`calendar_event.schedule_id` の外部キーは保持する。CHRON-190の適用先は計画停止中に用意した
   新規の空DBとし、V1・V2・V3を順に適用する。
+- `sql/V4__require_nonempty_all_day_schedule.sql` は終日予定の終了日を開始日より後に制限する。
+  CHRON-193を含む再構築では新規の空DBにV1からV4まで順に適用する。旧形式の終日予定データの変換は行わない。
 - 一度いずれかの共有環境へ適用したSQLは編集・削除・改名しない。
   Flywayの履歴テーブルとチェックサムで適用済みSQLを管理する。
 - スキーマ変更時は同じ変更で開発用 `src/main/resources/schema.sql` も更新する。
