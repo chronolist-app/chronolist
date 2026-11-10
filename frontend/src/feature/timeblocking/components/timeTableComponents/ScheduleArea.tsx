@@ -6,6 +6,7 @@ import type CalendarEvent from "@/feature/schesuler/entity/calendarEvent";
 import { fromDateString } from "@/utils/date";
 import TimeTableConfigure from "../../contexts/TimeTableConfigure";
 import { getScheduleLayout } from "../../utils/scheduleLayout";
+import ScheduleEventDialog from "./ScheduleEventDialog";
 
 type ScheduleState =
     | { status: "loading" }
@@ -14,34 +15,53 @@ type ScheduleState =
 
 const ScheduleEvents = ({ date, events }: { date: string; events: CalendarEvent[] }) => {
     const { slotHeight, slotMinutes } = useContext(TimeTableConfigure);
+    const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const { items, laneCount } = getScheduleLayout(events, fromDateString(date));
     const pixelsPerMinute = slotHeight / slotMinutes;
 
-    return items.map(({ event, startMinute, endMinute, lane }) => (
-        <Box
-            key={event.clientId}
-            title={event.title}
-            style={{
-                top: startMinute * pixelsPerMinute,
-                height: (endMinute - startMinute) * pixelsPerMinute,
-                left: lane === 0 ? 0 : `min(${lane * 8}px, ${lane * 65 / (laneCount - 1)}%)`,
-                zIndex: lane + 1,
-                boxShadow: `inset 2px 0 ${event.color}`,
-                backgroundColor: `color-mix(in srgb, ${event.color} 15%, white)`,
-            }}
-            sx={{
-                position: "absolute",
-                right: 0,
-                borderRadius: "2px",
-                bgcolor: "background.paper",
-                color: "text.primary",
-                overflow: "hidden",
-                textAlign: "left",
-            }}
-        >
-            <Typography variant="body2" sx={{ px: 0.5, overflowWrap: "anywhere" }}>{event.title}</Typography>
-        </Box>
-    ));
+    return (
+        <>
+            {items.map(({ event, startMinute, endMinute, lane }) => (
+                <Box
+                    key={event.clientId}
+                    component="button"
+                    type="button"
+                    aria-haspopup="dialog"
+                    title={event.title}
+                    onClick={() => setSelectedEvent(event)}
+                    style={{
+                        top: startMinute * pixelsPerMinute,
+                        height: (endMinute - startMinute) * pixelsPerMinute,
+                        left: lane === 0 ? 0 : `min(${lane * 8}px, ${lane * 65 / (laneCount - 1)}%)`,
+                        zIndex: lane + 1,
+                        boxShadow: `inset 2px 0 ${event.color}`,
+                        backgroundColor: `color-mix(in srgb, ${event.color} 15%, white)`,
+                    }}
+                    sx={{
+                        position: "absolute",
+                        right: 0,
+                        display: "flex",
+                        p: 0,
+                        border: 0,
+                        borderRadius: "2px",
+                        bgcolor: "background.paper",
+                        color: "text.primary",
+                        overflow: "hidden",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        "&:focus-visible": { outline: "2px solid currentColor", outlineOffset: -2 },
+                    }}
+                >
+                    <Typography component="span" variant="body2" sx={{ px: 0.5, overflowWrap: "anywhere" }}>
+                        {event.title}
+                    </Typography>
+                </Box>
+            ))}
+            {selectedEvent && (
+                <ScheduleEventDialog date={date} event={selectedEvent} onClose={() => setSelectedEvent(null)} />
+            )}
+        </>
+    );
 };
 
 const ScheduleArea = ({ date }: { date: string }) => {
