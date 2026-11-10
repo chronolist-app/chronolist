@@ -18,27 +18,21 @@ function Invoke-SessionProbe([string]$Mode) {
         /app/verification/TidbSessionVerification.java $Mode 2>&1
     $verificationCode = $LASTEXITCODE
     # ドライバーのエラーやアプリログには識別情報が含まれ得るため、既知の検証メッセージだけを出力する。
-    $verificationOutput | Where-Object { "$_" -match '^(PASS |FAIL |TiDBSessionChecksPassed=|DisposableDatabaseCreated=|DisposableDatabaseRemoved=)' } |
+    $verificationOutput | Where-Object { "$_" -match '^(PASS |TiDBSessionChecksPassed=|DisposableDatabaseCreated=|DisposableDatabaseRemoved=)' } |
         ForEach-Object { Write-Host $_ }
     if ($verificationCode -ne 0) { throw "TiDB session probe failed ($Mode)" }
 }
 
 try {
-    $verificationConfigText = & docker compose --profile migration config --format json 2>$null
+    $verificationConfigText = & docker compose --profile migration config --format json
     if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve Compose credentials' }
-    try {
-        $verificationConfig = $verificationConfigText | ConvertFrom-Json
-    } catch {
-        throw 'Compose設定を解析できません。接続情報を含むため出力は省略します。'
-    }
-    # Composeの開発用Flywayサービスが参照するFLYWAY_*を使用する。
+    $verificationConfig = $verificationConfigText | ConvertFrom-Json
     $verificationCredentials = $verificationConfig.services.flyway.environment
     foreach ($verificationName in @('FLYWAY_URL', 'FLYWAY_USER', 'FLYWAY_PASSWORD')) {
         if (-not $verificationCredentials.$verificationName) { throw "Missing $verificationName" }
     }
     $verificationOriginalUrl = [string]$verificationCredentials.FLYWAY_URL
-    $verificationLocator = [regex]::Match($verificationOriginalUrl, '^(jdbc:mysql://[^/@?]+/)[^/?]+(\?.+)$')
-    if (-not $verificationLocator.Success -or $verificationLocator.Groups[2].Value -cnotmatch '(?:\?|&)sslMode=VERIFY_IDENTITY(?:&|$)') {
+    if ($verificationOriginalUrl -notmatch '^jdbc:mysql://[^/]+/[^?]+\?.*sslMode=VERIFY_IDENTITY(?:&|$)') {
         throw 'Expected an explicit database and sslMode=VERIFY_IDENTITY'
     }
     $env:DB_URL = $verificationOriginalUrl
@@ -53,15 +47,13 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot extract runtime classpath' }
     Invoke-SessionProbe 'prepare'
     $verificationCreated = $true
-    $verificationDisposableUrl = $verificationLocator.Groups[1].Value + $verificationSchema + $verificationLocator.Groups[2].Value
-    $env:DB_URL = $verificationDisposableUrl
-    Invoke-SessionProbe 'empty'
+    $verificationDisposableUrl = $verificationOriginalUrl -replace '(/)[^/?]+(?=\?)', "/$verificationSchema"
     $env:FLYWAY_URL = $verificationDisposableUrl
     $env:FLYWAY_USER = $env:DB_USERNAME
     $env:FLYWAY_PASSWORD = $env:DB_PASSWORD
     $verificationSql = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../flyway/sql'))
     # キャッシュ済みFlywayイメージのSQLが古くても、現在のSQLを使うようバインドマウントする。
-    foreach ($verificationOperation in @('info', 'migrate', 'validate', 'info', 'migrate')) {
+    foreach ($verificationOperation in @('migrate', 'validate', 'migrate')) {
         $verificationMigrationOutput = & docker run --rm --env FLYWAY_URL --env FLYWAY_USER --env FLYWAY_PASSWORD `
             --mount "type=bind,source=$verificationSql,target=/flyway/sql,readonly" `
             chronolist-flyway:latest -connectRetries=0 $verificationOperation 2>&1
@@ -70,6 +62,7 @@ try {
         }
         Write-Host "Flyway $verificationOperation succeeded"
     }
+    $env:DB_URL = $verificationDisposableUrl
     Invoke-SessionProbe 'verify'
 } finally {
     try {

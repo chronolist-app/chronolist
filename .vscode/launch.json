@@ -3,54 +3,13 @@
     "configurations": [
         {
             "type": "java",
-            "name": "Application",
+            "name": "Spring Boot - Chronolist (dev)",
             "request": "launch",
             "mainClass": "com.magu1436.chronolist.Application",
+            "cwd": "${workspaceFolder}/backend",
             "env": {
-		"SPRING_PROFILES_ACTIVE": "dev",
-            },
-        },
-        {
-            "type": "java",
-            "request": "launch",
-            "name": "Spring Boot server",
-            "mainClass": "com.magu1436.chronolist.Application",
-            "projectName": "chronolist-backend",
-            "console": "integratedTerminal",
-            "env": {
-		"SPRING_PROFILES_ACTIVE": "dev",
-            },
-        },
-        {
-            "type": "pwa-node",
-            "request": "launch",
-            "name": "Vite dev server",
-            "cwd": "${workspaceFolder}/frontend",
-            "runtimeExecutable": "npm",
-            "runtimeArgs": [
-                "run",
-                "dev"
-            ],
-            "env": {
-                "VITE_API_BASE_URL": "http://localhost:8080/",
-            },
-            "console": "integratedTerminal",
-            "serverReadyAction": {
-                "pattern": "Local:\\s+(https?://localhost:\\d+)",
-                "uriFormat": "%s",
-                "action": "openExternally"
+                "SPRING_PROFILES_ACTIVE": "dev"
             }
-        }
-    ],
-
-    "compounds": [
-        {
-            "name": "Full Stack: Spring + Vite",
-            "configurations": [
-                "Spring Boot server",
-                "Vite dev server",
-            ],
-            "stopAll": true,
         }
     ]
 }

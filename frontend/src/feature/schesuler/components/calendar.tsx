@@ -3,7 +3,7 @@ import type { EventClickArg, DatesSetArg, EventContentArg } from "@fullcalendar/
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import { useCallback, useContext, useRef } from "react";
+import { useCallback, useContext } from "react";
 
 import CalendarEventsContext from "./contexts/calendar-events-context";
 import SelectedCalendarEventContext from "./contexts/selected-event";
@@ -12,23 +12,24 @@ import { prevDate } from "@/utils/date";
 import { formattedTime } from "@/utils/time";
 import { Box } from "@mui/material";
 import useRegisterEventModal from "../hooks/modal";
-import { loadCalendarRange } from "../utils/selection";
 
 const Calendar = () => {
     const { events, setEvents } = useContext(CalendarEventsContext);
     const { setEventClientId: setSelectedEventId } = useContext(SelectedCalendarEventContext);
     const { modal, toggleModalShow, setDates } = useRegisterEventModal();
-    const latestRangeRequest = useRef(0);
 
     // 初期化時や月変更時に呼び出される関数
-    const handleDatesSet = useCallback((arg: DatesSetArg) => {
-        return loadCalendarRange(
-            latestRangeRequest,
-            setSelectedEventId,
-            () => getCalendarEvents(arg.start, prevDate(arg.end)),
-            setEvents,
-        );
-    }, [setEvents, setSelectedEventId]);
+    const handleDatesSet = useCallback(async (arg: DatesSetArg) => {
+        const start = arg.start;
+        const end = prevDate(arg.end);
+        const events = await getCalendarEvents(start, end);
+        setEvents(events);
+
+        // テスト出力
+        console.log("handleDatesSet");
+        console.log(start.toISOString(), "|", end.toISOString());
+        console.log("events: ", events);
+    }, [setEvents]);
 
     // イベントラベル選択時に呼び出される関数
     const handleEventClick = useCallback((arg: EventClickArg) => {

@@ -2,6 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap">
 
+    <!-- 単体取得用。関連Scheduleは削除に必要なIDだけを取得する。 -->
     <resultMap id="TimeBlockByIdResult"
         type="com.magu1436.chronolist.timeblocking.entity.TimeBlock" autoMapping="false">
         <id property="id" column="id" />
@@ -12,6 +13,11 @@
         <result property="width" column="width" />
         <result property="startAt" column="start_at" />
         <result property="color" column="color" />
+        <association property="relatedSchedule"
+            javaType="com.magu1436.chronolist.scheduler.entity.Schedule"
+            notNullColumn="schedule_id" autoMapping="false">
+            <id property="id" column="schedule_id" />
+        </association>
     </resultMap>
 
     <resultMap id="TimeTableResult"
@@ -19,6 +25,7 @@
         <id property="id" column="table_id" />
         <result property="userId" column="table_user_id" />
         <result property="date" column="date" />
+        <collection property="timeBlocks" resultMap="TimeBlockResult" />
     </resultMap>
 
     <resultMap id="TimeBlockResult"
@@ -29,8 +36,18 @@
         <result property="title" column="block_title" />
         <result property="status" column="status" />
         <result property="width" column="width" />
-        <result property="startAt" column="block_start_at" />
+        <result property="startAt" column="start_at" />
         <result property="color" column="color" />
+        <association property="relatedSchedule" javaType="com.magu1436.chronolist.scheduler.entity.Schedule">
+            <id property="id" column="schedule_id" />
+            <result property="userId" column="schedule_user_id" />
+            <result property="kind" column="kind" />
+            <result property="startAt" column="start_at" />
+            <result property="endAt" column="end_at" />
+            <result property="startDate" column="start_date" />
+            <result property="endDate" column="end_date" />
+            <result property="title" column="schedule_title" />
+        </association>
         <collection property="tasks" ofType="com.magu1436.chronolist.timeblocking.entity.TimeBlockTask" >
             <id property="id" column="task_id" />
             <result property="timeBlockId" column="task_block_id" />
