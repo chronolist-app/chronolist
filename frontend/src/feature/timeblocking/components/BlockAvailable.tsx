@@ -172,7 +172,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({ children }) => {
             setTemplateBlocks,
         }}>
             {children}
-            <DragOverlay dropAnimation={null}>
+            <DragOverlay dropAnimation={null} style={{ pointerEvents: "none" }}>
                 {draggingBlock && <TimeBlockView source={draggingBlock} sx={{ opacity: previewBlock ? 0 : 1 }} />}
             </DragOverlay>
             <Snackbar open={saveError !== null} autoHideDuration={5000} onClose={() => setSaveError(null)}>
