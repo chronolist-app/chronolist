@@ -2,11 +2,13 @@ package com.magu1436.chronolist.scheduler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.sql.Connection;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -17,8 +19,11 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.ConnectionCallback;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.magu1436.chronolist.support.ApiIntegrationTest;
 
 class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
@@ -48,16 +53,19 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
         LocalDate initialDate = LocalDate.of(2026, 11, 2);
         seedTimeblockingRows(initialDate);
         var before = timeblockingRows();
+        var tableBefore = timeTable(initialDate);
 
         var created = performJsonAsUser(post(BASE + "register"), eventBody(initialKind, initialDate))
                 .andExpect(status().isCreated()).andReturn();
         int eventId = Integer.parseInt(created.getResponse().getContentAsString());
         assertThat(timeblockingRows()).as("after registration").isEqualTo(before);
+        assertThat(timeTable(initialDate)).as("after registration").isEqualTo(tableBefore);
 
         var updated = eventBody(updatedKind, initialDate.plusDays(3));
         updated.put("id", eventId);
         performJsonAsUser(put(BASE + "update"), updated).andExpect(status().isNoContent());
         assertThat(timeblockingRows()).as("after update").isEqualTo(before);
+        assertThat(timeTable(initialDate)).as("after update").isEqualTo(tableBefore);
 
         int scheduleId = jdbcTemplate.queryForObject(
                 "SELECT schedule_id FROM calendar_event WHERE id = ?", Integer.class, eventId);
@@ -65,6 +73,58 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
         assertThat(jdbcTemplate.queryForList("SELECT id FROM calendar_event WHERE id = ?", eventId)).isEmpty();
         assertThat(jdbcTemplate.queryForList("SELECT id FROM schedule WHERE id = ?", scheduleId)).isEmpty();
         assertThat(timeblockingRows()).as("after deletion").isEqualTo(before);
+        assertThat(timeTable(initialDate)).as("after deletion").isEqualTo(tableBefore);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void rollsBackScheduleWhenCalendarEventWriteFails(boolean update) throws Exception {
+        LocalDate date = LocalDate.of(2026, 11, 2);
+        seedTimeblockingRows(date);
+        var request = update ? put(BASE + "update") : post(BASE + "register");
+        var body = eventBody("DATED", date);
+        if (update) {
+            var created = performJsonAsUser(post(BASE + "register"), body)
+                    .andExpect(status().isCreated()).andReturn();
+            body = eventBody("ALL_DAY", date.plusDays(1));
+            body.put("id", Integer.parseInt(created.getResponse().getContentAsString()));
+        }
+        // The schedule write precedes the event write, which violates calendar_event.color NOT NULL.
+        body.put("color", null);
+        var scheduleBefore = rows("schedule");
+        var eventsBefore = rows("calendar_event");
+        var timeblockingBefore = timeblockingRows();
+
+        performJsonAsUser(request, body).andExpect(status().isInternalServerError())
+                .andExpect(result -> assertConstraintViolation(result.getResolvedException(), "23502"));
+
+        assertThat(rows("schedule")).isEqualTo(scheduleBefore);
+        assertThat(rows("calendar_event")).isEqualTo(eventsBefore);
+        assertThat(timeblockingRows()).isEqualTo(timeblockingBefore);
+    }
+
+    @Test
+    void rollsBackCalendarEventDeletionWhenScheduleIsStillReferenced() throws Exception {
+        LocalDate date = LocalDate.of(2026, 11, 2);
+        seedTimeblockingRows(date);
+        var created = performJsonAsUser(post(BASE + "register"), eventBody("DATED", date))
+                .andExpect(status().isCreated()).andReturn();
+        int eventId = Integer.parseInt(created.getResponse().getContentAsString());
+        jdbcTemplate.update("""
+                INSERT INTO calendar_event (schedule_id, color)
+                SELECT schedule_id, color FROM calendar_event WHERE id = ?
+                """, eventId);
+        var scheduleBefore = rows("schedule");
+        var eventsBefore = rows("calendar_event");
+        var timeblockingBefore = timeblockingRows();
+
+        // The second event still references the schedule when its deletion is attempted.
+        performAsUser(delete(BASE + "delete/{id}", eventId)).andExpect(status().isInternalServerError())
+                .andExpect(result -> assertConstraintViolation(result.getResolvedException(), "23503"));
+
+        assertThat(rows("schedule")).isEqualTo(scheduleBefore);
+        assertThat(rows("calendar_event")).isEqualTo(eventsBefore);
+        assertThat(timeblockingRows()).isEqualTo(timeblockingBefore);
     }
 
     @Test
@@ -85,6 +145,18 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
                 WHERE e.id = ? AND s.start_date = ? AND s.end_date = ?
                 """, String.class, eventId, date, date.plusDays(1))).isEqualTo("ALL_DAY");
         assertThat(timeblockingRows()).isEqualTo(before);
+    }
+
+    private void assertConstraintViolation(Exception failure, String sqlState) {
+        assertThat(failure).isInstanceOf(DataIntegrityViolationException.class)
+                .rootCause().isInstanceOfSatisfying(SQLIntegrityConstraintViolationException.class,
+                        cause -> assertThat(cause.getSQLState()).isEqualTo(sqlState));
+    }
+
+    private JsonNode timeTable(LocalDate date) throws Exception {
+        var response = performAsUser(get("/api/timeblocking/timeTable/getByDate/{date}", date))
+                .andExpect(status().isOk()).andReturn().getResponse();
+        return objectMapper.readTree(response.getContentAsByteArray());
     }
 
     private List<String> scheduleForeignKeyColumns(Connection connection, String table) throws SQLException {
@@ -117,9 +189,13 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
     private Map<String, List<Map<String, Object>>> timeblockingRows() {
         Map<String, List<Map<String, Object>>> rows = new HashMap<>();
         for (String table : TIMEBLOCKING_TABLES) {
-            rows.put(table, jdbcTemplate.queryForList("SELECT * FROM " + table + " ORDER BY id"));
+            rows.put(table, rows(table));
         }
         return rows;
+    }
+
+    private List<Map<String, Object>> rows(String table) {
+        return jdbcTemplate.queryForList("SELECT * FROM " + table + " ORDER BY id");
     }
 
     private Map<String, Object> eventBody(String kind, LocalDate date) {

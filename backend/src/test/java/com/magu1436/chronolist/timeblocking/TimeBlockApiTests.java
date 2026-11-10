@@ -13,6 +13,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 /** ブロックの取得・登録・更新・削除と関連データを検証する. */
 class TimeBlockApiTests extends TimeBlockingApiTest {
     /** HOLDブロックがない場合は空配列を返す. */
@@ -92,6 +94,7 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
     void registerBlock(String status) throws Exception {
         seedCalendarEvent("2026-10-12");
         var before = calendarRows();
+        var eventsBefore = calendarEvents();
         Integer table = status.equals("HOLD") ? null : table("2026-10-12");
         var body = blockBody(table, status);
         var result = performJsonAsUser(put(BASE + "timeBlock/register"), body)
@@ -101,6 +104,7 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         assertBlock(id, body);
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_blocks")).hasSize(1);
         assertThat(calendarRows()).isEqualTo(before);
+        assertThat(calendarEvents()).isEqualTo(eventsBefore);
     }
 
     /** ブロックの配置・保持状態を変更して、他のブロックを維持する. */
@@ -152,6 +156,7 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         int id = block(table("2026-10-12"), "PLACED");
         task(id, "保持");
         var before = calendarRows();
+        var eventsBefore = calendarEvents();
         var tasks = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks WHERE time_block_id=?", id);
         var body = blockBody(status.equals("HOLD") ? null : table("2026-11-01"), status);
         body.put("id", id);
@@ -160,6 +165,7 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
 
         assertBlock(id, body);
         assertThat(calendarRows()).isEqualTo(before);
+        assertThat(calendarEvents()).isEqualTo(eventsBefore);
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks WHERE time_block_id=?", id)).isEqualTo(tasks);
     }
 
@@ -173,11 +179,13 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         expected.put("START_AT", Time.valueOf("16:00:00"));
         var tasks = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks");
         var before = calendarRows();
+        var eventsBefore = calendarEvents();
         performJsonAsUser(put(BASE + "timeBlock/update/startAt"), Map.of("id", id, "startAt", "16:00:00"))
                 .andExpect(status().isNoContent()).andExpect(content().string(""));
         assertThat(row(id)).isEqualTo(expected);
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_block_tasks")).isEqualTo(tasks);
         assertThat(calendarRows()).isEqualTo(before);
+        assertThat(calendarEvents()).isEqualTo(eventsBefore);
     }
 
     /** ブロックと子タスクを削除し、予定とカレンダーイベントを保持する. */
@@ -191,6 +199,7 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
         int remainingTask = task(other, "保持");
         var before = row(other);
         var calendarBefore = calendarRows();
+        var eventsBefore = calendarEvents();
         performJsonAsUser(delete(BASE + "timeBlock/delete"), Map.of("id", id))
                 .andExpect(status().isNoContent()).andExpect(content().string(""));
         assertThat(jdbcTemplate.queryForList("SELECT * FROM time_blocks")).containsExactly(before);
@@ -198,6 +207,7 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
                 .containsExactly(Map.of("ID", remainingTask));
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM time_tables WHERE id=?", Integer.class, table)).isEqualTo(1);
         assertThat(calendarRows()).isEqualTo(calendarBefore);
+        assertThat(calendarEvents()).isEqualTo(eventsBefore);
     }
 
     /** 未登録IDの変更は404で既存データを保持する. */
@@ -278,6 +288,12 @@ class TimeBlockApiTests extends TimeBlockingApiTest {
                 .containsEntry("TITLE", body.get("title")).containsEntry("STATUS", body.get("status"))
                 .containsEntry("WIDTH", body.get("width")).containsEntry("COLOR", body.get("color"))
                 .containsEntry("START_AT", body.get("startAt") == null ? null : Time.valueOf((String) body.get("startAt")));
+    }
+
+    private JsonNode calendarEvents() throws Exception {
+        var response = performAsUser(get("/api/scheduler/getEvents/2026-10-12/2026-10-12"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andReturn().getResponse();
+        return objectMapper.readTree(response.getContentAsByteArray());
     }
 
     /** 予定とイベントの全項目を比較できる形で取得する. */
