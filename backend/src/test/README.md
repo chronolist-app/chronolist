@@ -100,12 +100,10 @@ TimeBlockingの14エンドポイントを検証する。日付重複409、未登
 
 ## TimeBlockingの回帰ケース
 
-`ScheduleTimeBlockUpdateTests`はScheduler予定更新に伴うTimeBlockの同期を検証する。
-通常・終日間の切り替え、日付移動とTimeTableの再利用／作成、関連ブロック欠落時の補完、
-ブロック独自の色とタスクの保持を確認する。日またぎへの更新時はブロックを変更せず、
-同日内の予定に戻した時点で同期する。
-`ScheduleTimeBlockUpdateRollbackTests`はブロックの更新・削除・作成失敗時に、
-Schedule・CalendarEvent・新規TimeTableを含む変更がロールバックされることを確認する。
+`ScheduleTimeBlockIndependenceTests`は通常・終日・日またぎの予定を登録・更新・削除し、
+タイムテーブル・ブロック・タスクの全行が操作前と一致することを確認する。
+予定種別の切り替えと、タイムテーブルが存在しない日への移動を含む。
+予定削除時に既存の関連ブロックへ及ぶ外部キーの影響は、CHRON-190のスキーマ変更と合わせて検証する。
 `TimeBlockScheduleMapperTests`は予定IDによるブロック取得で双方の所有者条件を検証する。
 
 以下の回帰ケースで保持データと関連予定を検証する。失敗時は期待値の緩和やテストの無効化ではなく、
