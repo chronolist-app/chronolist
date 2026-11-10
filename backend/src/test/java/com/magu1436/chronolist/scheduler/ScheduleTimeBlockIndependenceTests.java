@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -46,7 +47,27 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
         assertThat(timeblockingRows()).as("after deletion").isEqualTo(before);
     }
 
-    private void seedTimeblockingRows(LocalDate date) {
+    @Test
+    void changingToAllDayPreservesPreviouslyLinkedBlockAndTask() throws Exception {
+        LocalDate date = LocalDate.of(2026, 11, 2);
+        var created = performJsonAsUser(post(BASE + "register"), eventBody("DATED", date))
+                .andExpect(status().isCreated()).andReturn();
+        int eventId = Integer.parseInt(created.getResponse().getContentAsString());
+        int blockId = seedTimeblockingRows(date);
+        jdbcTemplate.update("""
+                UPDATE time_blocks SET schedule_id = (SELECT schedule_id FROM calendar_event WHERE id = ?)
+                WHERE id = ?
+                """, eventId, blockId);
+        var before = timeblockingRows();
+
+        var updated = eventBody("ALL_DAY", date);
+        updated.put("id", eventId);
+        performJsonAsUser(put(BASE + "update"), updated).andExpect(status().isNoContent());
+
+        assertThat(timeblockingRows()).isEqualTo(before);
+    }
+
+    private int seedTimeblockingRows(LocalDate date) {
         int userId = loginUser.getId();
         jdbcTemplate.update("INSERT INTO time_tables (user_id, date) VALUES (?, ?)", userId, date);
         int tableId = jdbcTemplate.queryForObject(
@@ -58,6 +79,7 @@ class ScheduleTimeBlockIndependenceTests extends ApiIntegrationTest {
         int blockId = jdbcTemplate.queryForObject(
                 "SELECT id FROM time_blocks WHERE table_id = ?", Integer.class, tableId);
         jdbcTemplate.update("INSERT INTO time_block_tasks (time_block_id, title) VALUES (?, '既存タスク')", blockId);
+        return blockId;
     }
 
     private Map<String, List<Map<String, Object>>> timeblockingRows() {
