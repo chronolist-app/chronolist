@@ -15,7 +15,6 @@ const TemplateBlock: FC<TemplateBlockProps> = ({source}) => {
     const blockSource: TimeBlockSource = {
         ...source,
         status: "HOLD",
-        relatedSchedle: null,
         startAt: null,
         tasks: [],
         timeTableId: null,

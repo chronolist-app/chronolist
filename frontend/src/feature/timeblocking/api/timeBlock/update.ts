@@ -3,13 +3,11 @@ import { customizedFetch } from "@/utils/fetch";
 
 
 const update = async (block: TimeBlockSource) => {
-
     const newBlock =  {
         id: block.id,
         timeTableId: block.timeTableId,
         title: block.title,
         status: block.status,
-        relatedSchedule: block.relatedSchedle,
         width: block.width,
         startAt: block.startAt?.toString(),
         tasks: block.tasks.map(task => {
