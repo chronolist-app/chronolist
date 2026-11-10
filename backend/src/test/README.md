@@ -96,23 +96,24 @@ SchedulerApiTestsはSchedulerの4エンドポイントについて、通常・�
 calendar_eventとscheduleの両テーブルを独立したSQLで確認し、両者のIDが異なる場合も扱う。
 TimeTableApiTests・TimeBlockApiTests・TimeBlockTaskApiTests・TemplateBlockApiTestsは
 TimeBlockingの14エンドポイントを検証する。日付重複409、未登録IDの404、配置・保持の切り替え、
-開始時刻だけの更新、ブロック削除時の子タスク削除と関連予定削除を含む。
+開始時刻だけの更新、更新時の子タスク保持、ブロック削除時の子タスク削除を含む。
 
 ## TimeBlockingの回帰ケース
 
 `ScheduleTimeBlockIndependenceTests`は通常・終日・日またぎの予定を登録・更新・削除し、
 タイムテーブル・ブロック・タスクの全行が操作前と一致することを確認する。
 予定種別の切り替えと、タイムテーブルが存在しない日への移動を含む。
-予定削除時に既存の関連ブロックへ及ぶ外部キーの影響は、CHRON-190のスキーマ変更と合わせて検証する。
-`TimeBlockScheduleMapperTests`は予定IDによるブロック取得で双方の所有者条件を検証する。
+CHRON-187のコミット c9cabe8 で追加した、旧仕様で予定に紐づけられたブロックとタスクが
+終日予定への変更後も保持されるケースも含む。
+予定削除時に既存の関連ブロックへ及ぶ外部キーの影響と、旧仕様の関連付けを作る
+フィクスチャの整理は、CHRON-190のスキーマ変更に合わせて扱う。
 
-以下の回帰ケースで保持データと関連予定を検証する。失敗時は期待値の緩和やテストの無効化ではなく、
-ResultMapと更新時の関連情報を確認する。
-
-- `TimeBlockApiTests.getHoldBlocksIncludesTasks`: タスク付きHOLDブロックを200で取得できること。
-  失敗時はTimeblockingResultMap.xmlのtasksのcollectionとjavaTypeを確認する。
-- `TimeBlockApiTests.updateStartAtPreservesScheduleLink`: 開始時刻だけの更新でschedule_idが保持されること。
-  失敗時は取得時の関連予定と、更新対象に含める列を確認する。
+- ブロックの登録・更新・開始時刻の更新・削除では、旧仕様で関連付けられた行や
+  旧クライアントのリクエストを使い、予定とカレンダーイベントの全行が維持されることを確認する。
+- HOLD一覧とタイムテーブル取得では、旧仕様で関連付けられたブロックの子タスクを取得でき、
+  レスポンスに relatedSchedule が含まれないことを確認する。
+- 他ユーザーのブロックへの更新・開始時刻の更新・削除と、存在しないか他ユーザーが所有する
+  タイムテーブルを配置先にした登録・更新は、404を返し、既存の行を保持することを確認する。
 
 過去の成功・失敗件数は現在の結果を示さない。実際の結果はテストレポートで確認する。
 

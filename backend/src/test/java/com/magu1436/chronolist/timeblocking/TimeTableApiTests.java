@@ -32,12 +32,12 @@ class TimeTableApiTests extends TimeBlockingApiTest {
     @Test
     void getTableIncludesItsBlocks() throws Exception {
         int table = table("2026-10-12");
-        int schedule = schedule();
-        int block = block(table, "PLACED", schedule);
+        int schedule = scheduleWithCalendarEvent();
+        int block = legacyLinkedBlock(table, "PLACED", schedule);
         int task = task(block, "作業");
-        int held = block(table, "HOLD", null);
-        block(table, "HOLD", null);
-        block(table("2026-10-13"), "PLACED", null);
+        int held = block(table, "HOLD");
+        block(table, "HOLD");
+        block(table("2026-10-13"), "PLACED");
         performAsUser(get(BASE + "timeTable/getByDate/2026-10-12"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(table))
                 .andExpect(jsonPath("$.timeBlocks.length()").value(1))
@@ -49,7 +49,7 @@ class TimeTableApiTests extends TimeBlockingApiTest {
                 .andExpect(jsonPath("$.timeBlocks[0].startAt").value("09:30:00"))
                 .andExpect(jsonPath("$.timeBlocks[0].color").value("#ff0000"))
                 .andExpect(jsonPath("$.timeBlocks[0].tasks[0].id").value(task))
-                .andExpect(jsonPath("$.timeBlocks[0].relatedSchedule.id").value(schedule));
+                .andExpect(jsonPath("$.timeBlocks[0].relatedSchedule").doesNotHaveJsonPath());
         performAsUser(get(BASE + "timeBlock/getHoldBlocks"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
@@ -68,7 +68,7 @@ class TimeTableApiTests extends TimeBlockingApiTest {
     @Test
     void duplicateDateReturns409() throws Exception {
         int table = table("2026-10-12");
-        block(table, "PLACED", null);
+        block(table, "PLACED");
         var before = jdbcTemplate.queryForList("SELECT * FROM time_tables");
         var blocks = jdbcTemplate.queryForList("SELECT * FROM time_blocks");
         performJsonAsUser(post(BASE + "timeTable/createAt"), Map.of("date", "2026-10-12"))

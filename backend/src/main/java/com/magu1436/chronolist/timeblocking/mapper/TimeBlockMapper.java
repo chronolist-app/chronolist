@@ -18,12 +18,6 @@ import com.magu1436.chronolist.timeblocking.entity.TimeBlock;
 @Mapper
 public interface TimeBlockMapper {
 
-    /** 所有者と予定IDに一致する関連ブロックを取得する。存在しない場合はnull。 */
-    TimeBlock getTimeBlockByScheduleId(
-        @Param("userId") int userId,
-        @Param("scheduleId") int scheduleId
-    );
-
     /**
      * 指定した ID の {@link TimeBlock} を取得する。
      *
