@@ -62,7 +62,6 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
             status: "HOLD",
             startAt: null,
             tasks: [],
-            relatedSchedle: null,
         };
         return block;
     };
