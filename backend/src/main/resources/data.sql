@@ -12,7 +12,7 @@ VALUES
 (1, 'RED', '12:00に集合');
 INSERT INTO schedule (user_id, kind, start_at, end_at, start_date, end_date, title)
 VALUES
-(1, 'ALL_DAY', null, null, '2025-11-01', '2025-11-03', 'バイト');
+(1, 'ALL_DAY', null, null, '2025-11-01', '2025-11-04', 'バイト');
 INSERT INTO calendar_event (schedule_id, color, memo)
 VALUES
 (2, 'BLUE', '働きたくない');
@@ -37,27 +37,27 @@ VALUES
 (1, '2025-10-31');
 
 -- time_blocksテーブルへの初期データ登録
-INSERT INTO time_blocks (user_id, table_id, title, status, schedule_id, width, start_at, color)
+INSERT INTO time_blocks (user_id, table_id, title, status, width, start_at, color)
 VALUES
-(1, 1, '病院', 'PLACED', null, 180, '9:30:00', 'RED');
-INSERT INTO time_blocks (user_id, table_id, title, status, schedule_id, width, start_at, color)
+(1, 1, '病院', 'PLACED', 180, '9:30:00', 'RED');
+INSERT INTO time_blocks (user_id, table_id, title, status, width, start_at, color)
 VALUES
-(1, 1, 'オンライン授業', 'PLACED', null, 90, '10:30:00', 'PINK');
-INSERT INTO time_blocks (user_id, table_id, title, status, schedule_id, width, start_at, color)
+(1, 1, 'オンライン授業', 'PLACED', 90, '10:30:00', 'PINK');
+INSERT INTO time_blocks (user_id, table_id, title, status, width, start_at, color)
 VALUES
-(1, 1, '基本情報の対策', 'PLACED', null, 90, '11:30:00', 'RED');
-INSERT INTO time_blocks (user_id, table_id, title, status, schedule_id, width, start_at, color)
+(1, 1, '基本情報の対策', 'PLACED', 90, '11:30:00', 'RED');
+INSERT INTO time_blocks (user_id, table_id, title, status, width, start_at, color)
 VALUES
-(1, 1, '映画鑑賞', 'PLACED', null, 120, '16:00:00', 'BLUE');
-INSERT INTO time_blocks (user_id, table_id, title, status, schedule_id, width, start_at, color)
+(1, 1, '映画鑑賞', 'PLACED', 120, '16:00:00', 'BLUE');
+INSERT INTO time_blocks (user_id, table_id, title, status, width, start_at, color)
 VALUES
-(1, 2, '会議', 'PLACED', 1, 2, '12:00:00', 'RED');
-INSERT INTO time_blocks (user_id, table_id, title, status, schedule_id, width, start_at, color)
+(1, 2, '会議', 'PLACED', 2, '12:00:00', 'RED');
+INSERT INTO time_blocks (user_id, table_id, title, status, width, start_at, color)
 VALUES
-(1, null, 'ゲーム', 'HOLD', null, 180, null, 'RED');
-INSERT INTO time_blocks (user_id, table_id, title, status, schedule_id, width, start_at, color)
+(1, null, 'ゲーム', 'HOLD', 180, null, 'RED');
+INSERT INTO time_blocks (user_id, table_id, title, status, width, start_at, color)
 VALUES
-(1, null, '読書', 'HOLD', null, 120, null, 'GREEN');
+(1, null, '読書', 'HOLD', 120, null, 'GREEN');
 
 -- time_block_tasksテーブルへの初期データ登録
 INSERT INTO time_block_tasks (time_block_id, title)

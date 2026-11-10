@@ -1,6 +1,5 @@
 package com.magu1436.chronolist.timeblocking.service.impl;
 
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -9,13 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.magu1436.chronolist.timeblocking.exception.TimeBlockReferenceNotFoundException;
 
 import com.magu1436.chronolist.timeblocking.entity.TimeBlock;
-import com.magu1436.chronolist.timeblocking.entity.TimeBlockStatus;
-import com.magu1436.chronolist.timeblocking.entity.TimeTable;
 import com.magu1436.chronolist.timeblocking.mapper.TimeBlockMapper;
-import com.magu1436.chronolist.timeblocking.mapper.TimeTableMapper;
-import com.magu1436.chronolist.scheduler.entity.Schedule;
-import com.magu1436.chronolist.scheduler.entity.ScheduleKind;
-import com.magu1436.chronolist.scheduler.mapper.SchedulerMapper;
 import com.magu1436.chronolist.timeblocking.service.TimeBlockService;
 
 import lombok.RequiredArgsConstructor;
@@ -26,8 +19,6 @@ import lombok.RequiredArgsConstructor;
 public class TimeBlockServiceImpl implements TimeBlockService {
     
     private final TimeBlockMapper mapper;
-    private final SchedulerMapper schedulerMapper;
-    private final TimeTableMapper timeTableMapper;
 
     @Override 
     @Transactional(readOnly = true)
@@ -60,7 +51,7 @@ public class TimeBlockServiceImpl implements TimeBlockService {
 
         if (insertRows != 1){
             throw new TimeBlockReferenceNotFoundException(
-                "参照先のタイムテーブルまたはスケジュールは存在しません"
+                "参照先のタイムテーブルは存在しません"
             );
         }
 
@@ -69,30 +60,7 @@ public class TimeBlockServiceImpl implements TimeBlockService {
 
     @Override
     public boolean update(int loginUser, TimeBlock timeBlock){
-        int updateRows = mapper.updateTimeBlock(loginUser, timeBlock);
-        if(updateRows != 1){
-            return false;
-        }
-        if(timeBlock.getRelatedSchedule() == null){
-            return true;
-        }
-
-        Schedule updateSchedule = timeBlock.getRelatedSchedule();
-        updateSchedule.setTitle(timeBlock.getTitle());
-        // HOLDには配置日時がなく、ALL_DAYには時刻を設定できないため、
-        // 配置済みの日時付き予定だけブロックから開始・終了日時を計算する。
-        if (timeBlock.getStatus() == TimeBlockStatus.PLACED && updateSchedule.getKind() == ScheduleKind.DATED) {
-            TimeTable relatedTimeTable = timeTableMapper.getTimeTableById(loginUser, timeBlock.getTimeTableId());
-            LocalDateTime scheduleStartTime = LocalDateTime.of(relatedTimeTable.getDate(), timeBlock.getStartAt());
-            LocalDateTime scheduleEndTime = scheduleStartTime.plusMinutes(timeBlock.getWidth());
-            updateSchedule.setStartAt(scheduleStartTime);
-            updateSchedule.setEndAt(scheduleEndTime);
-        }
-        updateSchedule.setUserId(loginUser);
-        if (schedulerMapper.updateSchedule(updateSchedule) != 1) {
-            throw new RuntimeException("関連スケジュールの更新に失敗");
-        }
-        return true;
+        return mapper.updateTimeBlock(loginUser, timeBlock) == 1;
     }
 
     @Override 
@@ -103,18 +71,6 @@ public class TimeBlockServiceImpl implements TimeBlockService {
 
     @Override
     public boolean delete(int loginUser, int id){
-        TimeBlock deleteTimeBlock = mapper.getTimeBlockById(id, loginUser);
-        if(deleteTimeBlock == null){
-            return false;
-        }
-        int deleteRows = mapper.deleteTimeBlock(id, loginUser);
-        if(deleteRows!=1){
-            return false;
-        }
-        if(deleteTimeBlock.getRelatedSchedule() != null &&
-                schedulerMapper.deleteSchedule(deleteTimeBlock.getRelatedSchedule().getId(), loginUser) != 1){
-            throw new RuntimeException("関連スケジュールの削除に失敗");
-        }
-        return true;
+        return mapper.deleteTimeBlock(id, loginUser) == 1;
     }
 }

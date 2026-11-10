@@ -8,7 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.magu1436.chronolist.scheduler.entity.CalendarEvent;
 import com.magu1436.chronolist.scheduler.entity.Schedule;
+import com.magu1436.chronolist.scheduler.entity.ScheduleKind;
 import com.magu1436.chronolist.scheduler.exception.EventNotFoundException;
+import com.magu1436.chronolist.scheduler.exception.InvalidAllDayRangeException;
 import com.magu1436.chronolist.scheduler.mapper.SchedulerMapper;
 import com.magu1436.chronolist.scheduler.service.SchedulerService;
 
@@ -23,14 +25,16 @@ public class SchedulerServiceImpl implements SchedulerService {
     @Override
     public List<CalendarEvent> getEvents(
         int userId,
-        LocalDate starDate,
-        LocalDate enddDate
+        LocalDate startDate,
+        LocalDate endDate
     ) {
-        return mapper.getCalendarEventsFromTo(userId, starDate, enddDate);
+        return mapper.getCalendarEventsFromTo(userId, startDate, endDate);
     }
 
     @Override
+    @Transactional
     public Integer insertEvent(int userId, CalendarEvent calendarEvent){
+        validateAllDayRange(calendarEvent);
 
         // 受け取ったCalendarEventを元にScheduleを生成(userIdは引数から取得)
         Schedule schedule = Schedule.builder()
@@ -67,6 +71,7 @@ public class SchedulerServiceImpl implements SchedulerService {
         if (existingEvent == null) {
             throw new EventNotFoundException();
         }
+        validateAllDayRange(calendarEvent);
         
         // 受け取ったCalendarEventを元にScheduleを生成
         Schedule schedule = Schedule.builder()
@@ -118,6 +123,17 @@ public class SchedulerServiceImpl implements SchedulerService {
         int deletedRowsSchedule = mapper.deleteSchedule(scheduleId, userId);
         if (deletedRowsSchedule != 1) {
             throw new EventNotFoundException();
+        }
+    }
+
+    private void validateAllDayRange(CalendarEvent calendarEvent) {
+        if (calendarEvent.getKind() != ScheduleKind.ALL_DAY) {
+            return;
+        }
+        LocalDate startDate = calendarEvent.getStartDate();
+        LocalDate endDate = calendarEvent.getEndDate();
+        if (startDate == null || endDate == null || !startDate.isBefore(endDate)) {
+            throw new InvalidAllDayRangeException();
         }
     }
 

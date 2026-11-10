@@ -1,19 +1,30 @@
-import { useContext, useCallback, type FC, type ReactElement, useEffect, useState} from "react";
+import { useContext, useCallback, type FC, type ReactElement, useLayoutEffect, useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Box, Stack, Typography } from "@mui/material";
+import { Alert, Box, Typography } from "@mui/material";
+import { isAxiosError } from "axios";
 
-import { Time } from "@/utils/time";
+import type { Time } from "@/utils/time";
 import { TIMETABLE_ID } from "../static/droppableId";
 import TimeTableConfigure from "../contexts/TimeTableConfigure";
 import type { TimeBlockSource } from "../types/blockSourceTypes";
 import TimeBlock from "./TimeBlock";
+import TimeBlockView from "./TimeBlockView";
 import Legend from "./timeTableComponents/Legend";
+import ScheduleArea from "./timeTableComponents/ScheduleArea";
 import BlockRepositories from "../contexts/BlockRepositories";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { createAt, getByDate } from "../api/timeTableApi";
 import type { TimeTableSource } from "../types/timeTableSource";
 import { NotFoundError } from "@/error/common";
 import { toDateString } from "@/utils/date";
+
+type PositionedBlock = TimeBlockSource & { startAt: Time };
+
+const isPositionedBlock = (block: TimeBlockSource): block is PositionedBlock => {
+    if (block.status !== "PLACED" || !block.startAt) return false;
+    const minutes = block.startAt.toMinutes();
+    return minutes >= 0 && minutes < 24 * 60;
+};
 
 /**
  * タイムテーブル本体を描画するコンポーネント.
@@ -27,19 +38,22 @@ const Table: FC = () => {
 
     const {
         blocksOnTable,
+        previewBlock,
     } = useContext(BlockRepositories);
 
     const {
         gridSize,
-        tableHeight,
         tableWidth,
         slotHeight,
+        slotMinutes,
+        timeTableId,
     } = useContext(TimeTableConfigure);
 
     const {
         setNodeRef,
     } = useDroppable({
         id: TIMETABLE_ID,
+        disabled: timeTableId <= 0,
     });
 
     /**
@@ -54,19 +68,19 @@ const Table: FC = () => {
          * @param block2 重複しているかどうか比較するブロック2
          * @returns 重複しているかどうか. している場合に `true` を返す
          */
-        const isConflict = (block1: TimeBlockSource, block2: TimeBlockSource) => {
-            type startAndEnd = {start: Time, end: Time};
-            const b1: startAndEnd = {start: block1.startAt!, end: new Time(block1.startAt!.toMinutes() + block1.width)};
-            const b2: startAndEnd = {start: block2.startAt!, end: new Time(block2.startAt!.toMinutes() + block2.width)};
-            return b1.start < b2.end && b1.end > b2.start;
+        const isConflict = (block1: PositionedBlock, block2: PositionedBlock) => {
+            const firstStart = block1.startAt.toMinutes();
+            const secondStart = block2.startAt.toMinutes();
+            return firstStart < secondStart + block2.width && firstStart + block1.width > secondStart;
         }
 
         
         // 衝突が起こっているブロック同士をグルーピング
-        let blockGroups: TimeBlockSource[][] = [];
-        let prevBlock: TimeBlockSource | null = null;
-        let prevGroup: TimeBlockSource[] = [];
-        for(const block of blocksOnTable.sort((b1, b2) => b1.startAt!.toMinutes() - b2.startAt!.toMinutes())){
+        let blockGroups: PositionedBlock[][] = [];
+        let prevBlock: PositionedBlock | null = null;
+        let prevGroup: PositionedBlock[] = [];
+        const positionedBlocks = blocksOnTable.filter(isPositionedBlock);
+        for (const block of positionedBlocks.sort((b1, b2) => b1.startAt.toMinutes() - b2.startAt.toMinutes())) {
             if (!prevBlock) {
                 prevBlock = block;
                 prevGroup = [block];
@@ -87,7 +101,7 @@ const Table: FC = () => {
         // 衝突が起こっているかどうかによって分割したタイムブロックのノードのリストを作成
         let blockNodes: ReactElement[] = [];
         for(const group of blockGroups) {
-            const columns: TimeBlockSource[][] = [];
+            const columns: PositionedBlock[][] = [];
             for(const block of group) {
                 for(let i = 0; i < group.length; i++) {
                     if (!columns[i]) {
@@ -112,16 +126,25 @@ const Table: FC = () => {
 
     return (
         <Box
-            ref={setNodeRef} 
+            ref={setNodeRef}
             sx={{
-                height: tableHeight,
-                border: gridSize,
+                gridArea: "table",
                 width: tableWidth,
-                backgroundImage: `repeating-linear-gradient(180deg, white 0 ${slotHeight - gridSize}px, black ${slotHeight - gridSize}px ${slotHeight}px)`,
+                boxShadow: `inset -${gridSize}px 0 currentColor`,
                 position: "relative",
             }}
         >
             {blocksOnTableSorted()}
+            {previewBlock?.startAt && previewBlock.timeTableId === timeTableId && (
+                <TimeBlockView source={previewBlock} sx={{
+                    position: "absolute",
+                    top: previewBlock.startAt.toMinutes() * slotHeight / slotMinutes,
+                    width: "100%",
+                    opacity: 0.6,
+                    pointerEvents: "none",
+                    zIndex: 1,
+                }} />
+            )}
         </Box>
     )
 }
@@ -130,47 +153,64 @@ const Table: FC = () => {
 const TimeTable: FC = () => {
 
     const {
+        gridSize,
+        slotHeight,
+        tableHeight,
         setTimeTableId,
     } = useContext(TimeTableConfigure);
 
     const {
         setBlocksOnTable,
+        tableRevision,
     } = useContext(BlockRepositories);
 
     const [ table, setTable ] = useState<TimeTableSource>();
+    const [loadError, setLoadError] = useState(false);
 
     const location = useLocation();
-    const nav = useNavigate();
-    useEffect(() => {
+    const date = useMemo(() => {
         const query = new URLSearchParams(location.search);
         // useNavigate で渡された state またはURLのクエリパラメータから日付を取得
         // 日付を取得できない場合は今日の日付を取得
-        const date = 
+        return (
             (location.state?.date as (string | undefined)) || 
             query.get("date") ||
-            toDateString(new Date());
+            toDateString(new Date())
+        );
+    }, [location]);
 
-        // テスト用ログ
-        console.log("date: ", date);
+    useLayoutEffect(() => {
+        let ignore = false;
+        setTable(undefined);
+        setLoadError(false);
+        setTimeTableId(-1);
+        setBlocksOnTable([]);
 
-        getByDate(date)
-            .then(res => {setTable(res);})
-            .catch(e => {
-                if (e instanceof NotFoundError) {
-                    console.log("タイムテーブルが見つからなかったため、新しく作成します")
-                    createAt(date).then(() => {nav("/timeblocking", { state: { date } });});
-                } else {
-                    throw e;
+        const loadTable = async () => {
+            try {
+                return await getByDate(date);
+            } catch (error) {
+                if (ignore || !(error instanceof NotFoundError)) throw error;
+                try {
+                    await createAt(date);
+                } catch (createError) {
+                    if (!isAxiosError(createError) || createError.response?.status !== 409) throw createError;
                 }
-            });
-    }, [ location ]);
+                return getByDate(date);
+            }
+        };
 
-    useEffect(() => {
-        if (table) {
-            setBlocksOnTable(table.blocks);
-            setTimeTableId(table.id);
-        }
-    }, [ table ]);
+        loadTable().then(result => {
+            if (ignore) return;
+            setTable(result);
+            setBlocksOnTable(result.blocks.filter(block => block.timeTableId === result.id && isPositionedBlock(block)));
+            setTimeTableId(result.id);
+        }).catch(() => {
+            if (!ignore) setLoadError(true);
+        });
+
+        return () => { ignore = true; };
+    }, [date, location, setBlocksOnTable, setTimeTableId, tableRevision]);
 
     return (
         <Box
@@ -178,18 +218,47 @@ const TimeTable: FC = () => {
                 overflowY: "scroll",
                 overflowX: "hidden",
                 height: "100%",
-                p: 4,
+                px: { xs: 1, sm: 2, md: 4 },
+                py: 4,
                 border: 1,
             }}
         >
             <Typography sx={{fontSize: 30}}>{table && toDateString(table.date)}</Typography>
-            <Stack
-                direction={"row"}
-                alignItems={"flex-start"}
+            {loadError && <Alert severity="error">タイムテーブルを読み込めませんでした。</Alert>}
+            <Box
+                sx={{
+                    display: "grid",
+                    gridTemplateAreas: '". scheduleHeading tableHeading" "legend schedule table"',
+                    gridTemplateColumns: "max-content minmax(0, 1fr) minmax(0, 3fr)",
+                    gridTemplateRows: `auto ${tableHeight}px`,
+                }}
             >
+                <Typography component="h2" variant="subtitle2" sx={{ gridArea: "scheduleHeading", px: { xs: 0, sm: 0.5 }, overflowWrap: "anywhere" }}>
+                    予定
+                </Typography>
+                <Typography component="h2" variant="subtitle2" sx={{ gridArea: "tableHeading", px: 0.5, overflowWrap: "anywhere" }}>
+                    タイムブロック
+                </Typography>
                 <Legend />
-                <Table/>
-            </Stack>
+                <Box
+                    sx={{
+                        gridColumn: "schedule-start / table-end",
+                        gridRow: "schedule-start / schedule-end",
+                        position: "relative",
+                        backgroundImage: `repeating-linear-gradient(180deg, currentColor 0 ${gridSize}px, transparent ${gridSize}px ${slotHeight}px)`,
+                        "&::after": {
+                            content: '""',
+                            position: "absolute",
+                            top: "100%",
+                            insetInline: 0,
+                            height: `${gridSize}px`,
+                            bgcolor: "currentColor",
+                        },
+                    }}
+                />
+                <ScheduleArea key={date} date={date} />
+                <Table />
+            </Box>
         </Box>
     )
 }

@@ -5,6 +5,7 @@ import { fromDateString, toDateString } from "@/utils/date";
 
 type EditableDateTextProps = {
     value?: Date,
+    minDate?: Date,
     variant?: TypographyVariant | "inherit"
     style?: React.CSSProperties
     sx?: SxProps
@@ -14,7 +15,7 @@ type EditableDateTextProps = {
 /**
  * ダブルクリックで編集可能な日付を表示するコンポーネント
  */
-const EditableDateText: FC<EditableDateTextProps> = ({ value, variant, style, sx, onChange }) => {
+const EditableDateText: FC<EditableDateTextProps> = ({ value, minDate, variant, style, sx, onChange }) => {
     const [ isEditing, setIsEditing ] = useState(false);
     const [ date, setDate ] = useState<Date>(value || new Date());
 
@@ -30,9 +31,13 @@ const EditableDateText: FC<EditableDateTextProps> = ({ value, variant, style, sx
 
     // 入力が確定されたときの処理
     const handleFinishEdit = useCallback(() => {
-        onChange?.(date);
+        if (Number.isNaN(date.getTime()) || (minDate && date < minDate)) {
+            setDate(value || new Date());
+        } else {
+            onChange?.(date);
+        }
         setIsEditing(false);
-    }, [date, onChange, setIsEditing]);
+    }, [date, minDate, onChange, value]);
 
     // 指定のキーが押されたときの処理
     // Enter か Esc が押されたら入力を確定
@@ -54,6 +59,7 @@ const EditableDateText: FC<EditableDateTextProps> = ({ value, variant, style, sx
             value={toDateString(date)}
             autoFocus
             type={"date"}
+            inputProps={{ min: minDate ? toDateString(minDate) : undefined }}
             onChange={handleOnChange}
             onKeyDown={(e) => {handleKeyDown(e);}}
             onBlur={handleFinishEdit}

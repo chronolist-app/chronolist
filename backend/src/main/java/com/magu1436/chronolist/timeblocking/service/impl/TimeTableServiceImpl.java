@@ -25,6 +25,12 @@ public class TimeTableServiceImpl implements TimeTableService{
     private final TimeTableMapper timeTableMapper;
     private final TimeBlockService timeBlockService;
 
+    @Override
+    public TimeTable getOrCreate(int userId, LocalDate date) {
+        TimeTable table = timeTableMapper.getTimeTableByDate(userId, date);
+        return table != null ? table : createAt(userId, date);
+    }
+
     /**
      * 指定したユーザーIDと日付をもつタイムテーブルを取得する. <br>
      * 内部で該当タイムテーブルが持つ {@link TimeBlock} も取得する.
