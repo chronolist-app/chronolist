@@ -35,7 +35,7 @@ const ScheduleEvents = ({ date, events }: { date: string; events: CalendarEvent[
                         left: lane === 0 ? 0 : `min(${lane * 8}px, ${lane * 65 / (laneCount - 1)}%)`,
                         zIndex: lane + 1,
                         boxShadow: `inset 2px 0 ${event.color}`,
-                        backgroundColor: `color-mix(in srgb, ${event.color} 15%, white)`,
+                        backgroundColor: `color-mix(in srgb, color-mix(in srgb, ${event.color} 15%, white) 80%, transparent)`,
                     }}
                     sx={{
                         position: "absolute",
