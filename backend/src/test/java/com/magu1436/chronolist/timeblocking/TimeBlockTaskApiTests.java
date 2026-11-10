@@ -14,7 +14,7 @@ class TimeBlockTaskApiTests extends TimeBlockingApiTest {
     /** 親ブロックを維持してタスクを登録する. */
     @Test
     void registerTask() throws Exception {
-        int block = block(null, "HOLD", null);
+        int block = block(null, "HOLD");
         var parent = jdbcTemplate.queryForMap("SELECT * FROM time_blocks WHERE id=?", block);
         var result = performJsonAsUser(put(BASE + "timeBlockTask/register"), Map.of("timeBlockId", block, "title", "作業"))
                 .andExpect(status().isCreated()).andReturn();
@@ -29,8 +29,8 @@ class TimeBlockTaskApiTests extends TimeBlockingApiTest {
     /** 名称と親ブロックを更新でき、他のタスクを維持する. */
     @Test
     void updateTask() throws Exception {
-        int first = block(null, "HOLD", null);
-        int second = block(null, "HOLD", null);
+        int first = block(null, "HOLD");
+        int second = block(null, "HOLD");
         int id = task(first, "元の作業");
         int other = task(first, "別の作業");
         var untouched = jdbcTemplate.queryForMap("SELECT * FROM time_block_tasks WHERE id=?", other);
@@ -46,7 +46,7 @@ class TimeBlockTaskApiTests extends TimeBlockingApiTest {
     /** 削除は親ブロックと他のタスクを維持する. */
     @Test
     void deleteTask() throws Exception {
-        int block = block(null, "HOLD", null);
+        int block = block(null, "HOLD");
         int id = task(block, "削除");
         int other = task(block, "保持");
         var untouched = jdbcTemplate.queryForMap("SELECT * FROM time_block_tasks WHERE id=?", other);
@@ -61,7 +61,7 @@ class TimeBlockTaskApiTests extends TimeBlockingApiTest {
     @ParameterizedTest
     @ValueSource(strings = {"update", "delete"})
     void missingTaskReturns404(String operation) throws Exception {
-        task(block(null, "HOLD", null), "保持");
+        task(block(null, "HOLD"), "保持");
         var before = jdbcTemplate.queryForList("SELECT * FROM time_block_tasks");
         performJsonAsUser(operation.equals("update") ? put(BASE + "timeBlockTask/update") : delete(BASE + "timeBlockTask/delete"), Map.of("id", -1))
                 .andExpect(status().isNotFound()).andExpect(content().string(""));

@@ -11,7 +11,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.magu1436.chronolist.login.LoginUser;
-import com.magu1436.chronolist.scheduler.mapper.SchedulerMapper;
 import com.magu1436.chronolist.timeblocking.entity.TemplateBlock;
 import com.magu1436.chronolist.timeblocking.entity.TimeBlock;
 import com.magu1436.chronolist.timeblocking.entity.TimeBlockStatus;
@@ -21,9 +20,6 @@ import com.magu1436.chronolist.timeblocking.exception.TimeBlockReferenceNotFound
 import com.magu1436.chronolist.timeblocking.exception.TimeBlockTaskNotFound;
 import com.magu1436.chronolist.timeblocking.exception.TimeTableConflictException;
 import com.magu1436.chronolist.timeblocking.exception.TimeTableNotFoundException;
-import com.magu1436.chronolist.timeblocking.mapper.TemplateBlockMapper;
-import com.magu1436.chronolist.timeblocking.mapper.TimeBlockMapper;
-import com.magu1436.chronolist.timeblocking.mapper.TimeBlockTaskMapper;
 import com.magu1436.chronolist.timeblocking.service.TemplateBlockService;
 import com.magu1436.chronolist.timeblocking.service.TimeBlockService;
 import com.magu1436.chronolist.timeblocking.service.TimeBlockTaskService;
@@ -173,7 +169,6 @@ public class TimeBlockingController {
      * id: int,
 	 * timeTableId: int,
 	 * status: TimeBlockStatus,
-     * relatedSchedule: Schedule,
 	 * width: int,
 	 * startAt: TimeString,
 	 * tasks: List<{@link TimeBlockTask}>,
@@ -227,7 +222,7 @@ public class TimeBlockingController {
 
     /**
      * {@code TimeBlock}をDBから削除する.
-     * <p>このメソッドはJsonの内容を受け取り,指定するIDの{@code TimeBlock}を削除する.また,そのブロックに紐づけられたタスクデータ,{@code relatedschedule}がある場合はそれらも削除される.</p>
+     * <p>このメソッドはJsonの内容を受け取り,指定するIDの{@code TimeBlock}を削除する.また,そのブロックに紐づけられたタスクも削除される.</p>
      * <h3>リクエストJsonの形:</h3>
      * <pre> {
      *   id: int
