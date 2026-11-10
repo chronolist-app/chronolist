@@ -1,6 +1,7 @@
 # Cloud Runへの配置例
 
 GitHub Actionsによる承認付きの自動化は [CI/CD設定手順](CI_CD.md) を参照する。
+CHRON-190は計画停止と新規DBへの手動切り替えを行う。[専用手順](DB_REBUILD.md)を参照する。
 
 ChronolistをCloud Runへ配置する場合の一例。アプリ自体はCloud Runを必須としない。
 共通の設定・ビルド・DB要件は [ルートREADME](../../README.md)、
@@ -99,7 +100,7 @@ digestと数値Secret版を固定し、タスク1・並列1・リトライ0・ti
 URLにカンマがあっても保持する。区切りに使用する `|` と改行はURL/ユーザー名で拒否する。
 
 接続先、履歴、CHECKの有効状態、バックアップと復旧方法を確認してから順番に実行する。
-初回は空DBにV1/V2がPending、更新時は既存履歴とチェックサムが整合することを確認する。
+初回は空DBにリリース対象の全マイグレーションがPending、更新時は既存履歴とチェックサムが整合することを確認する。
 
 ```sh
 bash examples/cloud-run/flyway-job.sh migrate

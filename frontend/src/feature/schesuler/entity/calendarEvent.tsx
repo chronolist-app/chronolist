@@ -2,8 +2,8 @@ import { v4 as uuidv4 } from "uuid";
 
 import type { CalendarEventApi } from "../types/api";
 import type { ScheduleKind } from "../types/statics";
-import { nextDate } from "@/utils/date";
 import { fromDateString, fromDateTimeString } from "@/utils/date";
+import { fromTimedRange } from "./allDayRange";
 
 type CalendarEventConstructorOptions = {
     id?: number;
@@ -27,6 +27,7 @@ class CalendarEvent {
     private _startAt?: Date;
     private _endAt?: Date;
     private _startDate?: Date;
+    // 終日予定の範囲に含まれない終了日。
     private _endDate?: Date;
     title: string;
     color: string;
@@ -114,24 +115,28 @@ class CalendarEvent {
     }
 
     /**
-     * `SchedulerKind` の値を変更したとき, 値によって `**At` と `**Date` の値を入れ替える.
+     * 種類変更時に、予定が重なる暦日を維持する。
      */
     set kind(kind: ScheduleKind){
-        this._kind = kind;
+        if (kind === this._kind) return;
         switch (kind) {
             case "DATED":
-                this._startAt = this._startAt || this._startDate;
-                this._endAt = this._endAt || this._endDate;
+                this._startAt = this._startDate;
+                this._endAt = this._endDate;
                 this._startDate = undefined;
                 this._endDate = undefined;
                 break;
-            case "ALL_DAY":
-                this._startDate = this._startAt || this._startDate;
-                this._endDate = this._endAt || this._endDate;
+            case "ALL_DAY": {
+                if (!this._startAt || !this._endAt) throw new Error("The event has no datetime range.");
+                const range = fromTimedRange(this._startAt, this._endAt);
+                this._startDate = range.start;
+                this._endDate = range.end;
                 this._startAt = undefined;
                 this._endAt = undefined;
                 break;
+            }
         }
+        this._kind = kind;
     }
 
     get startAt(): Date | undefined { return this._startAt; }
@@ -198,8 +203,7 @@ class CalendarEvent {
             title: this.title,
             allDay: this.kind == "ALL_DAY",
             start: s,
-            // Fullcalendarの終了日時は、指定日の翌日を指定する仕様
-            end: this.kind == "ALL_DAY" ? nextDate(e) : e,
+            end: e,
             borderColor: this.color,
             textColor: this.color,
         }

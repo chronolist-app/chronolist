@@ -1,16 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.magu1436.chronolist.timeblocking.mapper.TimeBlockMapper">
-    <select id="getTimeBlockByScheduleId" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeBlockByIdResult">
-        SELECT tb.id, tb.user_id, tb.table_id AS time_table_id, tb.title,
-               tb.status, tb.width, tb.start_at, tb.color, tb.schedule_id
-        FROM time_blocks tb
-        JOIN schedule s ON s.id = tb.schedule_id
-        WHERE tb.schedule_id = #{scheduleId}
-          AND tb.user_id = #{userId}
-          AND s.user_id = #{userId}
-    </select>
-
     <select id="getTimeBlockById" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeBlockByIdResult">
         SELECT
             tb.id,
@@ -20,47 +10,40 @@
             tb.status,
             tb.width,
             tb.start_at,
-            tb.color,
-            tb.schedule_id
+            tb.color
         FROM time_blocks tb
         WHERE tb.id = #{id} AND tb.user_id = #{userId}
     </select>
 
-    <select id="getTimeBlocksByTimeTableId" resultType="com.magu1436.chronolist.timeblocking.entity.TimeBlock">
+    <sql id="blocksWithTasks">
         SELECT
-            b.id,
-            b.user_id,
-            b.table_id AS time_table_id,
-            b.title,
-            b.status,
-            b.width,
-            b.start_at,
-            b.color
-        FROM time_blocks b
-        JOIN time_tables t ON t.id = b.table_id
-        WHERE b.table_id = #{timeTableId}
-          AND b.user_id = #{userId}
+            tb.id AS block_id, tb.user_id AS block_user_id, tb.table_id AS block_table_id,
+            tb.title AS block_title, tb.status, tb.width, tb.start_at AS block_start_at, tb.color,
+            tbt.id AS task_id, tbt.time_block_id AS task_block_id, tbt.title AS task_title
+        FROM time_blocks tb
+        LEFT JOIN time_block_tasks tbt ON tb.id = tbt.time_block_id
+    </sql>
+
+    <select id="getTimeBlocksByTimeTableId" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeBlockResult">
+        <include refid="blocksWithTasks" />
+        JOIN time_tables t ON t.id = tb.table_id
+        WHERE tb.table_id = #{timeTableId}
+          AND tb.user_id = #{userId}
           AND t.user_id = #{userId}
+          AND tb.status = 'PLACED'
     </select>
 
     <select id="getHeldTimeBlocks" resultMap="com.magu1436.chronolist.timeblocking.mapper.TimeblockingResultMap.TimeBlockResult">
-        SELECT
-            tb.id AS block_id, tb.user_id AS block_user_id, tb.table_id AS block_table_id, tb.title AS block_title, tb.status, tb.width, tb.start_at, tb.color,
-            tbt.id AS task_id, tbt.time_block_id AS task_block_id, tbt.title AS task_title,
-            s.id AS schedule_id, s.user_id AS schedule_user_id, s.kind, s.start_at, s.end_at, s.start_date, s.end_date, s.title AS schedule_title
-        FROM time_blocks tb
-        LEFT JOIN time_block_tasks tbt ON tb.id = tbt.time_block_id
-        LEFT JOIN schedule s ON tb.schedule_id = s.id
-        WHERE (tb.user_id = #{userId}) AND (tb.status = 'HOLD')
+        <include refid="blocksWithTasks" />
+        WHERE tb.user_id = #{userId} AND tb.status = 'HOLD'
     </select>
 
     <insert id="insertTimeBlock" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO time_blocks (user_id, table_id, title, status, schedule_id, width, start_at, color)
+        INSERT INTO time_blocks (user_id, table_id, title, status, width, start_at, color)
         SELECT
             #{userId},
             #{timeTableId},
             #{title}, #{status},
-            #{relatedSchedule.id},
             #{width},
             #{startAt},
             #{color}
@@ -74,14 +57,6 @@
                   AND tt.user_id = #{userId}
             )
         </if>
-        <if test="relatedSchedule != null">
-            AND EXISTS(
-                SELECT 1
-                FROM schedule s
-                WHERE s.id = #{relatedSchedule.id}
-                  AND s.user_id = #{userId}
-            )
-        </if>
     </insert>
 
     <update id="updateTimeBlock" >
@@ -89,7 +64,6 @@
         SET table_id = #{timeBlock.timeTableId},
             title = #{timeBlock.title},
             status = #{timeBlock.status},
-            schedule_id = #{timeBlock.relatedSchedule.id},
             width = #{timeBlock.width},
             start_at = #{timeBlock.startAt},
             color = #{timeBlock.color}
@@ -101,14 +75,6 @@
                 FROM time_tables tt
                 WHERE tt.id = #{timeBlock.timeTableId} AND tt.user_id = #{userId}
             )
-        </if>
-        <if test="timeBlock.relatedSchedule != null">
-             AND EXISTS(
-                SELECT 1
-                FROM schedule s
-                WHERE s.id = #{timeBlock.relatedSchedule.id}
-                  AND s.user_id = #{userId}
-             )
         </if>
     </update>
 

@@ -8,6 +8,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import com.magu1436.chronolist.login.LoginUser;
 import com.magu1436.chronolist.scheduler.entity.CalendarEvent;
 import com.magu1436.chronolist.scheduler.exception.EventNotFoundException;
+import com.magu1436.chronolist.scheduler.exception.InvalidAllDayRangeException;
 import com.magu1436.chronolist.scheduler.service.SchedulerService;
 
 import lombok.RequiredArgsConstructor;
@@ -34,15 +36,19 @@ public class SchedulerController {
 
     private final SchedulerService service;
 
+    @ExceptionHandler(InvalidAllDayRangeException.class)
+    public ResponseEntity<Void> handleInvalidAllDayRange() {
+        return ResponseEntity.badRequest().build();
+    }
+
     /** 
      * 特定期間のカレンダーイベント取得API.
      * DBに登録されているカレンダーイベントのうち, 指定した期間のカレンダーイベントを返す
      * @param loginUser ログイン中のユーザー
-     * @param startDate 指定期間の開始日
-     * @param endDate 指定期間の終了日
-     * @return 指定期間に一致したカレンダーイベントのリスト, 
-     * 指定した期間に一致するカレンダーイベントが存在しなかったときは {@code null} 
-     * をbodyに持った {@code ResponseEntity} 
+     * @param startDate 指定期間に含まれる開始日
+     * @param endDate 指定期間に含まれる終了日
+     * @return 指定期間に重なるカレンダーイベントのリスト。該当する予定がなければ空のリストを返す。
+     * 終了日が開始日より前の場合は400を返す。
      * @author konoma1103
      */ 
     @GetMapping("getEvents/{startDate}/{endDate}")
@@ -51,6 +57,9 @@ public class SchedulerController {
             @PathVariable("startDate") LocalDate startDate,
             @PathVariable("endDate") LocalDate endDate
         ){
+        if (endDate.isBefore(startDate)) {
+            return ResponseEntity.badRequest().build();
+        }
         List<CalendarEvent> calendarEvents = service.getEvents(loginUser.getId(), startDate, endDate);
         return ResponseEntity.ok(calendarEvents);
     }

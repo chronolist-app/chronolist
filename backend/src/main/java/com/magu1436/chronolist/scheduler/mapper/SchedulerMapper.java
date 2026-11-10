@@ -16,7 +16,7 @@ import com.magu1436.chronolist.scheduler.entity.CalendarEvent;
  */
 @Mapper
 public interface SchedulerMapper {
-    /** 指定の区間が期日のスケジュールを全て取得 */
+    /** 開始日と終了日を含む期間に重なるスケジュールを全て取得 */
     List<Schedule> getSchedulesFromTo(
         @Param("userId") int userId,
         @Param("startDate") LocalDate startDate,
@@ -25,14 +25,16 @@ public interface SchedulerMapper {
     /** 指定のidをもつスケジュールを取得 */
     Schedule getScheduleById(@Param("id") int id, @Param("userId") int userId);
     /** 指定の日にあるスケジュールを全て取得 */
-    List<Schedule> getSchedulesByDate(@Param("userId") int userId, @Param("date") LocalDate date);
+    default List<Schedule> getSchedulesByDate(int userId, LocalDate date) {
+        return getSchedulesFromTo(userId, date, date);
+    }
     /** スケジュールの新規登録 */
     int insertSchedule(Schedule schedule);
     /** スケジュールの更新 */
     int updateSchedule(Schedule schedule);
     /** 受け取ったidのスケジュールを削除 */
     int deleteSchedule(@Param("id") int id, @Param("userId") int userId);
-    /** 指定の区間が期日のカレンダーイベントを全て取得 */
+    /** 開始日と終了日を含む期間に重なるカレンダーイベントを全て取得 */
     List<CalendarEvent> getCalendarEventsFromTo(
         @Param("userId") int userId,
         @Param("startDate") LocalDate startDate,

@@ -73,6 +73,10 @@ CREATE TABLE schedule (
             (kind = 'ALL_DAY' and start_date is not NULL and end_date is not NULL and start_date <= end_date)
         ),
 
+    -- 終日予定の終了日は範囲に含まない。
+    CONSTRAINT chk_all_day_nonempty
+        CHECK (kind <> 'ALL_DAY' OR start_date < end_date),
+
     CONSTRAINT chk_exclusive
         CHECK (
             -- 「通常予定」のときにstart_dateとend_dateが必ずnullを持つための制約
@@ -139,16 +143,12 @@ CREATE TABLE time_blocks (
     table_id INT,
     title VARCHAR(64) NOT NULL,
     status VARCHAR(8) NOT NULL,
-    schedule_id INT,
     width INT NOT NULL,
     start_at TIME,
     color VARCHAR(8) NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (table_id)
         REFERENCES time_tables(id)
-        ON DELETE CASCADE,
-    FOREIGN KEY (schedule_id) 
-        REFERENCES schedule(id)
         ON DELETE CASCADE,
 
     -- statusがとれる値の制約

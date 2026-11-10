@@ -1,5 +1,6 @@
 package com.magu1436.chronolist.timeblocking;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -17,11 +18,11 @@ abstract class TimeBlockingApiTest extends ApiIntegrationTest {
     }
 
     /** ブロックを作る. */
-    protected int block(Integer tableId, String status, Integer scheduleId) {
+    protected int block(Integer tableId, String status) {
         jdbcTemplate.update("""
-                INSERT INTO time_blocks (user_id,table_id,title,status,schedule_id,width,start_at,color)
-                VALUES (?,?,?,?,?,?,?,?)
-                """, loginUser.getId(), tableId, "ブロック", status, scheduleId, 60,
+                INSERT INTO time_blocks (user_id,table_id,title,status,width,start_at,color)
+                VALUES (?,?,?,?,?,?,?)
+                """, loginUser.getId(), tableId, "ブロック", status, 60,
                 status.equals("HOLD") ? null : "09:30:00", "#ff0000");
         return jdbcTemplate.queryForObject("SELECT MAX(id) FROM time_blocks", Integer.class);
     }
@@ -39,13 +40,15 @@ abstract class TimeBlockingApiTest extends ApiIntegrationTest {
         return jdbcTemplate.queryForObject("SELECT MAX(id) FROM template_blocks", Integer.class);
     }
 
-    /** 関連付け用の終日予定を作る. */
-    protected int schedule() {
+    /** 指定日にカレンダーイベント付きの終日予定を作る. */
+    protected void seedCalendarEvent(String date) {
         jdbcTemplate.update("""
                 INSERT INTO schedule (user_id,kind,start_date,end_date,title)
-                VALUES (?, 'ALL_DAY', '2026-10-12', '2026-10-12', '予定')
-                """, loginUser.getId());
-        return jdbcTemplate.queryForObject("SELECT MAX(id) FROM schedule", Integer.class);
+                VALUES (?, 'ALL_DAY', ?, ?, '予定')
+                """, loginUser.getId(), date, LocalDate.parse(date).plusDays(1));
+        int id = jdbcTemplate.queryForObject("SELECT MAX(id) FROM schedule", Integer.class);
+        jdbcTemplate.update("INSERT INTO calendar_event (schedule_id,color,memo) VALUES (?,?,?)",
+                id, "#345678", "予定のメモ");
     }
 
     /** ブロックの登録・更新本文を作る. */
@@ -57,7 +60,6 @@ abstract class TimeBlockingApiTest extends ApiIntegrationTest {
         body.put("width", 90);
         body.put("startAt", status.equals("HOLD") ? null : "15:00:00");
         body.put("color", "#0000ff");
-        body.put("relatedSchedule", null);
         return body;
     }
 }

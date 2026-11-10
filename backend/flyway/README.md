@@ -7,6 +7,7 @@ MySQL Connector/J 9.4.0をSHA-256固定で `/flyway/drivers/` に追加する。
 ビルド時にMaven CentralへのHTTPS接続が必要。取得内容の不一致はビルドエラーとなる。
 実行先は任意。ローカルComposeから実行でき、Cloud Run Jobを使う場合は
 [Cloud Runの配置例](../../examples/cloud-run/README.md) を参照する。
+CHRON-190の計画停止と新規DBへの切り替えは [専用手順](../../examples/cloud-run/DB_REBUILD.md) に従う。
 
 ## 実行
 
@@ -24,6 +25,7 @@ docker compose build flyway
 docker compose run --rm flyway info
 docker compose run --rm flyway migrate
 docker compose run --rm flyway validate
+docker compose run --rm flyway info
 ```
 
 `migration`プロファイルに属するため、通常の `docker compose up` では起動しない。
@@ -48,6 +50,11 @@ OFFのままでは、DDLに記述したCHECK制約が作成・適用されない
   Spring Session 3.5のMySQL標準スキーマを元にしている。
   共有・再起動・期限切れの再実行方法は [共有セッション検証](../verification/README.md) を参照。
   H2の開発スキーマではMySQLのENGINE / ROW_FORMAT指定のみ省略する。
+- `sql/V3__remove_time_block_schedule_key.sql` は `time_blocks.schedule_id` の外部キー、専用索引、列を
+  順に削除する。`calendar_event.schedule_id` の外部キーは保持する。CHRON-190の適用先は計画停止中に用意した
+  新規の空DBとし、V1・V2・V3を順に適用する。
+- `sql/V4__require_nonempty_all_day_schedule.sql` は終日予定の終了日を開始日より後に制限する。
+  CHRON-193を含む再構築では新規の空DBにV1からV4まで順に適用する。旧形式の終日予定データの変換は行わない。
 - 一度いずれかの共有環境へ適用したSQLは編集・削除・改名しない。
   Flywayの履歴テーブルとチェックサムで適用済みSQLを管理する。
 - スキーマ変更時は同じ変更で開発用 `src/main/resources/schema.sql` も更新する。

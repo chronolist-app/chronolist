@@ -16,6 +16,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import com.magu1436.chronolist.support.ApiIntegrationTest;
@@ -31,16 +32,23 @@ class SchedulerApiTests extends ApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(content().json("[]"));
     }
 
-    /** 両端を含む期間重複を判定し、期間外の予定を除外する. */
+    /** 開始日をまたぐ予定と終了日に始まる予定を取得し、元の日時を返す. */
     @ParameterizedTest
     @ValueSource(strings = {"DATED", "ALL_DAY"})
     void getEventsIncludesOverlapsAndBoundaries(String kind) throws Exception {
-        int endsAtStart = seedEvent(kind, "2026-10-11", "2026-10-12");
+        String startOverlapEnd = kind.equals("DATED") ? "2026-10-12" : "2026-10-13";
+        int overlapsStart = seedEvent(kind, "2026-10-11", startOverlapEnd);
         int startsAtEnd = seedEvent(kind, "2026-10-14", "2026-10-15");
         int spansRange = seedEvent(kind, "2026-10-10", "2026-10-16");
-        int inside = seedEvent(kind, "2026-10-13", "2026-10-13");
-        seedEvent(kind, "2026-10-10", "2026-10-11");
-        seedEvent(kind, "2026-10-15", "2026-10-16");
+        String insideEnd = kind.equals("DATED") ? "2026-10-13" : "2026-10-14";
+        int inside = seedEvent(kind, "2026-10-13", insideEnd);
+        seedEvent(kind, "2026-10-10", kind.equals("DATED") ? "2026-10-11" : "2026-10-12");
+        if (kind.equals("DATED")) {
+            seedDatedEvent("2026-10-11T23:00:00", "2026-10-12T00:00:00");
+            seedDatedEvent("2026-10-15T00:00:00", "2026-10-15T01:00:00");
+        } else {
+            seedEvent(kind, "2026-10-15", "2026-10-16");
+        }
 
         var result = performAsUser(get(BASE + "getEvents/2026-10-12/2026-10-14"))
                 .andExpect(status().isOk()).andReturn();
@@ -48,9 +56,9 @@ class SchedulerApiTests extends ApiIntegrationTest {
         assertThat(events.size()).isEqualTo(4);
         Map<Integer, com.fasterxml.jackson.databind.JsonNode> byId = new LinkedHashMap<>();
         events.forEach(event -> byId.put(event.get("id").asInt(), event));
-        assertThat(byId.keySet()).containsExactlyInAnyOrder(endsAtStart, startsAtEnd, spansRange, inside);
-        var event = byId.get(inside);
-        var expected = eventBody(kind, "2026-10-13", "2026-10-13");
+        assertThat(byId.keySet()).containsExactlyInAnyOrder(overlapsStart, startsAtEnd, spansRange, inside);
+        var event = byId.get(spansRange);
+        var expected = eventBody(kind, "2026-10-10", "2026-10-16");
         for (String field : expected.keySet()) {
             assertThat(event.get(field)).as(field).isEqualTo(objectMapper.valueToTree(expected.get(field)));
         }
@@ -62,22 +70,31 @@ class SchedulerApiTests extends ApiIntegrationTest {
     void getEventsSupportsSingleDayAndMixedKinds() throws Exception {
         int timed = seedEvent("DATED", "2026-10-12", "2026-10-12");
         int allDay = seedEvent("ALL_DAY", "2026-10-11", "2026-10-13");
+        int untilMidnight = seedDatedEvent("2026-10-12T23:00:00", "2026-10-13T00:00:00");
+        int startsAtMidnight = seedDatedEvent("2026-10-12T00:00:00", "2026-10-12T01:00:00");
         seedEvent("DATED", "2026-10-13", "2026-10-13");
         var result = performAsUser(get(BASE + "getEvents/2026-10-12/2026-10-12"))
                 .andExpect(status().isOk()).andReturn();
         var events = objectMapper.readTree(result.getResponse().getContentAsByteArray());
         java.util.List<Integer> ids = new java.util.ArrayList<>();
         events.forEach(event -> ids.add(event.get("id").asInt()));
-        assertThat(ids).containsExactlyInAnyOrder(timed, allDay);
+        assertThat(ids).containsExactlyInAnyOrder(timed, allDay, untilMidnight, startsAtMidnight);
+    }
+
+    @Test
+    void getEventsRejectsReversedRange() throws Exception {
+        performAsUser(get(BASE + "getEvents/2026-10-14/2026-10-12"))
+                .andExpect(status().isBadRequest());
     }
 
     /** 両種類の予定を2テーブルへ登録し、イベントIDを返す. */
     @ParameterizedTest
     @ValueSource(strings = {"DATED", "ALL_DAY"})
     void registerCreatesLinkedRows(String kind) throws Exception {
-        // scheduleとcalendar_eventのIDが偶然一致することに依存しない。
-        insertSchedule(eventBody("ALL_DAY", "2026-01-01", "2026-01-01"));
-        var body = eventBody(kind, "2026-10-12", "2026-10-14");
+        // テスト間で採番値は残るため、空のcalendar_eventの採番を固定してIDを確実に分ける。
+        jdbcTemplate.execute("ALTER TABLE calendar_event ALTER COLUMN id RESTART WITH 1");
+        insertSchedule(eventBody("ALL_DAY", "2026-01-01", "2026-01-02"));
+        var body = eventBody(kind, "2026-10-12", kind.equals("ALL_DAY") ? "2026-10-13" : "2026-10-14");
         body.put("memo", null);
         var result = performJsonAsUser(post(BASE + "register"), body)
                 .andExpect(status().isCreated()).andReturn();
@@ -89,11 +106,27 @@ class SchedulerApiTests extends ApiIntegrationTest {
         assertThat(eventRow(id).get("SCHEDULE_ID")).isNotEqualTo(id);
     }
 
+    @ParameterizedTest
+    @CsvSource({",2026-10-13", "2026-10-12,", "2026-10-12,2026-10-12", "2026-10-12,2026-10-11"})
+    void writesRejectInvalidAllDayRangeWithoutChangingRows(String start, String end) throws Exception {
+        int existing = seedEvent("DATED", "2026-10-12", "2026-10-12");
+        var eventsBefore = events();
+        var schedulesBefore = schedules();
+        var body = eventBody("ALL_DAY", start, end);
+
+        performJsonAsUser(post(BASE + "register"), body).andExpect(status().isBadRequest());
+        body.put("id", existing);
+        performJsonAsUser(put(BASE + "update"), body).andExpect(status().isBadRequest());
+
+        assertThat(events()).isEqualTo(eventsBefore);
+        assertThat(schedules()).isEqualTo(schedulesBefore);
+    }
+
     /** 種類を変更すると日付・日時の不要な列をクリアし、両テーブルを更新する. */
     @ParameterizedTest
     @ValueSource(strings = {"DATED", "ALL_DAY"})
     void updateChangesBothRowsAndPreservesUnrelatedEvents(String kind) throws Exception {
-        insertSchedule(eventBody("ALL_DAY", "2026-01-01", "2026-01-01"));
+        insertSchedule(eventBody("ALL_DAY", "2026-01-01", "2026-01-02"));
         int id = seedEvent(kind.equals("DATED") ? "ALL_DAY" : "DATED", "2026-10-12", "2026-10-14");
         int other = seedEvent("DATED", "2026-10-20", "2026-10-20");
         var eventBefore = eventRow(other);
@@ -133,7 +166,7 @@ class SchedulerApiTests extends ApiIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {"DATED", "ALL_DAY"})
     void deleteRemovesBothLinkedRows(String kind) throws Exception {
-        int standalone = insertSchedule(eventBody("ALL_DAY", "2026-01-01", "2026-01-01"));
+        int standalone = insertSchedule(eventBody("ALL_DAY", "2026-01-01", "2026-01-02"));
         int id = seedEvent(kind, "2026-10-12", "2026-10-14");
         int other = seedEvent("DATED", "2026-10-20", "2026-10-20");
         int removedSchedule = scheduleId(id);
@@ -161,7 +194,17 @@ class SchedulerApiTests extends ApiIntegrationTest {
 
     /** APIに依存せずカレンダーイベントを作る. */
     private int seedEvent(String kind, String start, String end) {
-        var body = eventBody(kind, start, end);
+        return seedEvent(eventBody(kind, start, end));
+    }
+
+    private int seedDatedEvent(String startAt, String endAt) {
+        var body = eventBody("DATED", null, null);
+        body.put("startAt", startAt);
+        body.put("endAt", endAt);
+        return seedEvent(body);
+    }
+
+    private int seedEvent(Map<String, Object> body) {
         int scheduleId = insertSchedule(body);
         jdbcTemplate.update("INSERT INTO calendar_event (schedule_id,color,memo) VALUES (?,?,?)",
                 scheduleId, body.get("color"), body.get("memo"));

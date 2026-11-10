@@ -1,4 +1,3 @@
-import { toScheduleSource } from "@/feature/schesuler/mapper/scheduleMapper";
 import { v4 as uuidv4 } from "uuid";
 import type { TemplateBlockApi, TimeBlockApi } from "../types/api";
 import type { TemplateBlockSource, TimeBlockSource } from "../types/blockSourceTypes";
@@ -19,7 +18,6 @@ export const toTimeBlockSource = (api: TimeBlockApi, clientId?: string): TimeBlo
         timeTableId: api.timeTableId,
         title: api.title,
         status: api.status,
-        relatedSchedle: api.relatedSchedle && toScheduleSource(api.relatedSchedle),
         width: api.width,
         startAt: api.startAt ? new Time(api.startAt) : null,
         tasks: api.tasks?.map(task => toTimeBlockTask(task)) || [],

@@ -15,7 +15,7 @@ const RegisterResult = () => {
         startAt: null,
         endAt: null,
         startDate: "2025-11-04",
-        endDate: "2025-11-06",
+        endDate: "2025-11-07",
         title: "new schedule",
         color: "blue",
         memo: null,

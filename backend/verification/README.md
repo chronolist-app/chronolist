@@ -1,7 +1,8 @@
-# TiDB共有セッションの結合検証
+# TiDBの共有セッションと業務APIの結合検証
 
 通常のH2テストでは確認できない、TiDB上のSpring Session JDBCと独立したBackend JVM間の
-セッション継続を検証する。通常のテストやアプリ起動では実行されない。
+セッション継続、マイグレーション、SchedulerとTimeBlockingの独立性を検証する。
+通常のテストやアプリ起動では実行されない。
 
 ## 実行
 
@@ -13,15 +14,16 @@ docker compose build flyway
 ./backend/verification/tidb-session.ps1
 ```
 
-Composeが解決する `FLYWAY_URL`・`FLYWAY_USER`・`FLYWAY_PASSWORD` を使用する。
+Composeの開発用 `FLYWAY_URL`・`FLYWAY_USER`・`FLYWAY_PASSWORD` を使用する。
 Git管理外の `.env` またはプロセス環境変数で指定する。URLにはDB名と
 `sslMode=VERIFY_IDENTITY` が必要。値やBackendログはコンソールに出力しない。
+本番とTiDBホストを共有する場合も、開発用のDB名と認証情報を使う。`PROD_FLYWAY_*` は使用しない。
 接続ユーザーには検証用DBのCREATE / DROPと、マイグレーション・アプリ操作の権限が必要。
 
 ## 分離と後片付け
 
 接続先にある既存DBのテーブル・Flyway履歴・データは変更しない。同じTiDBへ一意な
-`chron151_verify_<ランダム12桁>` DBを新規作成し、リポジトリのV1・V2をFlywayで適用する。
+`chron151_verify_<ランダム12桁>` DBを新規作成して空であることを確認し、V1〜V4をFlywayで適用する。
 同名DBが存在すれば処理を拒否する。`clean`・`repair`・`baseline` は使用しない。
 
 終了時は、この実行で作成できたDBだけを削除する。既存の `.env` を変更せず、
@@ -34,7 +36,12 @@ BackendのbootJarを更新し、開発コンテナの `build/session-verificatio
 
 ## 確認内容
 
-- V1・V2の適用、validate、migrate再実行、セッション索引、JDBCのTLS接続。
+- Flywayの `info → migrate → validate → info → migrate` と、V1〜V4のみが順に成功した履歴。
+- JDBCのTLS接続、外部キー・CHECKの有効化、セッション索引、旧列・外部キー・索引の削除。
+- `calendar_event.schedule_id` から `schedule.id` への外部キーの保持と、存在しない予定IDの拒否（1452）。
+- 終日予定を終了日の一覧から除外し、V4の `chk_all_day_nonempty` が開始日と終了日の等しい行への直接更新を拒否すること。
+- 認証済み2ユーザーのSchedulerとTimeBlockingのCRUD、一覧の分離、他人の変更・削除の404とDB不変性。
+  同日の通常予定から終日予定への変更と削除でブロック・子タスクが残り、ブロックの変更で予定が変わらないことも確認する。
 - prod設定の独立した2つのBackend JVMで、認証情報とCSRFトークンをDB経由で復元。
 - 既存CookieとCSRFトークンでの作成・更新・削除、および欠落・古いトークンの拒否。
 - 一方のJVMを終了し、新しいJVMを起動した後も認証・CSRF付き操作を継続。
@@ -49,12 +56,12 @@ Secure Cookieを明示的にヘッダーへ載せ、DB共有を検証する。HT
 
 ## デプロイと運用
 
-1. 適用先DBのFlyway履歴を確認する。過去の検証用V2・V3を含むDBへ、正規のV2を
-   強制適用しない。履歴が本番SQLと整合する適用先を用意する。
-2. バックアップと復旧手順を確認し、対応Backendのデプロイより先にFlyway V2を適用する。
+1. 適用先DBのFlyway履歴とチェックサムを確認し、正規のSQLと整合する適用先を用意する。
+   CHRON-190は[計画停止と新規DBへの切り替え手順](../../examples/cloud-run/DB_REBUILD.md)に従う。
+2. バックアップと復旧手順を確認し、対応Backendのデプロイより先にリリース対象のマイグレーションを適用する。
    アプリ起動時のSQL初期化とSpring Sessionの自動スキーマ作成は有効にしない。
 3. 対応Backendをデプロイし、ログイン・CSRF付き操作・ログアウトを確認する。
-   追加テーブルは旧アプリの業務テーブルを変更しないため、アプリを戻しても残してよい。
+   旧版へ戻す場合は、そのアプリとDBスキーマ、セッション保存形式の互換性を確認する。
 
 認証情報はJavaシリアライズ形式で保存する。このスクリプトの対象は同じビルド間の復元であり、
 任意の将来バージョンとの互換性を保証しない。`LoginUser` のserialVersionUIDや認証・CSRF関連

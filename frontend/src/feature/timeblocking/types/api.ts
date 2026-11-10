@@ -1,14 +1,12 @@
-import type { ScheduleApi } from "@/feature/schesuler/types/api"
 import type { TimeBlockStatus } from "./statics"
 import type { DateString } from "@/types/date";
 
 
 export type TimeBlockApi = {
     id: number,
-    timeTableId: number,
+    timeTableId: number | null,
     title: string,
     status: TimeBlockStatus,
-    relatedSchedle: ScheduleApi | null,
     width: number,
     startAt: string | null,
     tasks: TimeBlockTaskApi[],
