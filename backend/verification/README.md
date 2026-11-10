@@ -23,7 +23,7 @@ Git管理外の `.env` またはプロセス環境変数で指定する。URLに
 ## 分離と後片付け
 
 接続先にある既存DBのテーブル・Flyway履歴・データは変更しない。同じTiDBへ一意な
-`chron151_verify_<ランダム12桁>` DBを新規作成して空であることを確認し、V1・V2・V3をFlywayで適用する。
+`chron151_verify_<ランダム12桁>` DBを新規作成して空であることを確認し、V1〜V4をFlywayで適用する。
 同名DBが存在すれば処理を拒否する。`clean`・`repair`・`baseline` は使用しない。
 
 終了時は、この実行で作成できたDBだけを削除する。既存の `.env` を変更せず、
@@ -36,9 +36,10 @@ BackendのbootJarを更新し、開発コンテナの `build/session-verificatio
 
 ## 確認内容
 
-- Flywayの `info → migrate → validate → info → migrate` と、V1・V2・V3のみが成功した履歴。
+- Flywayの `info → migrate → validate → info → migrate` と、V1〜V4のみが順に成功した履歴。
 - JDBCのTLS接続、外部キー・CHECKの有効化、セッション索引、旧列・外部キー・索引の削除。
 - `calendar_event.schedule_id` から `schedule.id` への外部キーの保持と、存在しない予定IDの拒否（1452）。
+- 終日予定を終了日の一覧から除外し、V4の `chk_all_day_nonempty` が開始日と終了日の等しい行への直接更新を拒否すること。
 - 認証済み2ユーザーのSchedulerとTimeBlockingのCRUD、一覧の分離、他人の変更・削除の404とDB不変性。
   同日の通常予定から終日予定への変更と削除でブロック・子タスクが残り、ブロックの変更で予定が変わらないことも確認する。
 - prod設定の独立した2つのBackend JVMで、認証情報とCSRFトークンをDB経由で復元。

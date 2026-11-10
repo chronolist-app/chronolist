@@ -91,7 +91,8 @@ class SchedulerApiTests extends ApiIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {"DATED", "ALL_DAY"})
     void registerCreatesLinkedRows(String kind) throws Exception {
-        // scheduleとcalendar_eventのIDが偶然一致することに依存しない。
+        // テスト間で採番値は残るため、空のcalendar_eventの採番を固定してIDを確実に分ける。
+        jdbcTemplate.execute("ALTER TABLE calendar_event ALTER COLUMN id RESTART WITH 1");
         insertSchedule(eventBody("ALL_DAY", "2026-01-01", "2026-01-02"));
         var body = eventBody(kind, "2026-10-12", kind.equals("ALL_DAY") ? "2026-10-13" : "2026-10-14");
         body.put("memo", null);

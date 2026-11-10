@@ -13,6 +13,7 @@ public class TidbSessionVerification {
     static final ObjectMapper JSON = new ObjectMapper();
     static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
     static final String DATE = "2026-11-02";
+    static final String NEXT_DATE = "2026-11-03";
     static final String SCHEDULER = "/api/scheduler/";
     static final String TIMEBLOCKING = "/api/timeblocking/";
     static int checks;
@@ -154,8 +155,9 @@ public class TidbSessionVerification {
         check(rows("""
                 SELECT installed_rank, version, IF(success, 1, 0)
                 FROM flyway_schema_history ORDER BY installed_rank
-                """).equals(List.of(List.of("1", "1", "1"), List.of("2", "2", "1"), List.of("3", "3", "1"))),
-                "Flyway履歴は順にV1・V2・V3の成功3件");
+                """).equals(List.of(List.of("1", "1", "1"), List.of("2", "2", "1"),
+                        List.of("3", "3", "1"), List.of("4", "4", "1"))),
+                "Flyway履歴は順にV1・V2・V3・V4の成功4件");
         check(number("SELECT @@foreign_key_checks = 1 AND @@tidb_enable_check_constraint = 1") == 1,
                 "外部キーとCHECK制約が有効");
         check(number("""
@@ -225,7 +227,7 @@ public class TidbSessionVerification {
                 && onlyItem(ownerTimeTable.path("timeBlocks"), ownerBlock)
                 && onlyItem(otherTimeTable.path("timeBlocks"), otherBlock), "同日のタイムテーブルとブロックが所有者ごとに分離される");
 
-        var allDayEvent = Map.of("id", ownerEvent, "kind", "ALL_DAY", "startDate", DATE, "endDate", DATE,
+        var allDayEvent = Map.of("id", ownerEvent, "kind", "ALL_DAY", "startDate", DATE, "endDate", NEXT_DATE,
                 "title", "同日の終日予定", "color", "#654321", "memo", "終日予定のメモ");
         var updatedBlock = blockBody(ownerTable, "変更後のブロック");
         updatedBlock.put("id", ownerBlock);
@@ -262,9 +264,24 @@ public class TidbSessionVerification {
         expectStatus(owner, b, "PUT", SCHEDULER + "update", ownerToken, allDayEvent, 204, "同日の通常予定を終日予定に更新");
         var updatedEvents = events(owner, a);
         check(onlyItem(updatedEvents, ownerEvent) && "ALL_DAY".equals(updatedEvents.path(0).path("kind").asText())
-                && DATE.equals(updatedEvents.path(0).path("startDate").asText()), "終日への更新が取得結果に反映される");
+                && DATE.equals(updatedEvents.path(0).path("startDate").asText())
+                && NEXT_DATE.equals(updatedEvents.path(0).path("endDate").asText()), "終日への更新が取得結果に反映される");
+        var endDateEvents = JSON.readTree(expectStatus(owner, a, "GET", SCHEDULER + "getEvents/" + NEXT_DATE + "/" + NEXT_DATE,
+                null, null, 200, "終日予定の終了日を取得").body());
+        check(endDateEvents.isArray() && endDateEvents.isEmpty(), "排他的な終了日の一覧には終日予定が含まれない");
         check(timeBlockingRows().equals(survivingTimeBlocking), "終日への更新でブロック・子タスクが維持される");
         long scheduleId = number("SELECT schedule_id FROM calendar_event WHERE id = ?", ownerEvent);
+        var beforeInvalidRange = calendarRows();
+        try (var statement = db.prepareStatement("UPDATE schedule SET end_date = start_date WHERE id = ?")) {
+            statement.setLong(1, scheduleId);
+            try {
+                statement.executeUpdate();
+                throw new AssertionError("V4のCHECK制約が空の終日予定を許可した");
+            } catch (SQLException e) {
+                check(e.getMessage().contains("chk_all_day_nonempty"), "V4のCHECK制約が空の終日予定を拒否する");
+            }
+        }
+        check(calendarRows().equals(beforeInvalidRange), "空の終日予定の拒否後も予定とイベントが維持される");
         expectStatus(owner, a, "DELETE", SCHEDULER + "delete/" + ownerEvent, ownerToken, null, 204, "所有者の予定削除");
         var remainingOwnerEvents = events(owner, b);
         check(remainingOwnerEvents.isArray() && remainingOwnerEvents.isEmpty() && onlyItem(events(other, a), otherEvent)
