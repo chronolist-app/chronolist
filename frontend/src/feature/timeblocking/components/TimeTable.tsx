@@ -1,4 +1,4 @@
-import { useContext, useCallback, type FC, type ReactElement, useLayoutEffect, useState } from "react";
+import { useContext, useCallback, type FC, type ReactElement, useLayoutEffect, useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Alert, Box, Typography } from "@mui/material";
 import { isAxiosError } from "axios";
@@ -10,6 +10,7 @@ import type { TimeBlockSource } from "../types/blockSourceTypes";
 import TimeBlock from "./TimeBlock";
 import TimeBlockView from "./TimeBlockView";
 import Legend from "./timeTableComponents/Legend";
+import ScheduleArea from "./timeTableComponents/ScheduleArea";
 import BlockRepositories from "../contexts/BlockRepositories";
 import { useLocation } from "react-router-dom";
 import { createAt, getByDate } from "../api/timeTableApi";
@@ -167,15 +168,18 @@ const TimeTable: FC = () => {
     const [loadError, setLoadError] = useState(false);
 
     const location = useLocation();
-    useLayoutEffect(() => {
+    const date = useMemo(() => {
         const query = new URLSearchParams(location.search);
         // useNavigate で渡された state またはURLのクエリパラメータから日付を取得
         // 日付を取得できない場合は今日の日付を取得
-        const date = 
+        return (
             (location.state?.date as (string | undefined)) || 
             query.get("date") ||
-            toDateString(new Date());
+            toDateString(new Date())
+        );
+    }, [location]);
 
+    useLayoutEffect(() => {
         let ignore = false;
         setTable(undefined);
         setLoadError(false);
@@ -206,7 +210,7 @@ const TimeTable: FC = () => {
         });
 
         return () => { ignore = true; };
-    }, [location, setBlocksOnTable, setTimeTableId, tableRevision]);
+    }, [date, location, setBlocksOnTable, setTimeTableId, tableRevision]);
 
     return (
         <Box
@@ -252,17 +256,7 @@ const TimeTable: FC = () => {
                         },
                     }}
                 />
-                <Box
-                    component="section"
-                    aria-label="予定"
-                    sx={{
-                        gridArea: "schedule",
-                        position: "relative",
-                        boxShadow: `inset ${gridSize}px 0 currentColor, inset -${gridSize}px 0 currentColor`,
-                    }}
-                >
-                    {/* 予定はこの領域の開始時刻を基準に配置する。 */}
-                </Box>
+                <ScheduleArea key={date} date={date} />
                 <Table />
             </Box>
         </Box>
