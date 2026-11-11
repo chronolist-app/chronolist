@@ -12,6 +12,7 @@ import TimeBlockView from "./TimeBlockView";
 import { BLOCKS_AREA_ID, TEMPLATE_BLOCKS_AREA_ID, TIMETABLE_ID } from "../static/droppableId";
 import { register as registerTemplateBlock } from "../api/templateBlockApi";
 import { register as registerTimeBlock, update as updateTimeBlock } from "../api/timeBlockApi";
+import { getDropStartMinutes } from "../utils/dropTime";
 
 const testTemplateBlocks: TemplateBlockSource[] = [
     {
@@ -56,11 +57,10 @@ const BlockAvailable: FC<BlockAvailableProps> = ({ children }) => {
     const getDropTime = ({ active, over }: Pick<DragEndEvent, "active" | "over">, source: TimeBlockSource) => {
         const translated = active.rect.current.translated;
         if (over?.id !== TIMETABLE_ID || timeTableId <= 0 || !translated) return null;
-        const minutes = Math.floor((translated.top - over.rect.top) / slotHeight) * slotMinutes;
-        const isMoveWithinTable = source.status === "PLACED" && source.timeTableId === timeTableId &&
-            !source.fromTemplateBlockSource;
-        const startMinutes = isMoveWithinTable ? Math.max(0, minutes) : minutes;
-        return startMinutes >= 0 && startMinutes < 24 * 60 ? new Time(startMinutes) : null;
+        const startMinutes = getDropStartMinutes(
+            translated.top - over.rect.top, slotHeight, slotMinutes, source, timeTableId,
+        );
+        return startMinutes === null ? null : new Time(startMinutes);
     };
 
     const showPreview = (event: Pick<DragEndEvent, "active" | "over">) => {
