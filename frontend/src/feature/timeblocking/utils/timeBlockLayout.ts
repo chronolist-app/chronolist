@@ -15,13 +15,14 @@ export const getTimeBlockLayout = (blocks: TimeBlockSource[]): BlockLayout[] => 
     const sorted = blocks.filter(isPositionedBlock)
         .sort((a, b) => a.startAt.toMinutes() - b.startAt.toMinutes());
     const layout: BlockLayout[] = [];
-    let group: BlockLayout[] = [];
+    let group: { block: PositionedBlock; columnIndex: number }[] = [];
     let groupEnd = -Infinity;
     let columnEnds: number[] = [];
 
     const finishGroup = () => {
-        for (const item of group) item.columnCount = columnEnds.length;
-        layout.push(...group);
+        for (const item of group) {
+            layout.push({ ...item, columnCount: columnEnds.length });
+        }
         group = [];
         columnEnds = [];
     };
@@ -37,7 +38,7 @@ export const getTimeBlockLayout = (blocks: TimeBlockSource[]): BlockLayout[] => 
         const availableColumn = columnEnds.findIndex(columnEnd => columnEnd <= start);
         const columnIndex = availableColumn === -1 ? columnEnds.length : availableColumn;
         columnEnds[columnIndex] = end;
-        group.push({ block, columnIndex, columnCount: 0 });
+        group.push({ block, columnIndex });
     }
     finishGroup();
     return layout;
