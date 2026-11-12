@@ -1,4 +1,5 @@
-import { Box, Modal, Stack, type SxProps } from "@mui/material";
+import { isValidBlockWidth } from "../utils/blockValidation";
+import { Box, Alert, Modal, Stack, type SxProps } from "@mui/material";
 import { useCallback, useContext, useEffect, useState } from "react";
 
 import type { TemplateBlockSource } from "../types/blockSourceTypes";
@@ -26,6 +27,7 @@ const style: SxProps = {
  */
 const TemplateBlockDetailPanel = () => {
 
+    const [validationError, setValidationError] = useState<string | null>(null);
     const [ templateBlock, setTemplateBlock ] = useState<TemplateBlockSource | null>(null);
 
     const {
@@ -49,6 +51,7 @@ const TemplateBlockDetailPanel = () => {
      * `selectedTimeBlockId` を監視し, 選択ブロックやモーダルの開閉状態を更新する
      */
     useEffect(() => {
+        setValidationError(null);
         setOpen(selectedTemplateBlockClientId !== null);
         if (selectedTemplateBlockClientId === null) return;
         setTemplateBlock(templateBlocks.find(b => b.clientId === selectedTemplateBlockClientId) || null);
@@ -61,6 +64,11 @@ const TemplateBlockDetailPanel = () => {
     const handleSetText = useCallback((text: string) => {
         const editedBlock = templateBlock && { ...templateBlock, text };
         if (editedBlock === null) return;
+        if (!isValidBlockWidth(editedBlock.width)) {
+            setValidationError("幅は1〜1440分の整数で入力してください。");
+            return;
+        }
+        setValidationError(null);
         setTemplateBlock(editedBlock);
         reflectChangedBlockIntoRepository(editedBlock);
         update(editedBlock);
@@ -69,6 +77,11 @@ const TemplateBlockDetailPanel = () => {
     const handleSetWidth = useCallback((width: number) => {
         const editedBlock = templateBlock && { ...templateBlock, width };
         if (editedBlock === null) return;
+        if (!isValidBlockWidth(editedBlock.width)) {
+            setValidationError("幅は1〜1440分の整数で入力してください。");
+            return;
+        }
+        setValidationError(null);
         setTemplateBlock(editedBlock);
         reflectChangedBlockIntoRepository(editedBlock);
         update(editedBlock);
@@ -91,6 +104,7 @@ const TemplateBlockDetailPanel = () => {
                 sx={style}
             >
                 <Stack spacing={3}>
+                    {(validationError || (templateBlock && !isValidBlockWidth(templateBlock.width))) && <Alert severity="error">{validationError || "幅は1〜1440分の整数で入力してください。"}</Alert>}
                     <Title text={templateBlock?.title} setText={handleSetText} />
                     <Width width={templateBlock?.width || 0} setWidth={handleSetWidth} />
                     <DeleteButton onDelete={handleDelete} />
