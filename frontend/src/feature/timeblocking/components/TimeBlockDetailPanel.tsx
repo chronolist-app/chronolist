@@ -1,10 +1,11 @@
+import { reflectBlockTasks, type TaskUpdate } from "../utils/taskOperations";
 import { getBlockValidationError, isValidBlockWidth } from "../utils/blockValidation";
 import { Alert, Button, Modal, Stack, Box, type SxProps } from "@mui/material"
 import Title from "./timeBlockDetailPanelComponents/Title"
 import { useCallback, useContext, useEffect, useState, type FC } from "react";
 import SelectedTimeBlockClientId from "../contexts/SelectedTimeBlockClientId";
 import BlockRepositories from "../contexts/BlockRepositories";
-import type { TimeBlockSource, TimeBlockTask } from "../types/blockSourceTypes";
+import type { TimeBlockSource } from "../types/blockSourceTypes";
 import { Time } from "@/utils/time";
 import TimeRange from "./timeBlockDetailPanelComponents/TimeRange";
 import Width from "./timeBlockDetailPanelComponents/Width";
@@ -154,19 +155,11 @@ const TimeBlockDetailPanel: FC = () => {
     /**
      * ブロックのタスクを変更した際の処理
      */
-    const handleSetTasks = useCallback((tasks: TimeBlockTask[]) => {
-        const editedBlock = block && { ...block, tasks: [...tasks] };
-        if (editedBlock) {
-            const error = getBlockValidationError(editedBlock);
-            setValidationError(error);
-            if (error) return;
-        }
-        setBlock(editedBlock);
-        if (editedBlock) {
-            reflectBlockToRepository(editedBlock);
-            update(editedBlock);
-        }
-    }, [block, setBlock, reflectBlockToRepository]);
+    const handleSetTasks = useCallback((blockId: number, change: TaskUpdate) => {
+        setBlock(current => current?.id === blockId ? { ...current, tasks: change(current.tasks) } : current);
+        setBlocksOnTable(blocks => reflectBlockTasks(blocks, blockId, change));
+        setBlocksAtField(blocks => reflectBlockTasks(blocks, blockId, change));
+    }, [setBlocksOnTable, setBlocksAtField]);
 
     /**
      * 削除ボタンを押した際の処理
@@ -205,7 +198,7 @@ const TimeBlockDetailPanel: FC = () => {
                     <Title text={block?.title} setText={handleSetText} />
                     {block?.startAt && <TimeRange width={block?.width} startAt={block?.startAt || undefined} setStartAt={handleSetTime} />}
                     <Width width={block?.width || 0} setWidth={handleSetWidth} />
-                    {block && block.id && <TimeBlockTasks tasks={block.tasks} blockId={block.id} setTasks={handleSetTasks} />}
+                    {block && block.id && <TimeBlockTasks key={block.id} tasks={block.tasks} blockId={block.id} setTasks={handleSetTasks} />}
                     <DeleteButton onDelete={handleDelete} />
                 </Stack>
             </Box>
