@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -41,19 +42,25 @@ class TemplateBlockApiTests extends TimeBlockingApiTest {
     @ValueSource(strings = {"update", "delete"})
     void mutateOnlySelectedTemplate(String operation) throws Exception {
         int id = template();
-        int other = template();
-        var untouched = jdbcTemplate.queryForMap("SELECT * FROM template_blocks WHERE id=?", other);
-        var body = Map.of("id", id, "title", "変更", "width", 60, "color", "#abcdef");
-        performJsonAsUser(operation.equals("update") ? put(BASE + "templateBlock/update") : delete(BASE + "templateBlock/delete"), body)
+        template();
+        foreignTemplate();
+        var before = jdbcTemplate.queryForList("SELECT * FROM template_blocks ORDER BY id");
+        // 元のスナップショットを保持し、対象行の変更項目だけを独立した期待値に反映する。
+        var expected = before.stream()
+                .filter(row -> !operation.equals("delete") || !row.get("ID").equals(id))
+                .map(row -> {
+                    var expectedRow = new LinkedHashMap<>(row);
+                    if (operation.equals("update") && row.get("ID").equals(id)) {
+                        expectedRow.put("TITLE", "変更後のテンプレート");
+                        expectedRow.put("WIDTH", 60);
+                        expectedRow.put("COLOR", "#abcdef");
+                    }
+                    return expectedRow;
+                }).toList();
+        performJsonAsUser(operation.equals("update") ? put(BASE + "templateBlock/update") : delete(BASE + "templateBlock/delete"),
+                mutationBody(operation, id))
                 .andExpect(status().isNoContent()).andExpect(content().string(""));
-        assertThat(jdbcTemplate.queryForMap("SELECT * FROM template_blocks WHERE id=?", other)).isEqualTo(untouched);
-        if (operation.equals("update")) {
-            assertThat(jdbcTemplate.queryForMap("SELECT * FROM template_blocks WHERE id=?", id))
-                    .containsEntry("USER_ID", loginUser.getId()).containsEntry("TITLE", "変更")
-                    .containsEntry("WIDTH", 60).containsEntry("COLOR", "#abcdef");
-        } else {
-            assertThat(jdbcTemplate.queryForList("SELECT * FROM template_blocks")).containsExactly(untouched);
-        }
+        assertThat(jdbcTemplate.queryForList("SELECT * FROM template_blocks ORDER BY id")).isEqualTo(expected);
     }
 
     /** 自分と他ユーザーのテンプレートが混在していても自分のデータだけを返す. */
@@ -97,7 +104,7 @@ class TemplateBlockApiTests extends TimeBlockingApiTest {
         template();
         int foreign = foreignTemplate();
         var foreignResponse = assertNotFoundWithoutChanges(operation, mutationBody(operation, foreign));
-        var missingResponse = assertNotFoundWithoutChanges(operation, mutationBody(operation, -1));
+        var missingResponse = assertNotFoundWithoutChanges(operation, mutationBody(operation, missingTemplateId()));
         assertThat(foreignResponse.getStatus()).isEqualTo(missingResponse.getStatus());
         assertThat(foreignResponse.getContentAsByteArray()).isEqualTo(missingResponse.getContentAsByteArray());
         assertThat(foreignResponse.getContentType()).isEqualTo(missingResponse.getContentType());
@@ -140,6 +147,7 @@ class TemplateBlockApiTests extends TimeBlockingApiTest {
         MockHttpServletRequestBuilder request = operation.equals("update")
                 ? put(BASE + "templateBlock/update") : delete(BASE + "templateBlock/delete");
         var response = performJsonAsUser(request, body).andExpect(status().isNotFound())
+                .andExpect(content().string(""))
                 .andReturn().getResponse();
         assertThat(jdbcTemplate.queryForList("SELECT * FROM template_blocks ORDER BY id")).isEqualTo(before);
         return response;
@@ -150,9 +158,18 @@ class TemplateBlockApiTests extends TimeBlockingApiTest {
     @ValueSource(strings = {"update", "delete"})
     void missingTemplateReturns404(String operation) throws Exception {
         template();
-        var before = jdbcTemplate.queryForList("SELECT * FROM template_blocks");
-        performJsonAsUser(operation.equals("update") ? put(BASE + "templateBlock/update") : delete(BASE + "templateBlock/delete"), Map.of("id", -1))
-                .andExpect(status().isNotFound()).andExpect(content().string(""));
-        assertThat(jdbcTemplate.queryForList("SELECT * FROM template_blocks")).isEqualTo(before);
+        foreignTemplate();
+        assertNotFoundWithoutChanges(operation, mutationBody(operation, missingTemplateId()));
+    }
+
+    /** 採番値や実行順に依存せず、DBに存在しない正のint型IDを探す. */
+    private int missingTemplateId() {
+        for (long candidate = 1; candidate <= Integer.MAX_VALUE; candidate++) {
+            int id = (int) candidate;
+            if (jdbcTemplate.queryForObject("SELECT COUNT(*) FROM template_blocks WHERE id=?", Integer.class, id) == 0) {
+                return id;
+            }
+        }
+        throw new AssertionError("不存在の正のテンプレートIDが見つかりません");
     }
 }
