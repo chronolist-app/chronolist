@@ -97,6 +97,7 @@ class TimeTableApiTests extends TimeBlockingApiTest {
         jdbcTemplate.update("INSERT INTO users (login_id,password,role) VALUES (?,?,?)",
                 "other-user", "unused", "GENERAL");
         int otherUser = jdbcTemplate.queryForObject("SELECT id FROM users WHERE login_id=?", Integer.class, "other-user");
+        // テーブルとブロックの所有者を意図的に不整合にし、他ユーザーのブロックとタスクが返らないことを確認する。
         int foreign = block(table, "PLACED");
         task(foreign, "他ユーザー");
         jdbcTemplate.update("UPDATE time_blocks SET user_id=? WHERE id=?", otherUser, foreign);
