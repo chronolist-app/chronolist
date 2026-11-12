@@ -1,3 +1,4 @@
+import { getBlockDisplayWidth } from "./blockValidation.ts";
 import type { Time } from "@/utils/time";
 import type { TimeBlockSource } from "../types/blockSourceTypes";
 
@@ -29,7 +30,7 @@ export const getTimeBlockLayout = (blocks: TimeBlockSource[]): BlockLayout[] => 
 
     for (const block of sorted) {
         const start = block.startAt.toMinutes();
-        const end = start + block.width;
+        const end = start + getBlockDisplayWidth(block.width);
         // 直前のブロックでなくグループ全体の終了と比較し、入れ子も同じグループに保つ。
         if (start >= groupEnd) finishGroup();
         groupEnd = group.length === 0 ? end : Math.max(groupEnd, end);

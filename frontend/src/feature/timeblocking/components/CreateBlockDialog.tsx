@@ -1,3 +1,4 @@
+import { isValidUiBlockWidth } from "../utils/blockValidation";
 import { useContext, useState, type FC } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
@@ -71,7 +72,7 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
             setTitleHasError(true);
             return;
         }
-        if (!width) {
+        if (!isValidUiBlockWidth(width, slotMinutes)) {
             setWidthHasError(true);
             return;
         }
@@ -107,7 +108,7 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
                             value={width}
                             onChange={handleWidthChange}
                             error={widthHasError}
-                            helperText={widthHasError ? "幅を入力してください" : undefined}
+                            helperText={widthHasError ? "幅は1〜1440分でスロットの倍数にしてください" : undefined}
                             label={"幅"}
                         />
                         <TextField

@@ -1,66 +1,57 @@
-import EditableTimeText from "@/components/EditableTimeText";
 import { Time } from "@/utils/time";
-import { Divider, Stack, Typography, type SxProps } from "@mui/material";
-import { useCallback, useEffect, useState, type FC } from "react";
-
-
-type TimeRangeProps = {
-    width?: number,
-    startAt?: Time,
-    setStartAt: (startAt: Time) => void
-};
-
-const textSx: SxProps = {
-    fontSize: "2rem",
-};
-const labelSx: SxProps = {
-    fontSize: "1.3rem",
-}
-
-/**
- * 開始日時と終了日時を表示するコンポーネント
- */
+import { Divider, Stack, TextField } from "@mui/material";
+import { useEffect, useState, type FC } from "react";
+import { getBlockValidationError } from "../../utils/blockValidation";
+type TimeRangeProps = { width?: number; startAt?: Time; setStartAt: (start: Time) => void };
+/** 24:00を扱えるテキスト入力で、終了の編集も開始時刻へ逆算する。 */
 const TimeRange: FC<TimeRangeProps> = ({ width = 0, startAt = new Time(), setStartAt }) => {
-    const [ endAt, setEndAt ] = useState(startAt.add(width));
-
+    const [from, setFrom] = useState(startAt.toString());
+    const [to, setTo] = useState(startAt.add(width).toString());
+    const [error, setError] = useState<string | null>(null);
     useEffect(() => {
-        setEndAt(startAt.add(width));
-    }, [width, startAt]);
-
-    /**
-     * 開始日時を変更したときの処理.  
-     */
-    const handleSetStartAt = useCallback((startAt: Time) => {
-        setStartAt(startAt);
-        setEndAt(startAt.add(width));
-    }, [width, setStartAt, setEndAt]);
-
-    /**
-     * 終了日時を変更したときの処理.  
-     * 保守性を考慮して開始日時を変更する関数を呼び出す.
-     */
-    const handleSetEndAt = useCallback((endAt: Time) => {
-        handleSetStartAt(endAt.subtract(width));
-    }, [width, handleSetStartAt]);
-
-            
+        setFrom(startAt.toString());
+        setTo(startAt.add(width).toString());
+        setError(null);
+    }, [startAt, width]);
+    const finish = (end: boolean) => {
+        const value = end ? to : from;
+        if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value) && !(end && value === "24:00")) {
+            setError("時刻をHH:mm形式で入力してください。終了は24:00も指定できます。");
+            return;
+        }
+        const next = new Time(value).subtract(end ? width : 0);
+        const message = getBlockValidationError({ status: "PLACED", width, startAt: next });
+        setError(message);
+        if (message) return;
+        setStartAt(next);
+    };
     return (
-        <>
-            <Stack>
-                <Divider orientation={"horizontal"} textAlign="left" flexItem>時刻</Divider>
-                <Stack spacing={3} direction={"row"}>
-                    <Stack>
-                        <Typography sx={labelSx}>From</Typography>
-                        <EditableTimeText sx={textSx} value={startAt} onChange={handleSetStartAt} />
-                    </Stack>
-                    <Stack>
-                        <Typography sx={labelSx}>To</Typography>
-                        <EditableTimeText sx={textSx} value={endAt} onChange={handleSetEndAt} />
-                    </Stack>
-                </Stack>
+        <Stack>
+            <Divider textAlign="left">時刻</Divider>
+            <Stack spacing={3} direction="row">
+                <TextField
+                    label="From"
+                    value={from}
+                    error={!!error}
+                    helperText={error}
+                    onChange={e => setFrom(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === "Enter") e.currentTarget.querySelector("input")?.blur();
+                    }}
+                    onBlur={() => finish(false)}
+                />
+                <TextField
+                    label="To"
+                    value={to}
+                    error={!!error}
+                    onChange={e => setTo(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === "Enter") e.currentTarget.querySelector("input")?.blur();
+                    }}
+                    onBlur={() => finish(true)}
+                />
             </Stack>
-        </>
+        </Stack>
     );
 };
-
 export default TimeRange;

@@ -1,3 +1,4 @@
+import { getBlockDisplayWidth } from "../utils/blockValidation";
 import { Paper, Typography } from "@mui/material"
 import { useContext, type ComponentPropsWithoutRef, type FC } from "react";
 
@@ -17,7 +18,7 @@ const TimeBlockView: FC<TimeBlockViewProps> = ({ source, ref, sx, ...rest }) => 
         slotMinutes,
     } = useContext(TimeTableConfigure);
 
-    const height = Math.floor(source.width * (slotHeight / slotMinutes));
+    const height = Math.floor(getBlockDisplayWidth(source.width) * (slotHeight / slotMinutes));
     
     return (
         <Paper

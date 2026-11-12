@@ -13,6 +13,7 @@ public class TemplateBlock {
     private int id;
     private int userId;
     private String title;
-    private int width;
+    @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = BlockWidthDeserializer.class)
+    private Integer width;
     private String color;
 }
