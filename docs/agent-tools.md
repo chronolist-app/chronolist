@@ -1,0 +1,77 @@
+# Codex / Claude Code の共通設定と PR 作成スキル
+
+## 共通ルールの読み込み
+
+共通ルールの正本はルートの [AGENTS.md](../AGENTS.md)。
+Codex はリポジトリルートから作業ディレクトリまでの `AGENTS.md` を読み込む。
+Claude Code は v2.1.277 以降で直接読み込めるが、親ディレクトリ等の `CLAUDE.md` の存在や
+Project instructions 設定で読み込まれない場合がある。旧版等にも対応するため
+[CLAUDE.md](../CLAUDE.md) は `@AGENTS.md` の1行だけとし、規約本文を複製しない。
+個人・管理者の設定によってプロジェクト指示やスキルが無効化される場合は、その設定を確認する。
+
+新規セッションをリポジトリ内で開始し、Codex では読み込んだ指示ファイルを尋ねる。
+Claude Code では `/memory` または `/context all` で確認する。単にファイルが存在することと、
+各クライアントのセッションで実際に読み込まれることは区別する。
+
+## スキルの配置と呼び出し
+
+既存のプロジェクト用スキル・個人用 PR 作成スキルは実装時に見つからなかった。
+Codex の探索先 `.agents/skills/create-pr/` に手順・テンプレート・Python スクリプトを集約する。
+Claude Code の探索先 `.claude/skills/create-pr/SKILL.md` は共有手順への入口のみ。
+Windows でのチェックアウトも考慮し、symlink やグローバル設定の変更を必要としない。
+Claude Code 側は `disable-model-invocation: true` とし、明示呼び出しで使う。
+
+リポジトリ内で新規セッションを開始し、次のように依頼する。
+
+```text
+Codex: $create-pr feature/CHRON-196 --ticket CHRON-196
+Claude Code: /create-pr feature/CHRON-196 --ticket CHRON-196
+```
+
+必要に応じて `--base release/example` を追加する。既定は `develop`。
+`main` 指定時はスキルが今回の操作に対するユーザー確認を求める。
+チケット引数を省略した場合はエージェントが会話・ブランチ名から判断し、不確かなら確認する。
+共有スクリプトは推測せず、確定した `--ticket` を受け取る。
+同名の個人スキルがある場合はセレクタでプロジェクト側のファイルを確認する。
+
+## 実行環境・処理の範囲
+
+必要ツールは Git、Python 3.10 以降（標準ライブラリのみ）、認証済みの GitHub CLI (`gh`)。
+認証・ネットワークは実行環境の設定を利用し、秘密情報をファイルに書き込まない。
+現在の `origin` の取得先・push 先が同じ github.com リポジトリであることを確認する。
+SSH と HTTPS を利用できる。Enterprise ホスト・フォーク・複数 push URL・mirror は対象外で、停止する。
+
+スクリプトは作成元のローカルブランチとリモートのベースを検証し、fetch した最新のコミットと比較する。
+現在のブランチは切り替えない。未コミット変更は含めず警告する。差分なしやブランチ分岐では停止する。
+未 push コミットは明示した作成元だけを通常 push し、失敗時は PR を操作しない。
+同じリポジトリ・作成元・ベースの open PR は本文だけ更新する。closed / merged PR は再利用しない。
+既存 PR を一意に判定できない場合は停止する。API エラーを「PR なし」とは扱わない。
+検証・実操作の代行、CI の監視、PR のマージは行わない。
+
+スクリプトの `--dry-run` は fetch・認証・既存 PR の照会まで。push・PR 書き込みはしない。
+本文はスキル内テンプレートからエージェントが準備し、`--body-file` で渡す。
+スクリプトは6見出し・順序・チケットリンク・未展開の変数を確認するが、検証結果の真偽は
+機械判定できないため、実施済みの記録と照合するのはエージェントの責務。
+`--confirm-main` はユーザー確認の代替ではなく、確認を得た後だけ使う。
+
+## 副作用のない回帰テスト
+
+リポジトリルートで実行する。
+
+```sh
+python3 -B -m unittest discover -s .agents/skills/create-pr/tests -v
+```
+
+テストは一時ディレクトリの Git リポジトリ・bare リモートと偽の `gh` を使う。
+GitHub の認証情報・実リポジトリ・実際の PR には触れない。
+実サービスでの作成・更新や、両クライアントの新規セッション確認は別の検証である。
+
+## 確認した公式仕様
+
+2026-11-15 に公式ドキュメントで配置と読み込み仕様を確認。
+
+- [Codex AGENTS.md](https://developers.openai.com/codex/guides/agents-md/)
+- [Codex skills](https://developers.openai.com/codex/skills/)
+- [Claude Code memory / AGENTS.md](https://code.claude.com/docs/en/memory#agentsmd)
+- [Claude Code skills](https://code.claude.com/docs/en/skills)
+- GitHub CLI のインストール済みバージョンで `gh pr list --help`、`gh pr create --help`、`gh pr edit --help` を確認する。
