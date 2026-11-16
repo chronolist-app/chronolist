@@ -12,12 +12,23 @@ permissions:
 
 jobs:
   agent-skills:
-    name: Agent skill regression tests
-    runs-on: ubuntu-latest
+    name: Agent skill regression tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 5
+    env:
+      PYTHONUTF8: '0'
+      PYTHONWARNDEFAULTENCODING: '1'
+      PYTHONWARNINGS: error::EncodingWarning
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - run: python3 -B -m unittest discover -s .agents/skills/create-pr/tests -v
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - run: python -B -m unittest discover -s .agents/skills/create-pr/tests -v
 
   backend:
     name: Backend test and build

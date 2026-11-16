@@ -17,7 +17,7 @@ class Failure(Exception):
 
 def run(*args, allowed=(0,)):
     # Keep inherited proxy/auth settings. Never evaluate arguments in a shell.
-    result = subprocess.run(args, text=True, capture_output=True)
+    result = subprocess.run(args, text=True, encoding="utf-8", capture_output=True)
     if result.returncode not in allowed:
         # Client diagnostics can include credential-bearing remote URLs; do not echo them.
         operation = " ".join(args[:3] if args[0] == "gh" else args[:2])

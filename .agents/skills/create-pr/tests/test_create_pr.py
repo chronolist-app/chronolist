@@ -1,5 +1,8 @@
-"""Real local Git operations; strict fake gh. Never contacts GitHub."""
+"""Real local Git operations with a mocked process boundary. Never contacts GitHub."""
 
+from contextlib import redirect_stderr, redirect_stdout
+import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -8,83 +11,45 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 SKILL = Path(__file__).resolve().parents[1]
 SCRIPT = SKILL / "scripts/create_pr.py"
 REAL_GIT = shutil.which("git")
+REAL_RUN = subprocess.run
+SPEC = importlib.util.spec_from_file_location("create_pr", SCRIPT)
+CREATE_PR = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(CREATE_PR)
 
 
 class CreatePrTests(unittest.TestCase):
     def setUp(self):
+        if REAL_GIT is None:
+            self.skipTest("Git is required for the local integration tests")
+        self.original_cwd = Path.cwd()
         self.temp = tempfile.TemporaryDirectory(prefix="chronolist-pr-test-")
-        self.addCleanup(self.temp.cleanup)
+        self.addCleanup(self.cleanup_workspace)
         self.root = Path(self.temp.name)
-        self.repo = self.root / "repo"
+        # Non-ASCII paths exercise subprocess output decoding as well as file I/O.
+        self.repo = self.root / "作業リポジトリ"
         self.remote = self.root / "remote.git"
-        self.bin = self.root / "bin"
-        self.bin.mkdir()
         self.repo.mkdir()
-        self.log = self.root / "calls.jsonl"
-        self.state = self.root / "state.json"
-        self.state.write_text("{}")
+        self.state = {}
+        self.entries = []
         self.env = dict(os.environ)
-        # Do not use user Git configuration, credentials, proxies or remote services.
         for key in list(self.env):
             if key.startswith(("GIT_", "GH_", "GITHUB_")):
                 del self.env[key]
         self.env.update({"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
-                         "GIT_TERMINAL_PROMPT": "0", "REAL_GIT": REAL_GIT,
-                         "TEST_LOG": str(self.log), "TEST_STATE": str(self.state),
-                         "PATH": str(self.bin) + os.pathsep + os.environ["PATH"]})
-        wrapper = f"#!{sys.executable}\n" + '''import json, os, pathlib, subprocess, sys
-args = sys.argv[1:]
-state = json.loads(pathlib.Path(os.environ["TEST_STATE"]).read_text())
-tool = pathlib.Path(sys.argv[0]).name
-entry = {"tool": tool, "args": args}
-if "--body-file" in args:
-    entry["body"] = pathlib.Path(args[args.index("--body-file") + 1]).read_text()
-with open(os.environ["TEST_LOG"], "a") as log:
-    log.write(json.dumps(entry) + "\\n")
-if tool == "git":
-    if args[:2] == ["remote", "get-url"]:
-        print(state.get("push_url" if "--push" in args else "fetch_url",
-                        "https://github.com/test/chronolist.git"))
-        sys.exit(0)
-    if args and args[0] == "push" and state.get("push_fail"):
-        sys.exit(1)
-    if args and args[0] == "fetch" and state.get("fetch_fail"):
-        sys.exit(1)
-    sys.exit(subprocess.run([os.environ["REAL_GIT"], *args]).returncode)
-if args[:2] == ["auth", "status"]:
-    sys.exit(1 if state.get("auth_fail") else 0)
-if args[:2] == ["pr", "list"]:
-    if state.get("list_fail"):
-        sys.exit(1)
-    if state.get("bad_json"):
-        print("not JSON")
-        sys.exit(0)
-    print(json.dumps(state.get("prs", [])))
-elif args[:2] == ["pr", "create"]:
-    if state.get("create_fail"):
-        sys.exit(1)
-    print("https://github.com/test/chronolist/pull/7")
-elif args[:2] == ["pr", "edit"]:
-    if state.get("edit_fail"):
-        sys.exit(1)
-else:
-    sys.exit(98)  # Unexpected commands (including CI polling) fail closed.
-'''
-        for tool in ("git", "gh"):
-            path = self.bin / tool
-            path.write_text(wrapper)
-            path.chmod(0o755)
+                         "GIT_TERMINAL_PROMPT": "0", "GIT_ALLOW_PROTOCOL": "file"})
         self.git("init", "--bare", str(self.remote))
         self.git("init", "-b", "develop")
         self.git("config", "user.name", "Test")
         self.git("config", "user.email", "test@example.invalid")
         self.git("config", "commit.gpgsign", "false")
-        (self.repo / "base.txt").write_text("base\n")
+        self.git("config", "core.autocrlf", "false")
+        (self.repo / "base.txt").write_text("base\n", encoding="utf-8")
         self.git("add", "base.txt")
         self.git("commit", "-m", "initial")
         self.git("remote", "add", "origin", str(self.remote))
@@ -93,36 +58,86 @@ else:
         self.git("push", "origin", "main")
         self.source = "feature/CHRON-196"
         self.git("checkout", "-b", self.source)
-        (self.repo / "change.txt").write_text("change\n")
+        (self.repo / "change.txt").write_text("change\n", encoding="utf-8")
         self.git("add", "change.txt")
         self.git("commit", "-m", "変更を追加")
-        self.body = self.root / "body.md"
-        self.body.write_text((SKILL / "pr-body-template.md").read_text()
+        self.body = self.root / "本文.md"
+        self.body.write_text((SKILL / "pr-body-template.md").read_text(encoding="utf-8")
                              .replace("{{TICKET}}", "CHRON-196")
                              .replace("{{SUMMARY}}", "開発ガイドを追加")
                              .replace("{{CHANGES}}", "共通ルールを整備")
-                             .replace("{{NOTES}}", "補足なし"))
+                             .replace("{{NOTES}}", "補足なし"), encoding="utf-8")
+
+    def cleanup_workspace(self):
+        # Restore cwd before removing anything; Windows refuses to delete an active cwd.
+        os.chdir(self.original_cwd)
+        self.temp.cleanup()
 
     def git(self, *args, cwd=None):
-        result = subprocess.run([REAL_GIT, *args], cwd=cwd or self.repo, env=self.env,
-                                capture_output=True, text=True)
+        result = REAL_RUN([REAL_GIT, *args], cwd=cwd or self.repo, env=self.env,
+                          capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.strip()
 
     def configure(self, **values):
-        self.state.write_text(json.dumps(values))
+        self.state = values
+
+    def command(self, argv, **kwargs):
+        """Intercept gh entirely; delegate permitted Git commands to the local repository."""
+        tool, *args = argv
+        entry = {"tool": tool, "args": args}
+        if "--body-file" in args:
+            entry["body"] = Path(args[args.index("--body-file") + 1]).read_text(encoding="utf-8")
+        self.entries.append(entry)
+
+        def result(code=0, stdout=""):
+            return subprocess.CompletedProcess(argv, code, stdout, "")
+
+        if tool == "git":
+            if args[:2] == ["remote", "get-url"]:
+                key = "push_url" if "--push" in args else "fetch_url"
+                return result(stdout=self.state.get(key, "https://github.com/test/chronolist.git") + "\n")
+            if args and self.state.get(args[0] + "_fail"):
+                return result(1)
+            # The real origin is always a temporary bare repository. GIT_ALLOW_PROTOCOL
+            # additionally prevents accidental network access through a future code path.
+            return REAL_RUN([REAL_GIT, *args], **kwargs)
+        self.assertEqual(tool, "gh", "Unexpected external tool")
+        if self.state.get("missing_gh"):
+            raise FileNotFoundError("gh is unavailable")
+        if args[:2] == ["auth", "status"]:
+            return result(1 if self.state.get("auth_fail") else 0)
+        if args[:2] == ["pr", "list"]:
+            if self.state.get("list_fail"):
+                return result(1)
+            return result(stdout="not JSON" if self.state.get("bad_json")
+                          else json.dumps(self.state.get("prs", [])))
+        if args[:2] in (["pr", "create"], ["pr", "edit"]):
+            if self.state.get(args[1] + "_fail"):
+                return result(1)
+            return result(stdout="https://github.com/test/chronolist/pull/7\n")
+        self.fail("Unexpected gh command (including CI polling)")
 
     def invoke(self, *extra, source=None, ok=True):
-        result = subprocess.run([sys.executable, "-B", str(SCRIPT), source or self.source,
-                                 "--ticket", "CHRON-196", "--title", "開発ガイドを整備",
-                                 "--body-file", str(self.body), *extra],
-                                cwd=self.repo, env=self.env, capture_output=True, text=True)
+        argv = [str(SCRIPT), source or self.source,
+                "--ticket", "CHRON-196", "--title", "開発ガイドを整備",
+                "--body-file", str(self.body), *extra]
+        stdout, stderr = io.StringIO(), io.StringIO()
+        previous_cwd = Path.cwd()
+        try:
+            os.chdir(self.repo)
+            with patch.dict(os.environ, self.env, clear=True), patch.object(sys, "argv", argv), \
+                    patch.object(CREATE_PR.subprocess, "run", side_effect=self.command), \
+                    redirect_stdout(stdout), redirect_stderr(stderr):
+                code = CREATE_PR.main()
+        finally:
+            os.chdir(previous_cwd)
+        result = subprocess.CompletedProcess(argv, code, stdout.getvalue(), stderr.getvalue())
         self.assertEqual(result.returncode, 0 if ok else 1, result.stdout + result.stderr)
         return result
 
     def calls(self, tool=None, verb=None):
-        entries = [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
-        return [entry for entry in entries if (tool is None or entry["tool"] == tool)
+        return [entry for entry in self.entries if (tool is None or entry["tool"] == tool)
                 and (verb is None or entry["args"][:len(verb)] == verb)]
 
     def assert_no_writes(self):
@@ -136,7 +151,7 @@ else:
                     **values)
 
     def test_default_push_create_and_preserve_dirty_worktree(self):
-        (self.repo / "base.txt").write_text("uncommitted\n")
+        (self.repo / "base.txt").write_text("uncommitted\n", encoding="utf-8")
         before = self.git("status", "--porcelain")
         result = self.invoke()
         self.assertIn("未コミット", result.stderr)
@@ -148,7 +163,7 @@ else:
         create = self.calls("gh", ["pr", "create"])[0]
         self.assertEqual(create["args"][create["args"].index("--base") + 1], "develop")
         self.assertEqual(create["args"][create["args"].index("--repo") + 1], "github.com/test/chronolist")
-        self.assertEqual(create["body"], self.body.read_text())
+        self.assertEqual(create["body"], self.body.read_text(encoding="utf-8"))
         self.assertEqual(len(self.calls("git", ["push"])), 1)
         self.assertNotIn("--force", self.calls("git", ["push"])[0]["args"])
 
@@ -161,7 +176,7 @@ else:
         edit = self.calls("gh", ["pr", "edit"])[0]
         self.assertEqual(edit["args"][2], "7")
         self.assertNotIn("--title", edit["args"])
-        self.assertEqual(edit["body"], self.body.read_text())
+        self.assertEqual(edit["body"], self.body.read_text(encoding="utf-8"))
 
     def test_explicit_other_base(self):
         self.git("push", "origin", "develop:refs/heads/release/test")
@@ -193,9 +208,9 @@ else:
         self.assert_no_writes()
 
     def test_invalid_body(self):
-        for content in ("## 概要\n不正", self.body.read_text().replace("CHRON-196", "CHRON-197"),
-                        self.body.read_text().replace("補足なし", "{{NOTES}}")):
-            self.body.write_text(content)
+        for content in ("## 概要\n不正", self.body.read_text(encoding="utf-8").replace("CHRON-196", "CHRON-197"),
+                        self.body.read_text(encoding="utf-8").replace("補足なし", "{{NOTES}}")):
+            self.body.write_text(content, encoding="utf-8")
             self.invoke(ok=False)
         self.assert_no_writes()
 
@@ -304,6 +319,27 @@ else:
         result = self.invoke(ok=False)
         self.assertNotIn("secret-token", result.stdout + result.stderr)
         self.assert_no_writes()
+
+    def test_missing_gh_stops_and_restores_working_directory(self):
+        before = Path.cwd()
+        self.configure(missing_gh=True)
+        result = self.invoke(ok=False)
+        self.assertIn("gh is unavailable", result.stderr)
+        self.assertEqual(Path.cwd(), before)
+        self.assert_no_writes()
+
+    def test_utf8_subprocess_output_under_cp932_locale(self):
+        # Exercise the real process boundary independently of the mocked gh client.
+        with patch("locale.getencoding", return_value="cp932", create=True), \
+                patch("locale.getpreferredencoding", return_value="cp932"):
+            result = CREATE_PR.run(sys.executable, "-c",
+                                   "import sys; sys.stdout.buffer.write('日本語'.encode('utf-8'))")
+        self.assertEqual(result.stdout, "日本語")
+
+    def test_success_restores_working_directory(self):
+        before = Path.cwd()
+        self.invoke()
+        self.assertEqual(Path.cwd(), before)
 
 
 if __name__ == "__main__":

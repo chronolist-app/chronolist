@@ -56,14 +56,21 @@ SSH と HTTPS を利用できる。Enterprise ホスト・フォーク・複数 
 
 ## 副作用のない回帰テスト
 
-リポジトリルートで実行する。
+Git と Python を用意し、リポジトリルートで実行する。Linux / Windows 共通で、
+偽の実行ファイルや GitHub CLI のインストールは不要。
 
 ```sh
 python3 -B -m unittest discover -s .agents/skills/create-pr/tests -v
 ```
 
-テストは一時ディレクトリの Git リポジトリ・bare リモートと偽の `gh` を使う。
-GitHub の認証情報・実リポジトリ・実際の PR には触れない。
+Windows で Python のコマンド名が `python` の場合は、上の `python3` を `python` に置き換える。
+
+テストは一時ディレクトリの Git リポジトリ・bare リモートを使い、GitHub CLI の呼び出しは
+Python のモックで差し替える。shebang や実行ファイルの探索順には依存しない。
+ファイルと外部コマンド出力は UTF-8 を明示し、成功・失敗ともに作業ディレクトリを復元してから後片付けする。
+Git の通信はローカルの file プロトコルに制限し、GitHub の認証情報・実リポジトリ・実際の PR には触れない。
+CI は Linux / Windows の Python 3.13 で実行し、UTF-8 モードを無効にしたうえで
+文字コード指定漏れの警告をエラーとして扱う。
 実サービスでの作成・更新や、両クライアントの新規セッション確認は別の検証である。
 
 ## 確認した公式仕様
