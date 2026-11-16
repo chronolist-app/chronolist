@@ -1,6 +1,9 @@
+import RegionLoadFeedback from "./RegionLoadFeedback";
+import { loadRegion } from "../utils/load-region";
+import type { RegionLoadStatus } from "../types/regionLoadTypes";
 import { useContext, type FC, useLayoutEffect, useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Alert, Box, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { isAxiosError } from "axios";
 
 import { TIMETABLE_ID } from "../static/droppableId";
@@ -77,6 +80,7 @@ const Table: FC = () => {
 }
 
 
+/** タイムテーブルの取得状況と日付ごとの内容を表示する。 */
 const TimeTable: FC = () => {
 
     const {
@@ -92,7 +96,8 @@ const TimeTable: FC = () => {
     } = useContext(BlockRepositories);
 
     const [ table, setTable ] = useState<TimeTableSource>();
-    const [loadError, setLoadError] = useState(false);
+    const [loadStatus, setLoadStatus] = useState<RegionLoadStatus>("loading");
+    const [retryCount, setRetryCount] = useState(0);
 
     const location = useLocation();
     const date = useMemo(() => {
@@ -107,17 +112,15 @@ const TimeTable: FC = () => {
     }, [location]);
 
     useLayoutEffect(() => {
-        let ignore = false;
         setTable(undefined);
-        setLoadError(false);
         setTimeTableId(-1);
         setBlocksOnTable([]);
 
-        const loadTable = async () => {
+        const loadTable = async (isActive: () => boolean) => {
             try {
                 return await getByDate(date);
             } catch (error) {
-                if (ignore || !(error instanceof NotFoundError)) throw error;
+                if (!isActive() || !(error instanceof NotFoundError)) throw error;
                 try {
                     await createAt(date);
                 } catch (createError) {
@@ -127,17 +130,12 @@ const TimeTable: FC = () => {
             }
         };
 
-        loadTable().then(result => {
-            if (ignore) return;
+        return loadRegion(loadTable, result => {
             setTable(result);
             setBlocksOnTable(result.blocks.filter(block => block.timeTableId === result.id && isPositionedBlock(block)));
             setTimeTableId(result.id);
-        }).catch(() => {
-            if (!ignore) setLoadError(true);
-        });
-
-        return () => { ignore = true; };
-    }, [date, location, setBlocksOnTable, setTimeTableId, tableRevision]);
+        }, setLoadStatus);
+    }, [date, location, setBlocksOnTable, setTimeTableId, tableRevision, retryCount]);
 
     return (
         <Box
@@ -151,7 +149,6 @@ const TimeTable: FC = () => {
             }}
         >
             <Typography sx={{fontSize: 30}}>{table && toDateString(table.date)}</Typography>
-            {loadError && <Alert severity="error">タイムテーブルを読み込めませんでした。</Alert>}
             <Box
                 sx={{
                     display: "grid",
@@ -184,7 +181,11 @@ const TimeTable: FC = () => {
                     }}
                 />
                 <ScheduleArea key={date} date={date} />
-                <Table />
+                {loadStatus === "success" ? <Table /> : (
+                    <Box sx={{ gridArea: "table", position: "relative", bgcolor: "background.paper" }} aria-busy={loadStatus === "loading"}>
+                        <RegionLoadFeedback status={loadStatus} label="タイムテーブル" onRetry={() => setRetryCount(count => count + 1)} />
+                    </Box>
+                )}
             </Box>
         </Box>
     )
