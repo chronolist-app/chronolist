@@ -5,6 +5,7 @@ import { pathToFileURL, fileURLToPath } from "node:url";
 import ts from "typescript";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { MemoryRouter } from "react-router-dom";
 import type { CHButtonProps } from "../src/components/CHButton.tsx";
 
 // Node標準ランナーでTSXを実行するため、既存のTypeScriptだけで一時変換する。
@@ -17,6 +18,15 @@ await writeFile(MODULE_PATH, ts.transpileModule(SOURCE, {
 }).outputText);
 const { default: CHButton } = await import(pathToFileURL(MODULE_PATH).href);
 const render = (props: CHButtonProps) => renderToStaticMarkup(createElement(CHButton, props));
+
+test("リンクは遷移先を持つアンカーとして描画し、buttonの属性を付けない", () => {
+    const html = renderToStaticMarkup(createElement(MemoryRouter, { initialEntries: ["/timeblocking"] },
+        createElement(CHButton, { label: "スケジューラで編集", link: { to: "/scheduler", state: { date: "2026-11-17", eventId: 12 } } })));
+    assert.match(html, /<a[^>]*href="\/scheduler"/);
+    assert.match(html, /class="CHButton-label">スケジューラで編集<\/span>/);
+    assert.doesNotMatch(html, /<button|type="button"|role="button"/);
+    assert.doesNotMatch(html, /eventId|2026-11-17/, "遷移stateをDOM属性へ漏らさない");
+});
 
 type CssRule = { selector: string; media: string[]; declarations: Record<string, string> };
 
