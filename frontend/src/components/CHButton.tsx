@@ -39,24 +39,24 @@ type ButtonPalette = {
 // MUIのxs/smブレークポイントでモバイル/デスクトップの寸法を切り替える。
 const SIZES = {
     xs: {
-        mobile: { minHeight: 44, paddingInline: 12, fontSize: 13, iconSize: 9 },
-        desktop: { minHeight: 28, paddingInline: 8, fontSize: 12, iconSize: 8 },
+        mobile: { minHeight: 44, paddingInline: 12, fontSize: 13, iconSize: 13 },
+        desktop: { minHeight: 28, paddingInline: 8, fontSize: 12, iconSize: 12 },
     },
     sm: {
-        mobile: { minHeight: 48, paddingInline: 16, fontSize: 14, iconSize: 10 },
-        desktop: { minHeight: 32, paddingInline: 12, fontSize: 13, iconSize: 9 },
+        mobile: { minHeight: 48, paddingInline: 16, fontSize: 14, iconSize: 14 },
+        desktop: { minHeight: 32, paddingInline: 12, fontSize: 13, iconSize: 13 },
     },
     md: {
-        mobile: { minHeight: 52, paddingInline: 20, fontSize: 15, iconSize: 11 },
-        desktop: { minHeight: 36, paddingInline: 16, fontSize: 14, iconSize: 10 },
+        mobile: { minHeight: 52, paddingInline: 20, fontSize: 15, iconSize: 15 },
+        desktop: { minHeight: 36, paddingInline: 16, fontSize: 14, iconSize: 14 },
     },
     lg: {
-        mobile: { minHeight: 56, paddingInline: 24, fontSize: 16, iconSize: 12 },
-        desktop: { minHeight: 40, paddingInline: 20, fontSize: 15, iconSize: 11 },
+        mobile: { minHeight: 56, paddingInline: 24, fontSize: 16, iconSize: 16 },
+        desktop: { minHeight: 40, paddingInline: 20, fontSize: 15, iconSize: 15 },
     },
     xl: {
-        mobile: { minHeight: 60, paddingInline: 28, fontSize: 17, iconSize: 13 },
-        desktop: { minHeight: 44, paddingInline: 24, fontSize: 16, iconSize: 12 },
+        mobile: { minHeight: 60, paddingInline: 28, fontSize: 17, iconSize: 17 },
+        desktop: { minHeight: 44, paddingInline: 24, fontSize: 16, iconSize: 16 },
     },
 } satisfies Record<ButtonSize, ResponsiveDimensions>;
 

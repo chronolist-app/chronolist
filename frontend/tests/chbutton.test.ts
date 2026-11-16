@@ -111,11 +111,11 @@ test("全9組が状態色とフォーカス・disabledスタイルを持つ", ()
 
 test("全5段階で600px境界の寸法と文字・アイコン寸法を出力する", () => {
     for (const [size, mobileHeight, desktopHeight, mobilePadding, desktopPadding, mobileFont, desktopFont, mobileIcon, desktopIcon] of [
-        ["xs", 44, 28, 12, 8, 13, 12, 9, 8],
-        ["sm", 48, 32, 16, 12, 14, 13, 10, 9],
-        ["md", 52, 36, 20, 16, 15, 14, 11, 10],
-        ["lg", 56, 40, 24, 20, 16, 15, 12, 11],
-        ["xl", 60, 44, 28, 24, 17, 16, 13, 12],
+        ["xs", 44, 28, 12, 8, 13, 12, 13, 12],
+        ["sm", 48, 32, 16, 12, 14, 13, 14, 13],
+        ["md", 52, 36, 20, 16, 15, 14, 15, 14],
+        ["lg", 56, 40, 24, 20, 16, 15, 16, 15],
+        ["xl", 60, 44, 28, 24, 17, 16, 17, 16],
     ] as const) {
         const html = render({ label: "サイズ", size });
         const { declarations } = inspectStyles(html);
