@@ -39,9 +39,12 @@ ToDo・予定・タイムブロッキングを扱う Web アプリ。全体の�
 
 - [Jira CHRON プロジェクト](https://magu.atlassian.net/jira/software/projects/CHRON): 対象チケットの要求・完了条件・進捗。
 - [Confluence Chronolist スペース](https://magu.atlassian.net/wiki/spaces/Chronolist): 設計・仕様・作業メモ。
+- [要件定義](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/5963800): プロジェクト全体の要件を参照する。
 - 正式仕様書の入口は [Apps](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/3342337)。
-  [Scheduler 仕様書](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/3342394) と
-  [Timeblocking 仕様書](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/3309608) を参照する。
+  各アプリの仕様は [ToDoList 仕様書](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/5963777)、
+  [Scheduler 仕様書](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/3342394)、
+  [Timeblocking 仕様書](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/3309608)、
+  [User 仕様書](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/5931020) を参照する。
 - リポジトリの実装・設定・README は現状の挙動と開発・検証方法の根拠。作業メモは正式仕様書の代替にしない。
 
 原則、対象 Jira チケットの要求を既存仕様書より優先する。矛盾があり、仕様書更新が
