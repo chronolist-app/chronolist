@@ -6,6 +6,7 @@ import type { TimeBlockInput } from "../types/blockSourceTypes";
 import BlockRepositories from "../contexts/BlockRepositories";
 import BlockWidthField from "@/components/BlockWidthField";
 import register from "../api/timeBlock/register";
+import CHButton from "@/components/CHButton";
 
 
 type CreateBlockDialogProps = {
@@ -127,7 +128,7 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleClose} disabled={saving}>キャンセル</Button>
-                    <Button onClick={handleClick} disabled={saving} startIcon={saving ? <CircularProgress size={16} /> : undefined}>{saving ? "作成中…" : "作成"}</Button>
+                    <CHButton onClick={handleClick} disabled={saving} startIcon={saving ? <CircularProgress size={16} /> : undefined} label={saving ? "作成中…" : "作成"} />
                 </DialogActions>
             </Dialog>
         </>
