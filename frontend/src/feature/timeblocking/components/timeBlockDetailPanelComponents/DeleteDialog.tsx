@@ -1,4 +1,5 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from "@mui/material";
+import CHButton from "@/components/CHButton";
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from "@mui/material";
 import { useCallback, type FC } from "react";
 
 
@@ -32,8 +33,8 @@ const DeleteDialog: FC<DeleteDialogProps> = ({ deleteBlock, open, setOpen }) => 
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleClose}>キャンセル</Button>
-                    <Button onClick={handleDelete}>削除</Button>
+                    <CHButton variant="secondary" appearance="text" onClick={handleClose} label="キャンセル" />
+                    <CHButton variant="danger" onClick={handleDelete} label="削除" />
                 </DialogActions>
             </Dialog>
         </>

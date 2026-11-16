@@ -1,5 +1,6 @@
+import CHButton from "@/components/CHButton";
 import type { FC } from "react"
-import { Button, Stack } from "@mui/material";
+import { Stack } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 import EditableText from "@/components/EditableText";
@@ -12,10 +13,11 @@ type SidePanelHeaderProps = {
 
 const DeleteButton = ({ onDelete }: { onDelete: () => void }) => {
     return (
-        <Button onClick={onDelete} color="error" startIcon={<DeleteIcon />}>削除</Button>
+        <CHButton onClick={onDelete} variant="danger" appearance="text" startIcon={<DeleteIcon />} label="削除" />
     )
 }
 
+/** 予定のタイトル編集と削除操作を表示する。 */
 const Header: FC<SidePanelHeaderProps> = ({ title, setTitle, onDelete }) => {
     return (
         <>

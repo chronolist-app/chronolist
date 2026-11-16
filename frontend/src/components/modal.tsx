@@ -1,16 +1,19 @@
+import CHButton from "@/components/CHButton";
 import type { ModalProps } from "@/types/utility-prop";
 import classNames from "classnames";
 import type { FC } from "react";
-import { Button, Modal } from "react-bootstrap";
+import { Modal } from "react-bootstrap";
 
 const MODAL_CLASS_TAG = "chronolist-modal";
 
+/** ラベル付きの共通操作ボタンを備えたモーダルを表示する。 */
 export const ChronolistModal: FC<ModalProps> = ({
     title,
     isOpen,
     id,
     className,
     acceptButtonlabel,
+    acceptButtonVariant = "primary",
     onAccept,
     cancelButtonlabel,
     onCancel,
@@ -29,8 +32,8 @@ export const ChronolistModal: FC<ModalProps> = ({
             </Modal.Header>
             <Modal.Body>{children}</Modal.Body>
             <Modal.Footer>
-                {cancelButtonlabel && (() => <Button variant="secondary" onClick={onCancel}>{cancelButtonlabel}</Button>)()}
-                {acceptButtonlabel && (() => <Button variant="primary" onClick={onAccept}>{acceptButtonlabel}</Button>)()}
+                {cancelButtonlabel && <CHButton variant="secondary" appearance="text" onClick={onCancel} label={cancelButtonlabel} />}
+                {acceptButtonlabel && <CHButton variant={acceptButtonVariant} onClick={onAccept} label={acceptButtonlabel} />}
             </Modal.Footer>
         </Modal>
     )

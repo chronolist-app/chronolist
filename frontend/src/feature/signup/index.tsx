@@ -1,10 +1,11 @@
+import CHButton from "@/components/CHButton";
 import myAxios from "@/utils/axios";
 import axios from "axios";
 import { useState } from "react";
-import { Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 
 
+/** アカウント登録用の入力と操作を表示する。 */
 const SingnUpPage= () => {
 
     const [loginId, setLoginId] = useState<string>("");
@@ -53,7 +54,7 @@ const SingnUpPage= () => {
                 <label>パスワード</label>
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
-            <Button variant="primary" onClick={handleSignUp}>サインアップ</Button>
+            <CHButton onClick={handleSignUp} label="サインアップ" />
         </>
     )
 }

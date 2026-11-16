@@ -1,4 +1,5 @@
-import { Box, Button, IconButton, Stack } from "@mui/material";
+import CHButton from "@/components/CHButton";
+import { Box, IconButton, Stack } from "@mui/material";
 import type { FC } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
@@ -28,9 +29,7 @@ const AppButton: FC<{ app_name: string }> = ({ app_name }) => {
         nav(`/${app_name}`);
     };
     return (
-        <Button onClick={handleClick}>
-            {app_name}
-        </Button>
+        <CHButton variant="secondary" appearance="text" size="sm" onClick={handleClick} label={app_name} />
     );
 };
 
@@ -60,16 +59,17 @@ const SettingsButton: FC = () => {
     )
 };
 
+/** アプリ切替と共通操作をヘッダーに表示する。 */
 const AppHeader: FC = () => {
     return (
-        <Stack direction="row" spacing={2} alignItems="stretch" justifyContent="space-between" sx={{ height: "100%" }}>
-            <Stack direction="row" spacing={1} alignItems="stretch" sx={{ height: "100%"}}>
+        <Stack direction="row" spacing={2} alignItems="stretch" justifyContent="space-between" sx={{ height: "100%", overflowX: "auto" }}>
+            <Stack direction="row" spacing={1} alignItems="stretch" sx={{ height: "100%", flexShrink: 0 }}>
                 <LogoButton />
                 <AppButton app_name="todolist" />
                 <AppButton app_name="scheduler" />
                 <AppButton app_name="timeblocking" />
             </Stack>
-            <Stack direction="row" spacing={1} alignItems="stretch" sx={{ height: "100%"}}>
+            <Stack direction="row" spacing={1} alignItems="stretch" sx={{ height: "100%", flexShrink: 0 }}>
                 <NotificationButton />
                 <SettingsButton />
             </Stack>

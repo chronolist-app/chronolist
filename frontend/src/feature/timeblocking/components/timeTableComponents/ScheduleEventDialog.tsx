@@ -1,12 +1,14 @@
+import CHButton from "@/components/CHButton";
 import { useId } from "react";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from "@mui/material";
-import { Link } from "react-router-dom";
+import { Box, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from "@mui/material";
+
 
 import type CalendarEvent from "@/feature/schesuler/entity/calendarEvent";
 import { prevDate, toDateString, toDateTimeString } from "@/utils/date";
 
 const formatDateTime = (value: Date | undefined) => value && toDateTimeString(value).replace("T", " ");
 
+/** 予定の詳細とスケジューラで編集するためのリンクを表示する。 */
 const ScheduleEventDialog = ({ date, event, onClose }: { date: string; event: CalendarEvent; onClose: () => void }) => {
     const titleId = useId();
     const allDay = event.kind === "ALL_DAY";
@@ -35,11 +37,9 @@ const ScheduleEventDialog = ({ date, event, onClose }: { date: string; event: Ca
             </DialogContent>
             <DialogActions>
                 {event.id !== undefined && (
-                    <Button component={Link} to="/scheduler" state={{ date, eventId: event.id }}>
-                        スケジューラで編集
-                    </Button>
+                    <CHButton link={{ to: "/scheduler", state: { date, eventId: event.id } }} label="スケジューラで編集" />
                 )}
-                <Button onClick={onClose}>閉じる</Button>
+                <CHButton variant="secondary" appearance="text" onClick={onClose} label="閉じる" />
             </DialogActions>
         </Dialog>
     );

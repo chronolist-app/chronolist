@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { ButtonVariant } from "@/components/CHButton";
 
 
 export interface PullDownProps {
@@ -38,6 +39,8 @@ export interface ModalProps {
     id?: string;
     className?: string;
     acceptButtonlabel?: string;
+    /** 決定操作の用途。削除などの破壊的操作ではdangerを指定する。 */
+    acceptButtonVariant?: ButtonVariant;
     onAccept?: () => void;
     cancelButtonlabel?: string;
     onCancel?: () => void;

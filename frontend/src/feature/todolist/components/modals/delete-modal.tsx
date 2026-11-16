@@ -24,6 +24,7 @@ const DeleteModal: FC<{show: boolean, setShow: (show: boolean) => void}> = ({sho
             title="完了済みタスクを削除"
             isOpen={show}
             acceptButtonlabel="削除"
+            acceptButtonVariant="danger"
             onAccept={handleDelete}
             cancelButtonlabel="キャンセル"
             onCancel={() => setShow(false)}

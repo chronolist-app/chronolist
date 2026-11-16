@@ -1,10 +1,11 @@
+import CHButton from "@/components/CHButton";
 import { customizedFetch } from "@/utils/fetch";
 import axios from "axios";
 import { useState } from "react";
-import { Button } from "react-bootstrap";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 
+/** ログイン情報の入力と認証操作を表示する。 */
 const LoginPage = () => {
 
     const [serchParams] = useSearchParams();
@@ -65,7 +66,7 @@ const LoginPage = () => {
                     <label>パスワード</label>
                     <input type="password" name="password" value={password} required onChange={(e) => setPassword(e.target.value)} />
                 </div>
-                <Button type={"button"} variant="success" onClick={handleLogin}>APIログイン</Button>
+                <CHButton onClick={handleLogin} label="APIログイン" />
             </form>
         </>
     )

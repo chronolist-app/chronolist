@@ -1,8 +1,8 @@
+import CHButton from "@/components/CHButton";
 import axios from "@/utils/axios";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getApiNotice, notifyApiNotice } from "@/utils/apiNotice"
-import { Button } from "react-bootstrap";
 
 /**
  * ログアウト処理を行うための関数及び処理中であるかどうかを示す値を返すフック
@@ -42,9 +42,7 @@ const LogoutButton = () => {
 
     return (
         <>
-            <Button className="m-1" variant="secondary" disabled={isLoggingOut} onClick={logout}>
-                ログアウト
-            </Button>
+            <CHButton variant="secondary" disabled={isLoggingOut} onClick={logout} label="ログアウト" />
         </>
     )
 };

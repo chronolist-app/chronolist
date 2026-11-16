@@ -1,9 +1,10 @@
-import { Button } from "@mui/material";
+import CHButton from "@/components/CHButton";
 import { useCallback, useState } from "react"
 import AddCardIcon from '@mui/icons-material/AddCard';
 import CreateTemplateBlockDialog from "./CreateTemplateBlockDialog";
 
 
+/** テンプレートブロック作成ダイアログを開く操作を表示する。 */
 const CreateTemplateBlockButton = () => {
 
     const [ open, setOpen ] = useState(false);
@@ -14,7 +15,7 @@ const CreateTemplateBlockButton = () => {
 
     return (
         <>
-            <Button onClick={handleClick} variant={"contained"} startIcon={ <AddCardIcon /> }>テンプレートタイムブロックを追加</Button>
+            <CHButton onClick={handleClick} startIcon={<AddCardIcon />} label="テンプレートタイムブロックを追加" />
             <CreateTemplateBlockDialog open={open} setOpen={setOpen} />
         </>
     );
