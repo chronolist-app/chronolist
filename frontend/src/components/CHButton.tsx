@@ -16,20 +16,55 @@ export type CHButtonProps = {
     startIcon?: ReactNode;
 };
 
+type SizeDimensions = {
+    minHeight: number;
+    paddingInline: number;
+    fontSize: number;
+    iconSize: number;
+};
+
+type ResponsiveDimensions = {
+    mobile: SizeDimensions;
+    desktop: SizeDimensions;
+};
+
+type ButtonPalette = {
+    base: string;
+    hover: string;
+    active: string;
+    light: string;
+    pressed: string;
+};
+
 // MUIのxs/smブレークポイントでモバイル/デスクトップの寸法を切り替える。
 const SIZES = {
-    xs: { height: [44, 28], padding: [12, 8], font: [13, 12], icon: [9, 8] },
-    sm: { height: [48, 32], padding: [16, 12], font: [14, 13], icon: [10, 9] },
-    md: { height: [52, 36], padding: [20, 16], font: [15, 14], icon: [11, 10] },
-    lg: { height: [56, 40], padding: [24, 20], font: [16, 15], icon: [12, 11] },
-    xl: { height: [60, 44], padding: [28, 24], font: [17, 16], icon: [13, 12] },
-} satisfies Record<ButtonSize, Record<string, [number, number]>>;
+    xs: {
+        mobile: { minHeight: 44, paddingInline: 12, fontSize: 13, iconSize: 9 },
+        desktop: { minHeight: 28, paddingInline: 8, fontSize: 12, iconSize: 8 },
+    },
+    sm: {
+        mobile: { minHeight: 48, paddingInline: 16, fontSize: 14, iconSize: 10 },
+        desktop: { minHeight: 32, paddingInline: 12, fontSize: 13, iconSize: 9 },
+    },
+    md: {
+        mobile: { minHeight: 52, paddingInline: 20, fontSize: 15, iconSize: 11 },
+        desktop: { minHeight: 36, paddingInline: 16, fontSize: 14, iconSize: 10 },
+    },
+    lg: {
+        mobile: { minHeight: 56, paddingInline: 24, fontSize: 16, iconSize: 12 },
+        desktop: { minHeight: 40, paddingInline: 20, fontSize: 15, iconSize: 11 },
+    },
+    xl: {
+        mobile: { minHeight: 60, paddingInline: 28, fontSize: 17, iconSize: 13 },
+        desktop: { minHeight: 44, paddingInline: 24, fontSize: 16, iconSize: 12 },
+    },
+} satisfies Record<ButtonSize, ResponsiveDimensions>;
 
 const COLORS = {
     primary: { base: "#1976D2", hover: "#1565C0", active: "#0D47A1", light: "#E3F2FD", pressed: "#BBDEFB" },
     secondary: { base: "#475569", hover: "#334155", active: "#1E293B", light: "#F1F5F9", pressed: "#E2E8F0" },
     danger: { base: "#D32F2F", hover: "#C62828", active: "#B71C1C", light: "#FFEBEE", pressed: "#FFCDD2" },
-} satisfies Record<ButtonVariant, Record<string, string>>;
+} satisfies Record<ButtonVariant, ButtonPalette>;
 
 /** アプリ共通のサイズ・状態色でラベル付きボタンを表示する。 */
 const CHButton = ({
@@ -47,7 +82,7 @@ const CHButton = ({
     const contained = appearance === "contained";
     const outlined = appearance === "outlined";
     const hasStartIcon = startIcon != null && typeof startIcon !== "boolean" && startIcon !== "";
-    const iconSize = { xs: `${dimensions.icon[0]}px`, sm: `${dimensions.icon[1]}px` };
+    const iconSize = { xs: `${dimensions.mobile.iconSize}px`, sm: `${dimensions.desktop.iconSize}px` };
 
     return (
         <Button
@@ -58,10 +93,10 @@ const CHButton = ({
             disableElevation
             disableRipple
             sx={{
-                minHeight: { xs: `${dimensions.height[0]}px`, sm: `${dimensions.height[1]}px` },
-                paddingX: { xs: `${dimensions.padding[0]}px`, sm: `${dimensions.padding[1]}px` },
+                minHeight: { xs: `${dimensions.mobile.minHeight}px`, sm: `${dimensions.desktop.minHeight}px` },
+                paddingX: { xs: `${dimensions.mobile.paddingInline}px`, sm: `${dimensions.desktop.paddingInline}px` },
                 paddingY: { xs: "6px", sm: "4px" },
-                fontSize: { xs: `${dimensions.font[0] / 16}rem`, sm: `${dimensions.font[1] / 16}rem` },
+                fontSize: { xs: `${dimensions.mobile.fontSize / 16}rem`, sm: `${dimensions.desktop.fontSize / 16}rem` },
                 fontWeight: 500,
                 lineHeight: 1.5,
                 textTransform: "none",
