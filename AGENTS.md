@@ -11,10 +11,12 @@ ToDo・予定・タイムブロッキングを扱う Web アプリ。全体の�
 
 ## 2. 開発規約
 
-既存コードの構成・命名・責務分担を尊重する。確認できる規約の正本は
+コーディング規約の正本は Confluence の
+[コーディング規約](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/5963809)。
+変更対象の言語に関する規約を参照し、詳細はこのファイルに転載しない。
+既存コードの構成・責務分担を尊重し、実装・検証時は
 [ESLint 設定](frontend/eslint.config.js)、[TypeScript 設定](frontend/tsconfig.app.json)、
-[API テストの追加規約](backend/src/test/README.md)、各ディレクトリの README。
-独立したコーディング規約文書は現時点で確認できていない。存在を推測して参照先を作らない。
+[API テストの追加規約](backend/src/test/README.md)、各ディレクトリの README も参照する。
 
 依頼範囲外の不具合を見つけた場合は、影響・再現条件を報告し、無断で修正範囲を広げない。
 認証情報や実環境の秘密情報をコード・ログ・作業メモに保存しない。
