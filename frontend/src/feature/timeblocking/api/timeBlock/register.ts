@@ -1,8 +1,8 @@
 import { customizedFetch } from "@/utils/fetch";
-import type { TimeBlockSource } from "../../types/blockSourceTypes";
+import type { TimeBlockInput } from "../../types/blockSourceTypes";
 
 
-const register = async (block: TimeBlockSource) => {
+const register = async (block: TimeBlockInput) => {
     const data = {
         timeTableId: block.timeTableId,
         title: block.title,

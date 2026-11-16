@@ -10,9 +10,9 @@ const deferred = <T>() => {
     const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
     return { promise, resolve, reject };
 };
-const task = (id = 1): TimeBlockTask => ({ id, clientId: "task" + id, timeBlockId: 7, title: "保存済み" });
+const task = (id = 1): TimeBlockTask => ({ id, timeBlockId: 7, title: "保存済み" });
 const block = (width: number, start: number, id = 7): TimeBlockSource => ({
-    id, clientId: "block" + id, title: "ブロック", status: "PLACED", timeTableId: 1,
+    id, title: "ブロック", status: "PLACED", timeTableId: 1,
     width, startAt: new Time(start), tasks: [task()], color: "red",
 });
 
@@ -34,7 +34,7 @@ for (const [label, width, start] of [["正常", 30, 540], ["幅不正", 0, 540],
             commit: change => { tasks = change(tasks); repository = reflectBlockTasks(repository, 7, change); },
             notify: () => {},
         });
-        const added = Object.freeze({ clientId: "new", timeBlockId: 7, title: "新規" });
+        const added = Object.freeze({ timeBlockId: 7, title: "新規" });
         const pending = operation.run({ kind: "add", task: added });
         await operation.run({ kind: "add", task: added });
         assert.equal(tasks.length, 1);
@@ -93,7 +93,7 @@ test("選択変更・破棄後の完了は元のrepositoryだけを更新し別�
         },
         notify: busy => states.push(busy),
     });
-    const pending = operation.run({ kind: "add", task: { clientId: "new", timeBlockId: 7, title: "新規" } });
+    const pending = operation.run({ kind: "add", task: { timeBlockId: 7, title: "新規" } });
     operation.setActive(false);
     selected = b;
     await operation.run({ kind: "delete", task: a.tasks[0] });
@@ -116,14 +116,14 @@ test("待機中に更新された元ブロックのタスクも保持して成�
         commit: change => { tasks = change(tasks); },
         notify: () => {},
     });
-    const pending = operations.run({ kind: "add", task: { clientId: "pending", timeBlockId: 7, title: "待機中" } });
+    const pending = operations.run({ kind: "add", task: { timeBlockId: 7, title: "待機中" } });
     tasks = [...tasks, task(44)];
     registration.resolve(55);
     await pending;
     assert.deepEqual(tasks.map(item => item.id), [1, 44, 55]);
 });
 
-test("再取得でclientIdが変わっても保存IDで更新・削除する", async () => {
+test("再取得したオブジェクトでも保存IDで更新・削除する", async () => {
     let tasks = [task()];
     let waiting = deferred<void>();
     const operations = createTaskOperations({
@@ -133,14 +133,13 @@ test("再取得でclientIdが変わっても保存IDで更新・削除する", a
         notify: () => {},
     });
     const update = operations.run({ kind: "update", task: tasks[0], title: "更新" });
-    tasks = [{ ...tasks[0], clientId: "refetched" }, task(8)];
+    tasks = [{ ...tasks[0] }, task(8)];
     waiting.resolve();
     await update;
     assert.equal(tasks[0].title, "更新");
-    assert.equal(tasks[0].clientId, "refetched");
     waiting = deferred<void>();
     const deletion = operations.run({ kind: "delete", task: tasks[0] });
-    tasks = tasks.map(item => ({ ...item, clientId: item.clientId + "-again" }));
+    tasks = tasks.map(item => ({ ...item }));
     waiting.resolve();
     await deletion;
     assert.deepEqual(tasks.map(item => item.id), [8]);

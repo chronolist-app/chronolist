@@ -53,8 +53,8 @@ const BlocksArea = () => {
                     </Stack>
                     <Grid container spacing={1}>
                         {blocksAtField.map(b => (
-                            <Grid key={b.clientId} size={6}>
-                                <TimeBlock key={b.clientId} source={b} />
+                            <Grid key={b.id} size={6}>
+                                <TimeBlock key={b.id} source={b} />
                             </Grid>
                         ))}
                     </Grid>

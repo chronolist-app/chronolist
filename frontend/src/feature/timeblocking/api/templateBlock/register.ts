@@ -1,8 +1,8 @@
 import { customizedFetch } from "@/utils/fetch";
-import type { TemplateBlockSource } from "../../types/blockSourceTypes";
+import type { TemplateBlockInput } from "../../types/blockSourceTypes";
 
 
-const register = async (block: TemplateBlockSource) => {
+const register = async (block: TemplateBlockInput) => {
     const data = {
         title: block.title,
         width: block.width,

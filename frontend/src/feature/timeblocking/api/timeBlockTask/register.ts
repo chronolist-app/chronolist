@@ -1,6 +1,6 @@
 
 import axios from "@/utils/axios";
-import type { TimeBlockTask } from "../../types/blockSourceTypes";
+import type { TimeBlockTaskInput } from "../../types/blockSourceTypes";
 
 /**
  * タイムブロックタスクを登録するAPI
@@ -8,7 +8,7 @@ import type { TimeBlockTask } from "../../types/blockSourceTypes";
  * @param task 登録するタスク
  * @returns サーバーで発行された登録したタスクのID
  */
-const register = async (task: TimeBlockTask) => {
+const register = async (task: TimeBlockTaskInput) => {
 
     // テスト用コード
     console.log("timeblocking/timeBlockTask/register");

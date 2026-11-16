@@ -4,7 +4,7 @@ import { getDropStartMinutes } from "../src/feature/timeblocking/utils/dropTime.
 
 const placed = { width: 60, status: "PLACED" as const, timeTableId: 1 };
 const hold = { width: 60, status: "HOLD" as const, timeTableId: null };
-const template = { id: 1, clientId: "template", title: "テンプレート", width: 60, color: "cyan" };
+const template = { id: 1, title: "テンプレート", width: 60, color: "cyan" };
 const sources = [
     placed,
     hold,

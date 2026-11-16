@@ -1,12 +1,11 @@
 import { isValidUiBlockWidth } from "../utils/blockValidation";
-import { useCallback, useContext, useState, type FC } from "react"
+import { useCallback, useContext, useRef, useState, type FC } from "react"
 
-import { v4 as uuidv4 } from "uuid";
 import BlockRepositories from "../contexts/BlockRepositories"
 import TimeTableConfigure from "../contexts/TimeTableConfigure";
-import type { TemplateBlockSource } from "../types/blockSourceTypes";
+import type { TemplateBlockInput } from "../types/blockSourceTypes";
 import { register } from "../api/templateBlockApi";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
+import { Alert, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
 import BlockWidthField from "@/components/BlockWidthField";
 
 
@@ -30,6 +29,9 @@ const CreateTemplateBlockDialog: FC<CreateTemplateBlockDialogProps> = ({ open, s
     const [ widthHasError, setWidthHasError ] = useState<boolean>(false);
     const [ color, setColor ] = useState<string>("gray");
 
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState(false);
+
     const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setTitle(e.target.value.trim());
         setTitleHasError(false);
@@ -47,18 +49,21 @@ const CreateTemplateBlockDialog: FC<CreateTemplateBlockDialogProps> = ({ open, s
         setTitle("");
         setWidth(slotMinutes);
         setColor("gray");
+        setSaveError(false);
     };
 
-    const buildBlock = useCallback((): TemplateBlockSource => {
+    const buildBlock = useCallback((): TemplateBlockInput => {
         return {
-            clientId: uuidv4(),
             title,
             width,
             color,
         }
     }, [title, width, color]);
 
+    const savingRef = useRef(false);
+
     const handleClick = async () => {
+        if (savingRef.current) return;
         if (!title) {
             setTitleHasError(true);
             return;
@@ -68,19 +73,31 @@ const CreateTemplateBlockDialog: FC<CreateTemplateBlockDialogProps> = ({ open, s
             return;
         }
         const block = buildBlock();
-        setTemplateBlocks((blocks) => [...blocks, block]);
-        handleClose();
-
-        block.id = await register(block);
+        savingRef.current = true;
+        setSaving(true);
+        setSaveError(false);
+        try {
+            const id = await register(block);
+            setTemplateBlocks(blocks => [...blocks, { ...block, id }]);
+            handleClose();
+        } catch {
+            setSaveError(true);
+        } finally {
+            savingRef.current = false;
+            setSaving(false);
+        }
     };
 
     return (
         <>
-            <Dialog open={open} onClose={handleClose}>
+            <Dialog open={open} onClose={saving ? undefined : handleClose}>
                 <DialogTitle>テンプレートブロックを作成</DialogTitle>
-                <DialogContent>
+                <DialogContent aria-busy={saving}>
+                    <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0 }}>
                     <Stack spacing={3} sx={{padding: 1}}>
+                        {saveError && <Alert severity="error">テンプレートブロックを作成できませんでした。</Alert>}
                         <TextField
+                            disabled={saving}
                             label="タイトル"
                             value={title}
                             onChange={handleTitleChange}
@@ -95,15 +112,17 @@ const CreateTemplateBlockDialog: FC<CreateTemplateBlockDialogProps> = ({ open, s
                             label={"幅"}
                         />
                         <TextField
+                            disabled={saving}
                             label="色"
                             value={color}
                             onChange={handleColorChange}
                         />
                     </Stack>
+                    </fieldset>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleClose}>キャンセル</Button>
-                    <Button onClick={handleClick}>作成</Button>
+                    <Button onClick={handleClose} disabled={saving}>キャンセル</Button>
+                    <Button onClick={handleClick} disabled={saving} startIcon={saving ? <CircularProgress size={16} /> : undefined}>{saving ? "作成中…" : "作成"}</Button>
                 </DialogActions>
             </Dialog>
         </>

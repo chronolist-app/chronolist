@@ -4,7 +4,7 @@ import { useCallback, useContext, useEffect, useState } from "react";
 
 import type { TemplateBlockSource } from "../types/blockSourceTypes";
 import BlockRepositories from "../contexts/BlockRepositories";
-import SelectedTemplateBlockClientId from "../contexts/SelectedTemplateBlockClientId";
+import SelectedTemplateBlockId from "../contexts/SelectedTemplateBlockId";
 import Title from "./timeBlockDetailPanelComponents/Title";
 import Width from "./timeBlockDetailPanelComponents/Width";
 import DeleteButton from "./timeBlockDetailPanelComponents/DeleteButton";
@@ -40,9 +40,9 @@ const TemplateBlockDetailPanel = () => {
     }, [setTemplateBlocks]);
 
     const {
-        selectedTemplateBlockClientId,
-        setSelectedTemplateBlockClientId,
-    } = useContext(SelectedTemplateBlockClientId)
+        selectedTemplateBlockId,
+        setSelectedTemplateBlockId,
+    } = useContext(SelectedTemplateBlockId)
 
     // モーダルの表示状態を管理するステート
     const [ open, setOpen ] = useState(false);
@@ -52,14 +52,14 @@ const TemplateBlockDetailPanel = () => {
      */
     useEffect(() => {
         setValidationError(null);
-        setOpen(selectedTemplateBlockClientId !== null);
-        if (selectedTemplateBlockClientId === null) return;
-        setTemplateBlock(templateBlocks.find(b => b.clientId === selectedTemplateBlockClientId) || null);
-    }, [selectedTemplateBlockClientId]);
+        setOpen(selectedTemplateBlockId !== null);
+        if (selectedTemplateBlockId === null) return;
+        setTemplateBlock(templateBlocks.find(b => b.id === selectedTemplateBlockId) || null);
+    }, [selectedTemplateBlockId]);
 
     const handleClose = useCallback(() => {
-        setSelectedTemplateBlockClientId(null);
-    }, [setSelectedTemplateBlockClientId]);
+        setSelectedTemplateBlockId(null);
+    }, [setSelectedTemplateBlockId]);
 
     const handleSetText = useCallback((text: string) => {
         const editedBlock = templateBlock && { ...templateBlock, text };
@@ -91,9 +91,9 @@ const TemplateBlockDetailPanel = () => {
         if (templateBlock === null) return;
         if (!templateBlock.id) throw new Error("id is not still set: waiting for server response.");
         setTemplateBlocks((blocks) => blocks.filter(b => b.id !== templateBlock.id));
-        setSelectedTemplateBlockClientId(null);
+        setSelectedTemplateBlockId(null);
         deleteApi(templateBlock.id);
-    }, [templateBlock, setTemplateBlocks, setSelectedTemplateBlockClientId]);
+    }, [templateBlock, setTemplateBlocks, setSelectedTemplateBlockId]);
 
     return (
         <Modal

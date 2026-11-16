@@ -3,7 +3,7 @@ import { getBlockValidationError, isValidBlockWidth } from "../utils/blockValida
 import { Alert, Button, Modal, Stack, Box, type SxProps } from "@mui/material"
 import Title from "./timeBlockDetailPanelComponents/Title"
 import { useCallback, useContext, useEffect, useState, type FC } from "react";
-import SelectedTimeBlockClientId from "../contexts/SelectedTimeBlockClientId";
+import SelectedTimeBlockId from "../contexts/SelectedTimeBlockId";
 import BlockRepositories from "../contexts/BlockRepositories";
 import type { TimeBlockSource } from "../types/blockSourceTypes";
 import { Time } from "@/utils/time";
@@ -51,18 +51,18 @@ const TimeBlockDetailPanel: FC = () => {
     const reflectBlockToRepository = useCallback((block: TimeBlockSource) => {
         switch (block.status) {
             case "PLACED":
-                setBlocksOnTable((blocks) => blocks.map(b => b.clientId === block.clientId ? block : b));
+                setBlocksOnTable((blocks) => blocks.map(b => b.id === block.id ? block : b));
                 break;
             case "HOLD":
-                setBlocksAtField((blocks) => blocks.map(b => b.clientId === block.clientId ? block : b));
+                setBlocksAtField((blocks) => blocks.map(b => b.id === block.id ? block : b));
                 break;
         }
     }, [setBlocksOnTable, setBlocksAtField]);
 
     const {
         selectedTimeBlockId,
-        setSelectedTimeBlockClientId,
-    } = useContext(SelectedTimeBlockClientId);
+        setSelectedTimeBlockId,
+    } = useContext(SelectedTimeBlockId);
 
     // モーダルの表示状態を管理するステート
     const [ open, setOpen ] = useState(false);
@@ -74,7 +74,7 @@ const TimeBlockDetailPanel: FC = () => {
         setValidationError(null);
         setOpen(selectedTimeBlockId !== null);
         if (selectedTimeBlockId === null) return;
-        const selectedBlock = blocksOnTable.find(b => b.clientId === selectedTimeBlockId) || blocksAtField.find(b => b.clientId === selectedTimeBlockId);
+        const selectedBlock = blocksOnTable.find(b => b.id === selectedTimeBlockId) || blocksAtField.find(b => b.id === selectedTimeBlockId);
         setBlock(selectedBlock);
     }, [selectedTimeBlockId, blocksOnTable, blocksAtField]);
 
@@ -82,8 +82,8 @@ const TimeBlockDetailPanel: FC = () => {
      * モーダルが閉じられた際の処理
      */
     const handleClose = useCallback(() => {
-        setSelectedTimeBlockClientId(null);
-    }, [setSelectedTimeBlockClientId]);
+        setSelectedTimeBlockId(null);
+    }, [setSelectedTimeBlockId]);
 
     /** 幅と開始の両方が不正な既存データを、明示操作で同時に修復する。 */
     const handleRepair = async () => {
@@ -170,15 +170,15 @@ const TimeBlockDetailPanel: FC = () => {
 
         switch (block.status) {
             case "PLACED":
-                setBlocksOnTable((blocks) => blocks.filter(b => b.clientId !== block.clientId));
+                setBlocksOnTable((blocks) => blocks.filter(b => b.id !== block.id));
                 break;
             case "HOLD":
-                setBlocksAtField((blocks) => blocks.filter(b => b.clientId !== block.clientId));
+                setBlocksAtField((blocks) => blocks.filter(b => b.id !== block.id));
                 break;
         }
-        setSelectedTimeBlockClientId(null);
+        setSelectedTimeBlockId(null);
         deleteApi(block.id);
-    }, [block, setBlocksOnTable, setBlocksAtField, setSelectedTimeBlockClientId]);
+    }, [block, setBlocksOnTable, setBlocksAtField, setSelectedTimeBlockId]);
 
 
     return (

@@ -1,6 +1,6 @@
 import { createContext } from "react";
 
-import type { TimeBlockSource, TemplateBlockSource } from "../types/blockSourceTypes";
+import type { TimeBlockSource, TemplateBlockSource, DraggableBlock } from "../types/blockSourceTypes";
 
 /**
  * タイムテーブルやブロック領域内の全てのブロックを管理するコンテキスト
@@ -8,7 +8,7 @@ import type { TimeBlockSource, TemplateBlockSource } from "../types/blockSourceT
 const BlockRepositories = createContext<{
     blocksOnTable: TimeBlockSource[],
     setBlocksOnTable: (blocks: TimeBlockSource[] | ((blocks: TimeBlockSource[]) => TimeBlockSource[])) => void
-    previewBlock: TimeBlockSource | null,
+    previewBlock: DraggableBlock | null,
     tableRevision: number,
     blocksAtField: TimeBlockSource[],
     setBlocksAtField: (blocks: TimeBlockSource[] | ((blocks: TimeBlockSource[]) => TimeBlockSource[])) => void,

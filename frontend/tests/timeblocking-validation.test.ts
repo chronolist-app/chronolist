@@ -17,22 +17,22 @@ test("23:59の1分は受理し、24:00開始・日またぎ・負の逆算開始
     for (const [start, width] of [[1440,1],[1441,1],[1439,2],[-1,60]]) assert.ok(check(start,width));
 });
 test("不正幅と既存の日またぎデータを変更せず表示可能にする", () => {
-    const blocks = [NaN, Infinity, -1, 0, 1441, 60].map((width, i) => ({ width, status: "PLACED" as const, startAt: new Time(1410), timeTableId: 1, clientId: String(i), title: "既存", tasks: [], color: "red" }));
+    const blocks = [NaN, Infinity, -1, 0, 1441, 60].map((width, i) => ({ width, status: "PLACED" as const, startAt: new Time(1410), timeTableId: 1, id: i, title: "既存", tasks: [], color: "red" }));
     const layout = getTimeBlockLayout(blocks);
     assert.equal(layout.length, blocks.length);
     assert.deepEqual(layout.map(item => [item.columnIndex, item.columnCount]), [[0,6],[1,6],[2,6],[3,6],[4,6],[5,6]]);
-    const nextDay = { ...blocks[5], startAt: new Time(1470), clientId: "later" };
+    const nextDay = { ...blocks[5], startAt: new Time(1470), id: 99 };
     assert.equal(getTimeBlockLayout([...blocks, nextDay]).length, blocks.length);
     assert.ok(Number.isNaN(blocks[0].width));
     assert.equal(blocks[5].width, 60);
 });
 
 test("不正幅で後続の衝突グループを汚染しない", () => {
-    const make = (width: number, start: number, clientId: string) => Object.freeze({ width, startAt: new Time(start), status: "PLACED" as const, timeTableId: 1, clientId, title: "既存", tasks: [], color: "red" });
+    const make = (width: number, start: number, id: string) => Object.freeze({ width, startAt: new Time(start), status: "PLACED" as const, timeTableId: 1, id: id.charCodeAt(0), title: id, tasks: [], color: "red" });
     for (const width of [NaN, Infinity, 0, -1, 1441]) {
         const invalid = make(width, 540, "invalid");
         const blocks = [invalid, make(30, 600, "first"), make(30, 615, "second"), make(30, 660, "last")];
-        assert.deepEqual(getTimeBlockLayout(blocks).map(item => [item.block.clientId, item.columnIndex, item.columnCount]), [["invalid",0,1],["first",0,2],["second",1,2],["last",0,1]]);
+        assert.deepEqual(getTimeBlockLayout(blocks).map(item => [item.block.title, item.columnIndex, item.columnCount]), [["invalid",0,1],["first",0,2],["second",1,2],["last",0,1]]);
         assert.ok(Object.is(invalid.width, width));
     }
 });

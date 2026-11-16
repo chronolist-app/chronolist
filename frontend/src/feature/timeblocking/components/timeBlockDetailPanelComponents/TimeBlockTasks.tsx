@@ -1,7 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type FC } from "react";
 import { Alert, Box, Checkbox, Divider, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Stack } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import { v4 as uuidv4 } from "uuid";
 import type { TimeBlockTask } from "../../types/blockSourceTypes";
 import EditableText from "@/components/EditableText";
 import { deleteApi, register, update } from "../../api/timeBlockTaskApi";
@@ -46,7 +45,7 @@ const TimeBlockTasks: FC<TasksProps> = ({ tasks, blockId, setTasks }) => {
             {error && <Alert severity="error">{error}</Alert>}
             <List aria-busy={busy}>
                 {tasks.map(task => (
-                    <ListItem key={task.clientId}>
+                    <ListItem key={task.id}>
                         <Checkbox
                             checked={false}
                             disabled={busy}
@@ -55,7 +54,7 @@ const TimeBlockTasks: FC<TasksProps> = ({ tasks, blockId, setTasks }) => {
                         />
                         <Box sx={{ pointerEvents: busy ? "none" : "auto", opacity: busy ? 0.6 : 1 }}>
                             <EditableText
-                                key={task.clientId + "-" + revision}
+                                key={task.id + "-" + revision}
                                 value={task.title}
                                 onChange={title => { void operations.run({ kind: "update", task, title }); }}
                             />
@@ -63,7 +62,7 @@ const TimeBlockTasks: FC<TasksProps> = ({ tasks, blockId, setTasks }) => {
                     </ListItem>
                 ))}
                 <ListItemButton disabled={busy} onClick={() => {
-                    const task = { clientId: uuidv4(), timeBlockId: blockId, title: "new Task" };
+                    const task = { timeBlockId: blockId, title: "new Task" };
                     void operations.run({ kind: "add", task });
                 }}>
                     <ListItemIcon><AddIcon /></ListItemIcon>

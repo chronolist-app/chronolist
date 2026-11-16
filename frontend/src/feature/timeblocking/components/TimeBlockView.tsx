@@ -2,12 +2,12 @@ import { getBlockDisplayWidth } from "../utils/blockValidation";
 import { Paper, Typography } from "@mui/material"
 import { useContext, type ComponentPropsWithoutRef, type FC } from "react";
 
-import type { TimeBlockSource } from "../types/blockSourceTypes";
+import type { DraggableBlock } from "../types/blockSourceTypes";
 import TimeTableConfigure from "../contexts/TimeTableConfigure";
 
 
 type TimeBlockViewProps = {
-    source: TimeBlockSource,
+    source: DraggableBlock,
     ref?: React.Ref<HTMLDivElement>
 } & ComponentPropsWithoutRef<typeof Paper>;
 

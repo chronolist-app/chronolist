@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
 import type { TemplateBlockApi, TimeBlockApi } from "../types/api";
 import type { TemplateBlockSource, TimeBlockSource } from "../types/blockSourceTypes";
 import { Time } from "@/utils/time";
@@ -11,10 +10,10 @@ import { toTimeBlockTask } from "./timeBlockTask";
  * @param api APIオブジェクト
  * @returns 変換されたオブジェクト
  */
-export const toTimeBlockSource = (api: TimeBlockApi, clientId?: string): TimeBlockSource => {
+export const toTimeBlockSource = (api: TimeBlockApi): TimeBlockSource => {
     return {
         id: api.id,
-        clientId: clientId || uuidv4(),
+
         timeTableId: api.timeTableId,
         title: api.title,
         status: api.status,
@@ -31,10 +30,10 @@ export const toTimeBlockSource = (api: TimeBlockApi, clientId?: string): TimeBlo
  * @param api APIオブジェクト
  * @returns 変換されたオブジェクト
  */
-export const toTemplateBlockSource = (api: TemplateBlockApi, clientId?: string): TemplateBlockSource => {
+export const toTemplateBlockSource = (api: TemplateBlockApi): TemplateBlockSource => {
     return {
         id: api.id,
-        clientId: clientId || uuidv4(),
+
         title: api.title,
         width: api.width,
         color: api.color,

@@ -1,7 +1,7 @@
 import { isValidBlockWidth } from "./blockValidation.ts";
-import type { TimeBlockSource } from "../types/blockSourceTypes";
+import type { DraggableBlock } from "../types/blockSourceTypes";
 
-type DropSource = Pick<TimeBlockSource, "width" | "status" | "timeTableId" | "fromTemplateBlockSource">;
+type DropSource = Pick<DraggableBlock, "width" | "status" | "timeTableId" | "fromTemplateBlockSource">;
 
 /** 同一表の移動だけ日内へ補正し、その他の配置は範囲外を拒否する。 */
 export const getDropStartMinutes = (

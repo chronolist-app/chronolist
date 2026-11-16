@@ -53,7 +53,7 @@ const TemplateBlockArea = () => {
                 </Stack>
                 <Grid container spacing={1}>
                     {templateBlocks.map(b => (
-                        <Grid key={b.clientId} size={6}>
+                        <Grid key={b.id} size={6}>
                             <TemplateBlock source={b} />
                         </Grid>
                     ))}

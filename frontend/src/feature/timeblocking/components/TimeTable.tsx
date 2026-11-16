@@ -63,7 +63,7 @@ const Table: FC = () => {
             }}
         >
             {blockLayout.map(({ block, columnIndex, columnCount }) => (
-                <TimeBlock key={block.clientId} source={block} conlumnIndex={columnIndex} maxColumnIndex={columnCount} />
+                <TimeBlock key={block.id} source={block} conlumnIndex={columnIndex} maxColumnIndex={columnCount} />
             ))}
             {previewBlock?.startAt && previewBlock.timeTableId === timeTableId && (
                 <TimeBlockView source={previewBlock} sx={{

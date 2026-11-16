@@ -4,12 +4,12 @@ import { Time } from "../src/utils/time.ts";
 import type { TimeBlockSource } from "../src/feature/timeblocking/types/blockSourceTypes.ts";
 import { getTimeBlockLayout } from "../src/feature/timeblocking/utils/timeBlockLayout.ts";
 
-const block = (clientId: string, start: number, end: number): TimeBlockSource => ({
-    clientId, startAt: new Time(start * 60), width: (end - start) * 60,
-    status: "PLACED", timeTableId: 1, title: clientId, tasks: [], color: "",
+const block = (id: string, start: number, end: number): TimeBlockSource => ({
+    id: id.charCodeAt(0), startAt: new Time(start * 60), width: (end - start) * 60,
+    status: "PLACED", timeTableId: 1, title: id, tasks: [], color: "",
 });
 const positions = (blocks: TimeBlockSource[]) => getTimeBlockLayout(blocks)
-    .map(({ block, columnIndex, columnCount }) => [block.clientId, columnIndex, columnCount]);
+    .map(({ block, columnIndex, columnCount }) => [block.title, columnIndex, columnCount]);
 
 test("長いブロック内で離れた短いブロックを同一グループの同じ列に置く", () => {
     const blocks = [block("C", 13, 14), block("A", 10, 15), block("B", 11, 12)];

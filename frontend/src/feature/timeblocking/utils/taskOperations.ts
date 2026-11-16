@@ -1,14 +1,14 @@
-import type { TimeBlockSource, TimeBlockTask } from "../types/blockSourceTypes";
+import type { TimeBlockSource, TimeBlockTask, TimeBlockTaskInput } from "../types/blockSourceTypes";
 
 export type TaskUpdate = (tasks: TimeBlockTask[]) => TimeBlockTask[];
 
 type TaskApi = {
-    register: (task: TimeBlockTask) => Promise<number>;
+    register: (task: TimeBlockTaskInput) => Promise<number>;
     update: (task: TimeBlockTask) => Promise<unknown>;
     deleteApi: (id: number) => Promise<unknown>;
 };
 type TaskOperation =
-    | { kind: "add"; task: TimeBlockTask }
+    | { kind: "add"; task: TimeBlockTaskInput }
     | { kind: "update"; task: TimeBlockTask; title: string }
     | { kind: "delete"; task: TimeBlockTask };
 

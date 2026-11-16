@@ -1,9 +1,8 @@
 import { isValidUiBlockWidth } from "../utils/blockValidation";
-import { useContext, useState, type FC } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
+import { useContext, useRef, useState, type FC } from "react";
+import { Alert, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
 import TimeTableConfigure from "../contexts/TimeTableConfigure";
-import type { TimeBlockSource } from "../types/blockSourceTypes";
+import type { TimeBlockInput } from "../types/blockSourceTypes";
 import BlockRepositories from "../contexts/BlockRepositories";
 import BlockWidthField from "@/components/BlockWidthField";
 import register from "../api/timeBlock/register";
@@ -54,8 +53,7 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
 
     const buildBlock = () => {
         if (!title) throw new Error("title is undefined.");
-        const block: TimeBlockSource = {
-            clientId: uuidv4(),
+        const block: TimeBlockInput = {
             timeTableId: null,
             title,
             width,
@@ -67,7 +65,10 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
         return block;
     };
 
+    const savingRef = useRef(false);
+
     const handleClick = async () => {
+        if (savingRef.current) return;
         if (!title) {
             setTitleHasError(true);
             return;
@@ -77,6 +78,7 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
             return;
         }
         const block = buildBlock();
+        savingRef.current = true;
         setSaving(true);
         setSaveError(false);
         try {
@@ -86,6 +88,7 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
         } catch {
             setSaveError(true);
         } finally {
+            savingRef.current = false;
             setSaving(false);
         }
     };
@@ -94,10 +97,12 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
         <>
             <Dialog open={open} onClose={saving ? undefined : handleClose}>
                 <DialogTitle>ブロックを作成</DialogTitle>
-                <DialogContent>
+                <DialogContent aria-busy={saving}>
+                    <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0 }}>
                     <Stack spacing={3} sx={{padding: 1}}>
                         {saveError && <Alert severity="error">ブロックを作成できませんでした。</Alert>}
                         <TextField
+                            disabled={saving}
                             label="ブロック名"
                             value={title}
                             onChange={handleTitleChange}
@@ -112,15 +117,17 @@ const CreateBlockDialog: FC<CreateBlockDialogProps> = ({ open, setOpen }) => {
                             label={"幅"}
                         />
                         <TextField
+                            disabled={saving}
                             label="カラー"
                             value={color}
                             onChange={handleColorChange}
                         />
                     </Stack>
+                    </fieldset>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleClose} disabled={saving}>キャンセル</Button>
-                    <Button onClick={handleClick} disabled={saving}>作成</Button>
+                    <Button onClick={handleClick} disabled={saving} startIcon={saving ? <CircularProgress size={16} /> : undefined}>{saving ? "作成中…" : "作成"}</Button>
                 </DialogActions>
             </Dialog>
         </>
