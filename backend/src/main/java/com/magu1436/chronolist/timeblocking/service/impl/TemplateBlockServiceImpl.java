@@ -20,6 +20,12 @@ public class TemplateBlockServiceImpl implements TemplateBlockService {
 
     @Override
     @Transactional(readOnly = true)
+    public TemplateBlock getById(int id, int userId) {
+        return mapper.getTemplateBlockById(id, userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<TemplateBlock> getAllTemplateBlocks(int userId){
         return mapper.getAllTemplateBlocks(userId);
     }

@@ -18,7 +18,8 @@ public class TimeBlock {
     private Integer timeTableId;
     private String title;
     private TimeBlockStatus status;
-    private int width;
+    @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = BlockWidthDeserializer.class)
+    private Integer width;
     private LocalTime startAt;
     private List<TimeBlockTask> tasks;
     private String color;

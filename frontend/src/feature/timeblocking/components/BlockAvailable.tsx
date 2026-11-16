@@ -12,6 +12,7 @@ import TimeBlockView from "./TimeBlockView";
 import { BLOCKS_AREA_ID, TEMPLATE_BLOCKS_AREA_ID, TIMETABLE_ID } from "../static/droppableId";
 import { register as registerTemplateBlock } from "../api/templateBlockApi";
 import { register as registerTimeBlock, update as updateTimeBlock } from "../api/timeBlockApi";
+import { getDropStartMinutes } from "../utils/dropTime";
 
 const testTemplateBlocks: TemplateBlockSource[] = [
     {
@@ -53,17 +54,19 @@ const BlockAvailable: FC<BlockAvailableProps> = ({ children }) => {
         activeTable.current = { timeTableId, locationKey };
     }, [timeTableId, locationKey]);
 
-    const getDropTime = ({ active, over }: Pick<DragEndEvent, "active" | "over">) => {
+    const getDropTime = ({ active, over }: Pick<DragEndEvent, "active" | "over">, source: TimeBlockSource) => {
         const translated = active.rect.current.translated;
         if (over?.id !== TIMETABLE_ID || timeTableId <= 0 || !translated) return null;
-        const minutes = Math.floor((translated.top - over.rect.top) / slotHeight) * slotMinutes;
-        return minutes >= 0 && minutes < 24 * 60 ? new Time(minutes) : null;
+        const startMinutes = getDropStartMinutes(
+            translated.top - over.rect.top, slotHeight, slotMinutes, source, timeTableId,
+        );
+        return startMinutes === null ? null : new Time(startMinutes);
     };
 
     const showPreview = (event: Pick<DragEndEvent, "active" | "over">) => {
         const currentDrag = drag.current;
-        const startAt = getDropTime(event);
-        if (currentDrag?.locationKey !== locationKey || !startAt) {
+        const startAt = currentDrag && getDropTime(event, currentDrag.block);
+        if (!currentDrag || currentDrag.locationKey !== locationKey || !startAt) {
             setPreviewBlock(null);
             return;
         }
@@ -117,7 +120,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({ children }) => {
             if (destination !== TIMETABLE_ID && destination !== BLOCKS_AREA_ID) return;
             if (destination === BLOCKS_AREA_ID && source.status === "HOLD" && !source.fromTemplateBlockSource) return;
 
-            const startAt = getDropTime(event);
+            const startAt = getDropTime(event, source);
             if (destination === TIMETABLE_ID && !startAt) {
                 setSaveError("ブロックを配置できる時刻にドロップしてください。");
                 return;

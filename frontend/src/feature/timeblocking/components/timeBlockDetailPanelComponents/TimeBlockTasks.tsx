@@ -1,69 +1,76 @@
-import { useCallback, type FC } from "react";
-import { Checkbox, Divider, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Stack } from "@mui/material";
+import { useLayoutEffect, useMemo, useRef, useState, type FC } from "react";
+import { Alert, Box, Checkbox, Divider, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Stack } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import { v4 as uuidv4 } from "uuid";
-
 import type { TimeBlockTask } from "../../types/blockSourceTypes";
 import EditableText from "@/components/EditableText";
 import { deleteApi, register, update } from "../../api/timeBlockTaskApi";
-
+import { createTaskOperations, type TaskUpdate } from "../../utils/taskOperations";
 
 type TasksProps = {
-    tasks: TimeBlockTask[],
-    blockId: number,
-    setTasks: (tasks: TimeBlockTask[]) => void
+    tasks: TimeBlockTask[];
+    blockId: number;
+    setTasks: (blockId: number, change: TaskUpdate) => void;
 };
 
-/**
- * タイムブロックのタスクを表示するコンポーネント
- */
+/** 専用APIの保存結果を反映するタスク一覧。 */
 const TimeBlockTasks: FC<TasksProps> = ({ tasks, blockId, setTasks }) => {
+    const currentTasks = useRef(tasks);
+    currentTasks.current = tasks;
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [revision, setRevision] = useState(0);
+    const operations = useMemo(() => createTaskOperations({
+        api: { register, update, deleteApi },
+        getTasks: () => currentTasks.current,
+        commit: change => {
+            currentTasks.current = change(currentTasks.current);
+            setTasks(blockId, change);
+        },
+        notify: (pending, message) => {
+            setBusy(pending);
+            setError(message);
+            // EditableTextの未保存ドラフトは、この一覧だけで保存値へ戻す。
+            if (!pending) setRevision(value => value + 1);
+        },
+    }), [blockId, setTasks]);
 
-    const handleAddTask = useCallback( async () => {
-        const newTask: TimeBlockTask = { clientId: uuidv4(), timeBlockId: blockId, title: "new Task" };
-        setTasks([...tasks, newTask]);
-        const id = await register(newTask);
-        newTask.id = id;
-    }, [tasks, setTasks]);
+    useLayoutEffect(() => {
+        operations.setActive(true);
+        return () => operations.setActive(false);
+    }, [operations]);
 
-    const handleChange = useCallback((task: TimeBlockTask, newTitle: string) => {
-        const newTask: TimeBlockTask = {...task, title: newTitle};
-        setTasks(tasks.map(t => t.clientId === task.clientId ? newTask : t));
-        update(newTask);
-    }, [setTasks]);
-
-    const handleCheck = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const taskClientId = e.target.id;
-        const targetTask = tasks.find(task => task.clientId === taskClientId);
-        if (!targetTask) throw new Error("タスクを取得できません。");
-        if (!targetTask.id) throw new Error("タスクIDを取得できません。");
-        setTasks(tasks.filter(task => task.clientId !== taskClientId));
-        await deleteApi(targetTask.id);
-    }, [setTasks, tasks]);
-    
     return (
-        <>
-            <Stack>
-                <Divider orientation={"horizontal"} textAlign="left" flexItem>タスク</Divider>
-                <List>
-                    {tasks.map((task) => (
-                        <ListItem key={`block-task-${task.clientId}`}>
-                            <Checkbox onChange={handleCheck} id={task.clientId} />
-                            <EditableText value={task.title} onChange={(value) => { handleChange(task, value)}} />
-                        </ListItem>
-                    ))}
-
-                    {/* 新規タスクを追加するボタン */}
-                    <ListItemButton onClick={handleAddTask}>
-                        <ListItemIcon>
-                            <AddIcon />
-                        </ListItemIcon>
-                        <ListItemText>タスクを追加</ListItemText>
-                    </ListItemButton>
-                </List>
-            </Stack>
-        </>
-    )
+        <Stack>
+            <Divider orientation="horizontal" textAlign="left" flexItem>タスク</Divider>
+            {error && <Alert severity="error">{error}</Alert>}
+            <List aria-busy={busy}>
+                {tasks.map(task => (
+                    <ListItem key={task.clientId}>
+                        <Checkbox
+                            checked={false}
+                            disabled={busy}
+                            inputProps={{ "aria-label": task.title + "を削除" }}
+                            onChange={() => { void operations.run({ kind: "delete", task }); }}
+                        />
+                        <Box sx={{ pointerEvents: busy ? "none" : "auto", opacity: busy ? 0.6 : 1 }}>
+                            <EditableText
+                                key={task.clientId + "-" + revision}
+                                value={task.title}
+                                onChange={title => { void operations.run({ kind: "update", task, title }); }}
+                            />
+                        </Box>
+                    </ListItem>
+                ))}
+                <ListItemButton disabled={busy} onClick={() => {
+                    const task = { clientId: uuidv4(), timeBlockId: blockId, title: "new Task" };
+                    void operations.run({ kind: "add", task });
+                }}>
+                    <ListItemIcon><AddIcon /></ListItemIcon>
+                    <ListItemText>タスクを追加</ListItemText>
+                </ListItemButton>
+            </List>
+        </Stack>
+    );
 };
-
 export default TimeBlockTasks;

@@ -1,12 +1,10 @@
-import { useContext, useCallback, type FC, type ReactElement, useLayoutEffect, useMemo, useState } from "react";
+import { useContext, type FC, useLayoutEffect, useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Alert, Box, Typography } from "@mui/material";
 import { isAxiosError } from "axios";
 
-import type { Time } from "@/utils/time";
 import { TIMETABLE_ID } from "../static/droppableId";
 import TimeTableConfigure from "../contexts/TimeTableConfigure";
-import type { TimeBlockSource } from "../types/blockSourceTypes";
 import TimeBlock from "./TimeBlock";
 import TimeBlockView from "./TimeBlockView";
 import Legend from "./timeTableComponents/Legend";
@@ -17,14 +15,7 @@ import { createAt, getByDate } from "../api/timeTableApi";
 import type { TimeTableSource } from "../types/timeTableSource";
 import { NotFoundError } from "@/error/common";
 import { toDateString } from "@/utils/date";
-
-type PositionedBlock = TimeBlockSource & { startAt: Time };
-
-const isPositionedBlock = (block: TimeBlockSource): block is PositionedBlock => {
-    if (block.status !== "PLACED" || !block.startAt) return false;
-    const minutes = block.startAt.toMinutes();
-    return minutes >= 0 && minutes < 24 * 60;
-};
+import { getTimeBlockLayout, isPositionedBlock } from "../utils/timeBlockLayout";
 
 /**
  * タイムテーブル本体を描画するコンポーネント.
@@ -56,73 +47,7 @@ const Table: FC = () => {
         disabled: timeTableId <= 0,
     });
 
-    /**
-     * タイムスケジュール上にて, ブロックに重複が発生しているかどうかによってブロックを  
-     * グルーピングし, 分割して表示するための関数.
-     */
-    const blocksOnTableSorted = useCallback(() => {
-        /**
-         * ２つのブロックが時間軸上で重複しているかどうか比較し, 結果を返す関数
-         * 
-         * @param block1 重複しているかどうか比較するブロック1
-         * @param block2 重複しているかどうか比較するブロック2
-         * @returns 重複しているかどうか. している場合に `true` を返す
-         */
-        const isConflict = (block1: PositionedBlock, block2: PositionedBlock) => {
-            const firstStart = block1.startAt.toMinutes();
-            const secondStart = block2.startAt.toMinutes();
-            return firstStart < secondStart + block2.width && firstStart + block1.width > secondStart;
-        }
-
-        
-        // 衝突が起こっているブロック同士をグルーピング
-        let blockGroups: PositionedBlock[][] = [];
-        let prevBlock: PositionedBlock | null = null;
-        let prevGroup: PositionedBlock[] = [];
-        const positionedBlocks = blocksOnTable.filter(isPositionedBlock);
-        for (const block of positionedBlocks.sort((b1, b2) => b1.startAt.toMinutes() - b2.startAt.toMinutes())) {
-            if (!prevBlock) {
-                prevBlock = block;
-                prevGroup = [block];
-                continue;
-            }
-            if (isConflict(prevBlock, block)) {
-                prevGroup = [...prevGroup, block];
-            } else {
-                blockGroups = [...blockGroups, prevGroup];
-                prevGroup = [block];
-            }
-            prevBlock = block;
-        }
-        if (prevGroup.length > 0) {
-            blockGroups = [...blockGroups, prevGroup];
-        }
-
-        // 衝突が起こっているかどうかによって分割したタイムブロックのノードのリストを作成
-        let blockNodes: ReactElement[] = [];
-        for(const group of blockGroups) {
-            const columns: PositionedBlock[][] = [];
-            for(const block of group) {
-                for(let i = 0; i < group.length; i++) {
-                    if (!columns[i]) {
-                        columns[i] = [block];
-                        break;
-                    }
-                    if (!columns[i].some(b => isConflict(b, block))) {
-                        columns[i] = [...columns[i], block];
-                        break;
-                    }
-                }
-            }
-            columns.forEach((col, index) => {
-                blockNodes = [
-                    ...blockNodes,
-                    ...col.map(b => <TimeBlock key={b.clientId} source={b} conlumnIndex={index} maxColumnIndex={columns.length}/>)
-                ];
-            });
-        }
-        return blockNodes;
-    }, [blocksOnTable]);
+    const blockLayout = useMemo(() => getTimeBlockLayout(blocksOnTable), [blocksOnTable]);
 
     return (
         <Box
@@ -134,7 +59,9 @@ const Table: FC = () => {
                 position: "relative",
             }}
         >
-            {blocksOnTableSorted()}
+            {blockLayout.map(({ block, columnIndex, columnCount }) => (
+                <TimeBlock key={block.clientId} source={block} conlumnIndex={columnIndex} maxColumnIndex={columnCount} />
+            ))}
             {previewBlock?.startAt && previewBlock.timeTableId === timeTableId && (
                 <TimeBlockView source={previewBlock} sx={{
                     position: "absolute",

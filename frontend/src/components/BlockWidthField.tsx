@@ -11,16 +11,14 @@ type BlockWidthFieldProps = {
     helperText?: React.ReactNode,
 };
 
-const BlockWidthField: FC<BlockWidthFieldProps> = ({ value, onChange, style, label, helperText}) => {
+const BlockWidthField: FC<BlockWidthFieldProps> = ({ value, onChange, style, label, helperText, error}) => {
 
     const {
         slotMinutes,
     } = useContext(TimeTableConfigure);
 
     const handleChange = (value: number | null) => {
-        if (value !== null) {
-            onChange?.(value);
-        };
+        onChange?.(value ?? NaN);
     };
 
     return (
@@ -29,8 +27,9 @@ const BlockWidthField: FC<BlockWidthFieldProps> = ({ value, onChange, style, lab
                 min={slotMinutes}
                 max={24 * 60}
                 step={slotMinutes}
-                allowOutOfRange={false}
-                value={value}
+                allowOutOfRange={true}
+                error={error}
+                value={value !== undefined && Number.isFinite(value) ? value : null}
                 onValueChange={handleChange}
                 style={style}
                 label={label}

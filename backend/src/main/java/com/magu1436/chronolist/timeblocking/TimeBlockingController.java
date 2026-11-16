@@ -147,7 +147,7 @@ public class TimeBlockingController {
      */
     @PutMapping("timeBlock/register")
     public ResponseEntity<Integer> register(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TimeBlock timeBlock){
-        if (isMissingPlacement(timeBlock)) {
+        if (isInvalidBlock(timeBlock)) {
             return ResponseEntity.badRequest().build();
         }
         // 受け取ったTimeBlockにuserIdを登録
@@ -177,7 +177,8 @@ public class TimeBlockingController {
      */
     @PutMapping("timeBlock/update")
     public ResponseEntity<Void> update(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TimeBlock timeBlock){
-        if (isMissingPlacement(timeBlock)) {
+        if (timeBlockService.getTimeBlockById(timeBlock.getId(), loginUser.getId()) == null) return ResponseEntity.notFound().build();
+        if (isInvalidBlock(timeBlock)) {
             return ResponseEntity.badRequest().build();
         }
         if(!timeBlockService.update(loginUser.getId(), timeBlock)){
@@ -187,9 +188,13 @@ public class TimeBlockingController {
 
     }
 
-    private static boolean isMissingPlacement(TimeBlock block) {
-        return block.getStatus() == TimeBlockStatus.PLACED
-                && (block.getTimeTableId() == null || block.getStartAt() == null);
+    private static boolean isInvalidWidth(Integer width) {
+        return width == null || width < 1 || width > 1440;
+    }
+    private static boolean isInvalidBlock(TimeBlock block) {
+        return isInvalidWidth(block.getWidth()) || block.getStatus() == TimeBlockStatus.PLACED
+                && (block.getTimeTableId() == null || block.getStartAt() == null
+                    || block.getStartAt().toSecondOfDay() + block.getWidth() * 60 > 86400);
     }
    
     /**
@@ -213,6 +218,10 @@ public class TimeBlockingController {
         if (timeBlock.getStartAt() == null) {
             return ResponseEntity.badRequest().build();
         }
+        TimeBlock stored = timeBlockService.getTimeBlockById(timeBlock.getId(), loginUser.getId());
+        if (stored == null) return ResponseEntity.notFound().build();
+        stored.setStartAt(timeBlock.getStartAt());
+        if (isInvalidBlock(stored)) return ResponseEntity.badRequest().build();
         if(!timeBlockService.updateStartAt(loginUser.getId(), timeBlock.getId(), timeBlock.getStartAt())){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
@@ -342,6 +351,7 @@ public class TimeBlockingController {
      */
     @PutMapping("templateBlock/register")
     public ResponseEntity<Integer> registerNewTemplateBlock(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TemplateBlock templateBlock){
+        if (isInvalidWidth(templateBlock.getWidth())) return ResponseEntity.badRequest().build();
         // 受け取ったTemplateBlockにuserIdを登録
         templateBlockService.registerNewTemplateBlock(loginUser.getId(), templateBlock);
         return ResponseEntity.status(HttpStatus.CREATED).body(templateBlock.getId());
@@ -365,6 +375,8 @@ public class TimeBlockingController {
      */
     @PutMapping("templateBlock/update")
     public ResponseEntity<Void> updateTemplateBlock(@AuthenticationPrincipal LoginUser loginUser, @RequestBody TemplateBlock templateBlock){
+        if (templateBlockService.getById(templateBlock.getId(), loginUser.getId()) == null) return ResponseEntity.notFound().build();
+        if (isInvalidWidth(templateBlock.getWidth())) return ResponseEntity.badRequest().build();
         if(!templateBlockService.updateTemplateBlock(loginUser.getId(), templateBlock)){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }

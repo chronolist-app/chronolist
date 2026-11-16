@@ -6,6 +6,9 @@ import com.magu1436.chronolist.timeblocking.entity.TemplateBlock;
 
 public interface TemplateBlockService {
 
+    /** 所有者を限定してテンプレートを取得する。 */
+    TemplateBlock getById(int id, int userId);
+
     List<TemplateBlock> getAllTemplateBlocks(int userId);
 
     int registerNewTemplateBlock(int userId, TemplateBlock templateBlock);
