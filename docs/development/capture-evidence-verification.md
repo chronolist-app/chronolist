@@ -24,7 +24,7 @@ JSON の期待状態の自由文を自動で assertion に翻訳する機能は�
 
 | 番号 | 確認方法と結果 |
 | --- | --- |
-| 1 | Codex の共有 SKILL と Claude の入口を配置。別の履歴なし子エージェントから共有手順を読み、依頼別判断を確認した。クライアントの自動探索は後述の未確認範囲。 |
+| 1 | Codex の共有 SKILL と Claude の入口を配置。別の履歴なし子エージェントから共有手順を読み、依頼別判断を確認した。Claude Code の /capture-evidence 認識と共有手順の読み込みは後述の実機追試で確認。新規 Codex クライアントの自動探索は未確認。 |
 | 2 | 対象・期待状態のない依頼では取得前に確認する応答を確認。不完全な計画の実機実行も非 0 終了となり、アプリ操作へ進まなかった。 |
 | 3 | draft / saved の PNG と evidence.json を取得。入力値、リロード後の一覧、実 API の存在確認が成功。呼出元・実行役が画像を目視し、文字を判読できることを確認した。 |
 | 4 | 単体テストで撮影成功＋検証失敗、撮影失敗＋検証成功、未確認を分離。失敗後も画像取得を試し、後続の保存操作へ進まないことを確認した。 |
@@ -94,9 +94,51 @@ Fast 単価（入力 $4、cached $0.20、出力 $20）なら累計 $0.3227936。
 
 ## 未確認範囲
 
-新規 Codex クライアントでの自動探索、Claude Code の起動・スキル認識は未確認。
+新規 Codex クライアントでの自動探索は未確認。Claude Code の起動・スキル認識は後述の実機追試で確認済み。
 専用の子エージェントによる SKILL の明示読み込みと、配置・参照の照合を行った。
-実 PR 作成や外部アップロードは行っていない。PR 連携は手順レビュー・依頼応答と既存回帰テストの範囲。
+初回検証時は実 PR 作成や外部アップロードを行わず、PR 連携は手順レビュー・依頼応答と既存回帰テストで確認した。
+その後 PR #32 を作成済み。証跡の外部自動アップロードは行っていない。
 2 worktree の同時起動は今回再実行せず、既存保存先分離の単体テストと実装の再利用を確認した。
 Backend のコード変更はないため、その全テストは再実行していない。
 本番、HTTPS、TiDB 共有セッション、全機能・全ブラウザの確認は対象外。
+
+## Claude Code の実機追試
+
+2026-11-18 01:15 JST のユーザー提供報告を追記する。Claude Code で `/capture-evidence` が認識され、
+読み込み時に `.claude/skills/capture-evidence/SKILL.md` が渡された後、共有する
+`.agents/skills/capture-evidence/SKILL.md` を Read した。execution.md、browser-verification.md、
+worktrees.md も読んで実行した。子エージェントへの委譲は行っていない。
+この報告により Claude Code の起動・入口認識・共有手順の読み込みを確認済みとする。
+
+別の detached worktree `C:\Users\hfzor\myprojects\chronolist-evidence-claude` で
+`worktree-dev init --slot 220` / `up` を実施し、project `chronolist-c620d945f9ce36a6` を起動した。
+Frontend は `http://chronolist-c620d945f9ce36a6.localhost:20440`、API は同ホストの `20441`。
+専用 Compose network の TCP 中継を通し Host を保持して Cookie/CORS の条件を維持したとの報告である。
+FE/BE のソースマウントと開発用 H2 も確認したとの報告を受けた。
+
+実行コードは `5ce74095ade9219ee2136648501fe7c5fbc04235`、clean 状態の差分指紋は
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`。
+計画ハッシュは `f4d3c09d3874d33e5c02b1602d7f32ce751ccfde4aec23d49ae4d3a9af15f280`。
+ToDo「Claude証跡確認」の draft / saved は、どちらも capture / verification が passed。
+登録後の一覧と実 API `/todolist/getAll` の照合が成功し、Claude Code 側では画像も目視したとの報告である。
+
+親エージェントはユーザー報告だけでなく、別 worktree の次の実記録を読み、SHA、差分指紋、
+計画ハッシュ、対象 URL、両地点の状態と保存先を照合した。さらに親エージェントも PNG 2枚を目視し、
+draft の不透明なダイアログと「Claude証跡確認」の入力、saved の一覧にある同タイトルを確認した。
+ロゴ差異も見えたが、原因・影響は調査していない。これらは Claude Code 側の報告と別に照合した範囲である。
+
+```text
+C:\Users\hfzor\myprojects\chronolist-evidence-claude\frontend\e2e-results\d45d4a9b6482\2026-11-17T16-15-16-899Z-892c0bff-fb0e-4474-9780-8ca72eda14ec\evidence\evidence.json
+```
+
+JSON 内の `/work/...` はコンテナ内パスであり、上記ホストの別 worktree に対応する。
+成果物はこの worktree の除外領域にあり、公開 URL ではない。
+
+実行環境は uv の Python 3.12.13、Playwright Docker `v1.65.1-noble` と npm パッケージ版 `1.65.1`。
+Node.js は `26.13.1` で、プロジェクト指定の 24 と異なる。この追試を指定 Node.js 24 での成功とは扱わず、
+前述の親エージェントによる Node.js 24 検証と区別する。
+
+検証後は今回のコンテナを stop 済みで、Playwright コンテナは `--rm` で実行したとの報告である。
+停止コンテナ、Volume、worktree、`.env`、node_modules、イメージは残っている。
+saved 画像のロゴ欠落は要求範囲外で未調査。停止時の frontend exit 1 の原因も未確認。
+これらの不具合修正や環境の追加片付けは実施していない。
