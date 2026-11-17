@@ -1,20 +1,32 @@
 import Button from "@mui/material/Button";
+import type { SxProps, Theme } from "@mui/material/styles";
 import type { MouseEventHandler, ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 export type ButtonSize = "xs" | "sm" | "md" | "lg" | "xl";
 export type ButtonVariant = "primary" | "secondary" | "danger";
 export type ButtonAppearance = "contained" | "outlined" | "text";
 
-export type CHButtonProps = {
+type CommonButtonProps = {
     label: string;
     size?: ButtonSize;
     variant?: ButtonVariant;
     appearance?: ButtonAppearance;
+    startIcon?: ReactNode;
+};
+
+/** 共通の外観と、通常ボタンまたはアプリ内リンクの操作を指定する。 */
+export type CHButtonProps = CommonButtonProps & ({
+    link?: never;
     type?: "button" | "submit" | "reset";
     disabled?: boolean;
     onClick?: MouseEventHandler<HTMLButtonElement>;
-    startIcon?: ReactNode;
-};
+} | {
+    link: { to: string; state?: unknown };
+    type?: never;
+    disabled?: never;
+    onClick?: MouseEventHandler<HTMLAnchorElement>;
+});
 
 type SizeDimensions = {
     minHeight: number;
@@ -72,10 +84,8 @@ const CHButton = ({
     size = "md",
     variant = "primary",
     appearance = "contained",
-    type = "button",
-    disabled = false,
-    onClick,
     startIcon,
+    ...action
 }: CHButtonProps) => {
     const dimensions = SIZES[size];
     const palette = COLORS[variant];
@@ -84,70 +94,69 @@ const CHButton = ({
     const hasStartIcon = startIcon != null && typeof startIcon !== "boolean" && startIcon !== "";
     const iconSize = { xs: `${dimensions.mobile.iconSize}px`, sm: `${dimensions.desktop.iconSize}px` };
 
-    return (
-        <Button
-            type={type}
-            disabled={disabled}
-            onClick={onClick}
-            variant={appearance}
-            disableElevation
-            disableRipple
-            sx={{
-                minHeight: { xs: `${dimensions.mobile.minHeight}px`, sm: `${dimensions.desktop.minHeight}px` },
-                paddingX: { xs: `${dimensions.mobile.paddingInline}px`, sm: `${dimensions.desktop.paddingInline}px` },
-                paddingY: { xs: "6px", sm: "4px" },
-                fontSize: { xs: `${dimensions.mobile.fontSize / 16}rem`, sm: `${dimensions.desktop.fontSize / 16}rem` },
-                fontWeight: 500,
-                lineHeight: 1.5,
-                textTransform: "none",
-                borderRadius: "8px",
-                boxShadow: "none",
-                width: "auto",
-                minWidth: 0,
-                maxWidth: "100%",
-                whiteSpace: "normal",
-                overflowWrap: "anywhere",
-                display: "inline-flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: "2px",
-                color: contained ? "#FFFFFF" : palette.base,
-                backgroundColor: contained ? palette.base : "transparent",
-                border: outlined ? `1px solid ${palette.base}` : "1px solid transparent",
-                "&:hover": {
-                    backgroundColor: contained ? palette.hover : palette.light,
-                    boxShadow: "none",
-                },
-                "&:active": {
-                    backgroundColor: contained ? palette.active : palette.pressed,
-                    boxShadow: "none",
-                },
-                "&.Mui-focusVisible": {
-                    outline: `2px solid ${palette.base}`,
-                    outlineOffset: "2px",
-                },
-                "&.Mui-disabled": {
-                    color: "#6B7280",
-                    backgroundColor: contained ? "#E5E7EB" : "transparent",
-                    borderColor: outlined ? "#D1D5DB" : "transparent",
-                },
-                "& .CHButton-icon": {
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    width: iconSize,
-                    height: iconSize,
-                    fontSize: iconSize,
-                    // MUIアイコンや呼出元のインライン寸法も共通サイズに揃える。
-                    "& > *": { width: "100% !important", height: "100% !important", fontSize: "inherit" },
-                },
-                "& .CHButton-label": { minWidth: 0 },
-            }}
-        >
-            {hasStartIcon && <span className="CHButton-icon" aria-hidden="true">{startIcon}</span>}
-            <span className="CHButton-label">{label}</span>
-        </Button>
+    const style: SxProps<Theme> = {
+        minHeight: { xs: `${dimensions.mobile.minHeight}px`, sm: `${dimensions.desktop.minHeight}px` },
+        paddingX: { xs: `${dimensions.mobile.paddingInline}px`, sm: `${dimensions.desktop.paddingInline}px` },
+        paddingY: { xs: "6px", sm: "4px" },
+        fontSize: { xs: `${dimensions.mobile.fontSize / 16}rem`, sm: `${dimensions.desktop.fontSize / 16}rem` },
+        fontWeight: 500,
+        lineHeight: 1.5,
+        textTransform: "none",
+        borderRadius: "8px",
+        boxShadow: "none",
+        width: "auto",
+        minWidth: 0,
+        maxWidth: "100%",
+        whiteSpace: "normal",
+        overflowWrap: "anywhere",
+        display: "inline-flex",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "2px",
+        color: contained ? "#FFFFFF" : palette.base,
+        backgroundColor: contained ? palette.base : "transparent",
+        border: outlined ? `1px solid ${palette.base}` : "1px solid transparent",
+        "&:hover": {
+            backgroundColor: contained ? palette.hover : palette.light,
+            boxShadow: "none",
+        },
+        "&:active": {
+            backgroundColor: contained ? palette.active : palette.pressed,
+            boxShadow: "none",
+        },
+        "&.Mui-focusVisible": {
+            outline: `2px solid ${palette.base}`,
+            outlineOffset: "2px",
+        },
+        "&.Mui-disabled": {
+            color: "#6B7280",
+            backgroundColor: contained ? "#E5E7EB" : "transparent",
+            borderColor: outlined ? "#D1D5DB" : "transparent",
+        },
+        "& .CHButton-icon": {
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            width: iconSize,
+            height: iconSize,
+            fontSize: iconSize,
+            // MUIアイコンや呼出元のインライン寸法も共通サイズに揃える。
+            "& > *": { width: "100% !important", height: "100% !important", fontSize: "inherit" },
+        },
+        "& .CHButton-label": { minWidth: 0 },
+    };
+    const children = <>
+        {hasStartIcon && <span className="CHButton-icon" aria-hidden="true">{startIcon}</span>}
+        <span className="CHButton-label">{label}</span>
+    </>;
+
+    return action.link ? (
+        <Button component={Link} to={action.link.to} state={action.link.state} onClick={action.onClick}
+            variant={appearance} disableElevation disableRipple sx={style}>{children}</Button>
+    ) : (
+        <Button type={action.type ?? "button"} disabled={action.disabled ?? false} onClick={action.onClick}
+            variant={appearance} disableElevation disableRipple sx={style}>{children}</Button>
     );
 };
 

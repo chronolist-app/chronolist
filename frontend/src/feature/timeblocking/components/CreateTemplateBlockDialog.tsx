@@ -1,3 +1,4 @@
+import CHButton from "@/components/CHButton";
 import { isValidUiBlockWidth } from "../utils/blockValidation";
 import { useCallback, useContext, useRef, useState, type FC } from "react"
 
@@ -5,7 +6,7 @@ import BlockRepositories from "../contexts/BlockRepositories"
 import TimeTableConfigure from "../contexts/TimeTableConfigure";
 import type { TemplateBlockInput } from "../types/blockSourceTypes";
 import { register } from "../api/templateBlockApi";
-import { Alert, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
+import { Alert, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
 import BlockWidthField from "@/components/BlockWidthField";
 
 
@@ -14,6 +15,7 @@ type CreateTemplateBlockDialogProps = {
     setOpen: (open: boolean) => void,
 }
 
+/** テンプレートブロックの入力と非同期の作成操作を表示する。 */
 const CreateTemplateBlockDialog: FC<CreateTemplateBlockDialogProps> = ({ open, setOpen }) => {
     const {
         setTemplateBlocks,
@@ -121,8 +123,8 @@ const CreateTemplateBlockDialog: FC<CreateTemplateBlockDialogProps> = ({ open, s
                     </fieldset>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleClose} disabled={saving}>キャンセル</Button>
-                    <Button onClick={handleClick} disabled={saving} startIcon={saving ? <CircularProgress size={16} /> : undefined}>{saving ? "作成中…" : "作成"}</Button>
+                    <CHButton variant="secondary" appearance="text" onClick={handleClose} disabled={saving} label="キャンセル" />
+                    <CHButton onClick={handleClick} disabled={saving} startIcon={saving ? <CircularProgress size={16} /> : undefined} label={saving ? "作成中…" : "作成"} />
                 </DialogActions>
             </Dialog>
         </>

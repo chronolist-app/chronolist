@@ -1,4 +1,5 @@
-import { Alert, Button, CircularProgress, Stack, Typography } from "@mui/material";
+import CHButton from "@/components/CHButton";
+import { Alert, CircularProgress, Stack, Typography } from "@mui/material";
 import type { RegionLoadStatus } from "../types/regionLoadTypes";
 
 /** 領域ごとの取得状況と再試行操作を表示する。 */
@@ -10,7 +11,7 @@ const RegionLoadFeedback = ({ status, label, onRetry }: {
     if (status === "success") return null;
     if (status === "error") {
         return (
-            <Alert severity="error" action={<Button color="inherit" onClick={onRetry}>再試行</Button>}>
+            <Alert severity="error" action={<CHButton variant="secondary" appearance="text" size="sm" onClick={onRetry} label="再試行" />}>
                 {label}を読み込めませんでした。
             </Alert>
         );

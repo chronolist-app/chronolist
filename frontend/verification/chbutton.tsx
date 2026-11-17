@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { CircularProgress } from "@mui/material";
 import CHButton from "../src/components/CHButton";
@@ -8,6 +9,16 @@ import type { ButtonAppearance, ButtonSize, ButtonVariant } from "../src/compone
 const SIZES: ButtonSize[] = ["xs", "sm", "md", "lg", "xl"];
 const VARIANTS: ButtonVariant[] = ["primary", "secondary", "danger"];
 const APPEARANCES: ButtonAppearance[] = ["contained", "outlined", "text"];
+
+/** アプリ内リンクの遷移先と引き継いだstateを表示する。 */
+const LinkVerification = () => {
+    const location = useLocation();
+    return <section>
+        <h2>アプリ内リンク</h2>
+        <CHButton label="スケジューラで編集" link={{ to: "/scheduler", state: { date: "2026-11-17", eventId: 177 } }} />
+        <p aria-live="polite">遷移先: <output>{location.pathname}</output> / state: <output>{JSON.stringify(location.state)}</output></p>
+    </section>;
+};
 
 /** 共通ボタンの見た目とネイティブ操作を開発時に確認する。 */
 const Verification = () => {
@@ -47,6 +58,7 @@ const Verification = () => {
             </div>
         </form>
         <p aria-live="polite">クリック: <output>{clicks}</output> / 送信: <output>{submits}</output> / リセット: <output>{resets}</output></p>
+        <MemoryRouter initialEntries={["/timeblocking"]}><LinkVerification /></MemoryRouter>
     </main>;
 };
 

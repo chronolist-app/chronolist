@@ -1,6 +1,7 @@
+import CHButton from "@/components/CHButton";
 import { reflectBlockTasks, type TaskUpdate } from "../utils/taskOperations";
 import { getBlockValidationError, isValidBlockWidth } from "../utils/blockValidation";
-import { Alert, Button, Modal, Stack, Box, type SxProps } from "@mui/material"
+import { Alert, Modal, Stack, Box, type SxProps } from "@mui/material"
 import Title from "./timeBlockDetailPanelComponents/Title"
 import { useCallback, useContext, useEffect, useState, type FC } from "react";
 import SelectedTimeBlockId from "../contexts/SelectedTimeBlockId";
@@ -193,7 +194,7 @@ const TimeBlockDetailPanel: FC = () => {
                     {block?.status === "PLACED" && !isValidBlockWidth(block.width) &&
                         (!block.startAt || block.startAt.toMinutes() < 0 ||
                             block.startAt.toMinutes() >= 1440 || block.startAt.toMinutes() + slotMinutes > 1440) && (
-                        <Button onClick={handleRepair}>00:00・{slotMinutes}分に修正</Button>
+                        <CHButton onClick={handleRepair} label={`00:00・${slotMinutes}分に修正`} />
                     )}
                     <Title text={block?.title} setText={handleSetText} />
                     {block?.startAt && <TimeRange width={block?.width} startAt={block?.startAt || undefined} setStartAt={handleSetTime} />}
