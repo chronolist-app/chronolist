@@ -1,6 +1,6 @@
 # CHRON-218: worktreeごとに独立したCompose開発環境
 
-状態: 方式1を選択済み。設計の承認待ち。実装は未着手。
+状態: 方式1・設計とも承認済み。実装とLinux上の2worktree・同一ブラウザ検証を完了。
 
 ## 目的と範囲
 
@@ -25,7 +25,7 @@
 - FEは絶対URLの `VITE_API_BASE_URL` を使い、共通AxiosがCookie・CSRFを処理する。
   BEのCORSは `FRONTEND_ORIGIN` で指定可能。
 - DevContainerも同じComposeを使用し、FEとnode_modules Volumeを共有する。
-- Docker Compose v2とローカルDocker daemonを前提とする。補助スクリプトはPython 3標準ライブラリを使う。
+- Docker Compose v2とローカルDocker daemonを前提とする。補助スクリプトはPython 3.10以上の標準ライブラリを使う。
   WindowsでもPython 3とDocker Desktopから利用できるよう、シェル依存を避ける。
 
 ## 検討した方式
@@ -135,9 +135,10 @@ seed済みadminのパスワードは推測せず、新規登録による再現�
 8. READMEと専用開発手順に、2環境の準備、URL、初期化、停止、再起動、破棄、
    DevContainer、名前解決、競合時の対処を記載する。
 
-現在の実行環境ではDocker socketへのアクセスが拒否されている。
-実装時は利用可能な正式な権限で実行可能か確認し、利用できない場合は静的検証・自動テストの結果と
-未実施のDocker・ブラウザ検証を分けて報告する。受け入れ条件を実測済みとは扱わない。
+設計時の通常sandboxではDocker socketへのアクセスが拒否されたが、承認された権限で接続し、
+2環境と同一Chromiumコンテキストでの実行検証を完了した。依存取得のネットワーク制限には
+検証専用の一時Dockerfileと既存キャッシュを使用し、製品Dockerfileは変更していない。
+Windowsと実際のVS Code DevContainer UIの動作は未実施。詳細は実装計画の検証結果を参照。
 
 ## 実装担当に委ねる事項
 

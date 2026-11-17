@@ -18,6 +18,9 @@ Dockerを使わない場合はリポジトリルートをVSCodeで開き、Java�
 H2コンソールはdevのみ有効（http://localhost:8080/h2-console）。
 再起動すると開発用スキーマとサンプルデータが再作成される。
 
+複数worktreeでの同時起動は[専用手順](../docs/development/worktrees.md)を参照。
+H2とセッションは各Backendに独立し、FEの専用OriginはComposeから設定する。
+
 CLIではbackendから `sh ./gradlew bootRun --args='--spring.profiles.active=dev'`。
 テストは `sh ./gradlew test`（詳細はsrc/test/README.md）。
 
