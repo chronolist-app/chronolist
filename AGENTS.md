@@ -78,3 +78,10 @@ Compose 内の Backend テストは [API テスト手順](backend/src/test/READM
 共通ルールはこのファイルを正本とする。Codex は `AGENTS.md`、Claude Code は対応版の直接読み込み、
 または `CLAUDE.md` のインポートで参照する。ツールの設定と利用可能な専用スキルは
 [エージェント利用案内](docs/agent-tools.md) を参照する。個別ワークフローは専用スキルに委ねる。
+
+## 操作証跡
+
+ユーザーまたはチケットが途中・結果画面の証跡を求める場合は
+[capture-evidence](.agents/skills/capture-evidence/SKILL.md) を利用する。
+呼出元が目的・対象・期待状態から取得計画と最終充足を判断し、現在差分に有効な既存証跡は再利用する。
+全実装・全 PR での撮影は必須にしない。取得成功と検証成功を区別し、不足・失敗・未確認を報告する。
