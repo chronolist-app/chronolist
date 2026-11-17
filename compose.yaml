@@ -3,6 +3,7 @@ services:
     build:
       context: ./backend
       target: development
+    command: ["sh", "./gradlew", "bootRun"]
     environment:
       SPRING_PROFILES_ACTIVE: dev
       FRONTEND_ORIGIN: ${CHRONOLIST_FRONTEND_ORIGIN:-http://localhost:5173}

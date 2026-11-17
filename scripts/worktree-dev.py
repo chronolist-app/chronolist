@@ -143,8 +143,10 @@ def run_action(root: Path, action: str) -> None:
         'logs': ['logs', '--tail', '100', 'backend', 'frontend'],
         'stop': ['stop', 'backend', 'frontend'],
         'restart': ['restart', 'backend', 'frontend'],
-        'down': ['down'],
-        'destroy': ['down', '--volumes'],
+        # Include inactive migration services and services removed on this branch.
+        # Compose still restricts all cleanup to the explicitly pinned project.
+        'down': ['--profile', '*', 'down', '--remove-orphans'],
+        'destroy': ['--profile', '*', 'down', '--remove-orphans', '--volumes'],
     }
     if action == 'up':
         check_ports(config, running_ports(root, config))

@@ -124,8 +124,9 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(env['PATH'], '/bin')
 
     def test_lifecycle_is_pinned_to_own_file_and_project(self):
-        for action, tail in [('destroy', ['down', '--volumes']),
-                             ('down', ['down']), ('stop', ['stop', 'backend', 'frontend']),
+        for action, tail in [('destroy', ['--profile', '*', 'down', '--remove-orphans', '--volumes']),
+                             ('down', ['--profile', '*', 'down', '--remove-orphans']),
+                             ('stop', ['stop', 'backend', 'frontend']),
                              ('restart', ['restart', 'backend', 'frontend']),
                              ('status', ['ps', '--all']), ('logs', ['logs', '--tail', '100', 'backend', 'frontend'])]:
             with self.subTest(action=action), patch.object(dev.subprocess, 'run') as run:
@@ -222,6 +223,8 @@ class ComposeConfigurationTests(unittest.TestCase):
         fe, be = model['services']['frontend'], model['services']['backend']
         self.assertEqual(fe['ports'][0]['published'], '5173')
         self.assertEqual(be['ports'][0]['published'], '8080')
+        # The bind-mounted Git checkout can have a non-executable gradlew.
+        self.assertEqual(be['command'], ['sh', './gradlew', 'bootRun'])
         self.assertEqual(fe['environment']['VITE_API_BASE_URL'], 'http://localhost:8080')
         self.assertEqual(be['environment'].get('FRONTEND_ORIGIN', 'http://localhost:5173'),
                          'http://localhost:5173')
