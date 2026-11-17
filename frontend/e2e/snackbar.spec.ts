@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Page, TestInfo } from '@playwright/test';
 import { test, expect } from './fixtures';
 
 // 通知は notistack の SnackbarContent（role="alert"）として描画される。
@@ -24,6 +24,13 @@ async function waitForShown(page: Page, count = 1) {
     await page.waitForTimeout(100);
 }
 
+/** 検証が通った後の証跡として撮影し、レポートにも添付する。 */
+async function capture(page: Page, testInfo: TestInfo, name: string) {
+    const path = testInfo.outputPath(`${name}.png`);
+    await page.screenshot({ path, animations: 'disabled' });
+    await testInfo.attach(name, { path, contentType: 'image/png' });
+}
+
 /** 時計を固定してから確認ページを開く。時間経過は page.clock.runFor で進める。 */
 async function openSnackbarPage(page: Page) {
     await page.clock.install({ time: new Date('2026-01-01T00:00:00') });
@@ -47,13 +54,17 @@ test('通知は画面の右下に表示される', async ({ page }) => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
 });
 
-test('通常・成功・情報・警告・エラーの種別を表示できる', async ({ page }) => {
+test('通常・成功・情報・警告・エラーの種別を表示できる', async ({ page }, testInfo) => {
     await openSnackbarPage(page);
     for (const [name, variant] of [['通常', 'default'], ['成功', 'success'], ['情報', 'info'], ['警告', 'warning'], ['エラー', 'error']]) {
         await page.getByRole('button', { name, exact: true }).click();
         await expect(page.locator(`.notistack-MuiContent-${variant}`).filter({ hasText: `${name}の通知` })).toBeVisible();
     }
     await expect(alerts(page)).toHaveCount(5);
+    // enter トランジションを完了させてから、5種別が右下に積まれた状態を撮影する。
+    await elapse(page, 1000);
+    await expect(alerts(page)).toHaveCount(5);
+    await capture(page, testInfo, 'snackbar-variants-stacked');
 });
 
 test('6件連続で追加しても同時表示は最大5件で、最古が消えて最新が表示される', async ({ page }) => {
@@ -130,4 +141,15 @@ test('×ボタンで手動消去できる', async ({ page }) => {
     await alerts(page).getByRole('button', { name: '閉じる', exact: true }).click();
     await elapse(page, 1000);
     await expect(alerts(page)).toHaveCount(0);
+});
+
+test('アクション付き通知は実行ボタンと×ボタンを並べて表示する', async ({ page }, testInfo) => {
+    await openSnackbarPage(page);
+    await page.getByRole('button', { name: 'アクション付き', exact: true }).click();
+    await waitForShown(page);
+    await elapse(page, 1000);
+    const alert = alerts(page);
+    await expect(alert.getByRole('button', { name: '実行', exact: true })).toBeVisible();
+    await expect(alert.getByRole('button', { name: '閉じる', exact: true })).toBeVisible();
+    await capture(page, testInfo, 'snackbar-action');
 });
