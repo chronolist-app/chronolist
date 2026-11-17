@@ -101,6 +101,18 @@ python3 scripts/worktree-dev.py up
 worktreeを移動・削除するときも**元の場所で先に `destroy`** を実行する。
 移動後は元の生成 `.env` を削除し、移動先で `init` し直す。
 
+## Backendのテスト
+
+対象worktreeのルートで、起動済みBackendコンテナを使って実行する。
+
+```sh
+docker compose exec -T backend sh ./gradlew test bootJar --no-daemon
+```
+
+Gradleの `test` タスクが `SPRING_PROFILES_ACTIVE` と `FRONTEND_ORIGIN` をテストJVMから除外するため、
+worktree専用Originを設定した環境でも既定値・設定必須のテストを実行できる。
+アプリ起動用の設定は維持する。詳細は[API統合テスト](../../backend/src/test/README.md)を参照。
+
 ## DevContainer
 
 1. ホストで対象worktreeの `init` を実行する。

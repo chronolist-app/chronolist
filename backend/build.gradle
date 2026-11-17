@@ -43,6 +43,9 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// 開発環境の設定をテストJVMへ継承せず、既定値・設定必須の検証を保つ。
+	environment.remove('SPRING_PROFILES_ACTIVE')
+	environment.remove('FRONTEND_ORIGIN')
 }
 
 tasks.named('bootJar') {
