@@ -155,6 +155,25 @@ class LifecycleTests(unittest.TestCase):
                 dev.check_ports({'CHRONOLIST_FRONTEND_PORT': str(port),
                                  'CHRONOLIST_BACKEND_PORT': '20001'}, set())
 
+    @unittest.skipIf(os.name == 'nt', 'Unix TIME_WAIT reuse behavior')
+    def test_closed_connection_does_not_block_immediate_restart(self):
+        # The server closes first, leaving TIME_WAIT even after its listener exits.
+        with socket.socket() as listener, socket.socket() as client:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind(('127.0.0.1', 0))
+            port = listener.getsockname()[1]
+            listener.listen()
+            client.connect(('127.0.0.1', port))
+            connection, _ = listener.accept()
+            connection.close()
+            self.assertEqual(client.recv(1), b'')
+        # Docker can immediately rebind this port; our preflight must agree.
+        with socket.socket() as replacement:
+            replacement.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            replacement.bind(('127.0.0.1', port))
+        dev.check_ports({'CHRONOLIST_FRONTEND_PORT': str(port),
+                         'CHRONOLIST_BACKEND_PORT': str(port)}, set())
+
     def test_own_running_ports_do_not_block_repeated_up(self):
         publisher = {'URL': '127.0.0.1', 'TargetPort': 5173, 'PublishedPort': 20062, 'Protocol': 'tcp'}
         response = json.dumps({'Service': 'frontend', 'State': 'running', 'Publishers': [publisher]})

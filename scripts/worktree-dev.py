@@ -117,6 +117,10 @@ def check_ports(config: dict[str, str], owned: set[int]) -> None:
             # Exclusive bind on Windows too; do not accidentally share a listener.
             if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
                 probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            else:
+                # A stopped Docker listener can leave TIME_WAIT connections behind.
+                # This still rejects a live listener, without rejecting a restart.
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 probe.bind(('127.0.0.1', port))
             except OSError as error:
