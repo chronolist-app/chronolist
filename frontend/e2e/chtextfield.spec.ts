@@ -17,6 +17,9 @@ for (const width of [375, 1280]) {
             await page.mouse.down({ clickCount });
             await page.mouse.move(x + clickCount, y);
             await page.mouse.up({ clickCount });
+            // FullCalendarのElementMirror.stopはsetTimeout(0)後にdrag終了を通知する。
+            // 次のdownがisDraggingで捨てられないよう、同じtimerキューの次ターンまで待つ。
+            await page.evaluate(() => new Promise<void>(resolve => setTimeout(resolve, 0)));
         }
         const dialog = page.getByRole('dialog');
         const title = dialog.getByRole('textbox', { name: 'Title', exact: true });

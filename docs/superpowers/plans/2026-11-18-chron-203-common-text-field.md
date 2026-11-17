@@ -80,5 +80,6 @@
 - `docker compose exec -T frontend npm run build`: TypeScript / Vite 成功。バンドルサイズ警告あり。
 - `node node_modules/@playwright/test/cli.js test e2e/chtextfield.spec.ts`: 最終コードで4件成功。375px / 1280px の実 API 保存・再読込、エラー解除、フォーカス維持、Tab、必須・無効・readOnly・password・複数行・両サイズ・長い補助文を確認。
 - 初回 E2E の失敗は、存在しない matcher、FullCalendar の down/up 間の移動を伴わない操作、空欄ラベルの pointer-events に起因。テスト操作を修正し、Calendar の製品コードには変更を加えていない。
+- 証跡撮影前に、FullCalendar の非同期 drag 終了より早く次の down が送られる競合も確認した。ブラウザの timer キューで終了通知後まで待つよう検証操作を修正。通常実行・`--trace off` の両方で各4件成功し、変更した E2E ファイルの lint も成功した。
 - 日本語入力は insertText による連続入力とフォーカス維持の検証。OS の IME composition 実操作は未検証。Backend 単体テスト・本番 Docker ビルド・HTTPS・TiDB は今回の変更の検証範囲外。
 - 検証環境: worktree 専用の開発 HTTP / H2。認証情報やセッションを作業メモ・コードに保存していない。
