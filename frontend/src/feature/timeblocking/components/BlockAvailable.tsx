@@ -1,5 +1,6 @@
 import { DragOverlay, useDndMonitor, type DragEndEvent } from "@dnd-kit/core";
-import { Alert, Backdrop, CircularProgress, Snackbar } from "@mui/material";
+import { Backdrop, CircularProgress } from "@mui/material";
+import { useSnackbar } from "notistack";
 import { useContext, useLayoutEffect, useRef, useState, type FC, type ReactElement } from "react";
 import { useLocation } from "react-router-dom";
 
@@ -24,7 +25,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({ children }) => {
     const [draggingBlock, setDraggingBlock] = useState<DraggableBlock | null>(null);
     const [previewBlock, setPreviewBlock] = useState<DraggableBlock | null>(null);
     const [tableRevision, setTableRevision] = useState(0);
-    const [saveError, setSaveError] = useState<string | null>(null);
+    const { enqueueSnackbar } = useSnackbar();
 
     const drag = useRef<{ block: DraggableBlock, locationKey: string } | null>(null);
     const saving = useRef(false);
@@ -32,7 +33,6 @@ const BlockAvailable: FC<BlockAvailableProps> = ({ children }) => {
     const setSaving = (pending: boolean) => {
         saving.current = pending;
         setIsSaving(pending);
-        if (pending) setSaveError(null);
     };
     const { timeTableId, slotHeight, slotMinutes } = useContext(TimeTableConfigure);
     const { key: locationKey } = useLocation();
@@ -96,7 +96,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({ children }) => {
                     const id = await registerTemplateBlock(template);
                     setTemplateBlocks(blocks => [...blocks, { ...template, id }]);
                 } catch {
-                    setSaveError("テンプレートを作成できませんでした。");
+                    enqueueSnackbar("テンプレートを作成できませんでした。", { variant: "error" });
                 } finally {
                     setSaving(false);
                 }
@@ -108,7 +108,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({ children }) => {
 
             const startAt = getDropTime(event, source);
             if (destination === TIMETABLE_ID && !startAt) {
-                setSaveError("ブロックを配置できる時刻にドロップしてください。");
+                enqueueSnackbar("ブロックを配置できる時刻にドロップしてください。", { variant: "error" });
                 return;
             }
             if (!source.fromTemplateBlockSource && !source.id) return;
@@ -146,7 +146,7 @@ const BlockAvailable: FC<BlockAvailableProps> = ({ children }) => {
                         : withoutMoved(blocks));
                 }
             } catch {
-                setSaveError("ブロックを移動できませんでした。");
+                enqueueSnackbar("ブロックを移動できませんでした。", { variant: "error" });
             } finally {
                 setSaving(false);
             }
@@ -177,9 +177,6 @@ const BlockAvailable: FC<BlockAvailableProps> = ({ children }) => {
             <DragOverlay dropAnimation={null} style={{ pointerEvents: "none" }}>
                 {draggingBlock && <TimeBlockView source={draggingBlock} sx={{ opacity: previewBlock ? 0 : 1 }} />}
             </DragOverlay>
-            <Snackbar open={saveError !== null} autoHideDuration={5000} onClose={() => setSaveError(null)}>
-                <Alert severity="error" onClose={() => setSaveError(null)}>{saveError}</Alert>
-            </Snackbar>
         </BlockRepositories>
     );
 };
