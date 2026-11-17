@@ -4,3 +4,4 @@ dist
 *.tsbuildinfo
 npm-debug.log*
 .git
+e2e-results/

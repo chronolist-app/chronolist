@@ -1,5 +1,7 @@
 # Chronolist Frontend
 
+worktree 別のヘッドレス E2E は [ブラウザ検証手順](../docs/browser-verification.md) を参照する。
+
 React / TypeScript / Viteで構築したSPA。開発時はVite、本番はNginxで静的ファイルを配信する。
 以下のDockerコマンドはリポジトリルートで実行する。
 
