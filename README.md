@@ -14,6 +14,9 @@ docker compose up -d --build backend frontend
 Frontendは `http://localhost:5173`、Backendは `http://localhost:8080`。
 開発用H2はBackend再起動で初期化される。開発環境に本番DBやクラウドのSecretは不要。
 
+複数のGit worktreeを同時に起動する場合は、[worktree別の開発環境](docs/development/worktrees.md)を参照。
+専用URL・ポート・Compose projectを生成し、DBとブラウザの認証Cookieを環境ごとに分離できる。
+
 ## 設定・テスト
 
 - [Backend](backend/README.md)：プロファイル、DB・認証設定、Dockerビルドと起動

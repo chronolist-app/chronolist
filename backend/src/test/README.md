@@ -27,12 +27,14 @@ testプロファイルは専用H2 DBを作成し、通常のschema.sqlを使う�
 期限切れ拒否と期限切れ属性の削除を確認する。ログインAPIやCookieを使ったフロー、
 TiDB互換性、Backend再起動・別インスタンス間の継続は、このテストの検証範囲に含まない。
 
-開発用Composeコンテナで全テストを実行する場合は、コンテナのdevプロファイル指定が
-「プロファイル未指定」を検証するDatabaseProfileTestsへ影響しないよう、実行時のみ外す。
-起動済みBackendの環境変数は変更しない。
+Gradleの `test` タスクは、テストJVMから `SPRING_PROFILES_ACTIVE` と `FRONTEND_ORIGIN` を除外する。
+Composeやシェルの開発設定が、プロファイル未指定・既定Origin・prodの設定必須の検証へ
+影響しないようにするためである。テスト内で明示するプロファイルやOriginは引き続き有効。
+除外はテストJVMに限定し、起動済みBackendや `bootRun` の環境変数は変更しない。
+開発用Composeコンテナでも、個別の `env -u` 指定は不要。
 
 ```sh
-docker compose exec -T backend env -u SPRING_PROFILES_ACTIVE sh ./gradlew test --no-daemon
+docker compose exec -T backend sh ./gradlew test --no-daemon
 ```
 
 ### ログインとJDBCセッションの連携

@@ -3,10 +3,12 @@ services:
     build:
       context: ./backend
       target: development
+    command: ["sh", "./gradlew", "bootRun"]
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      FRONTEND_ORIGIN: ${CHRONOLIST_FRONTEND_ORIGIN:-http://localhost:5173}
     ports:
-      - "8080:8080"
+      - "${CHRONOLIST_BIND_ADDRESS:-0.0.0.0}:${CHRONOLIST_BACKEND_PORT:-8080}:8080"
     volumes:
       - ./backend:/app
       - backend_gradle_cache:/root/.gradle
@@ -26,14 +28,14 @@ services:
       context: ./frontend
       target: development
     ports:
-      - "5173:5173"
+      - "${CHRONOLIST_BIND_ADDRESS:-0.0.0.0}:${CHRONOLIST_FRONTEND_PORT:-5173}:5173"
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
     depends_on:
       - backend
     environment:
-      VITE_API_BASE_URL: http://localhost:8080
+      VITE_API_BASE_URL: ${CHRONOLIST_API_BASE_URL:-http://localhost:8080}
 
   devcontainer:
     build:

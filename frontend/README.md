@@ -15,6 +15,9 @@ Dockerを使わない場合は `frontend` で `npm ci` を実行し、シェル�
 `VITE_API_BASE_URL` を設定して `npm run dev` を実行する。
 開発時は `config.js` を生成・読み込みしない。
 
+複数worktreeでは[専用手順](../docs/development/worktrees.md)で環境を初期化する。
+表示された `*.localhost` URLでアクセスすると、同じブラウザ内でも認証Cookieが環境ごとに分離される。
+
 ## CSRF保護付きAPI通信
 
 API呼び出しは既存の `src/utils/axios.ts` を通す。共通層が `GET /api/csrf` からトークンを取得し、

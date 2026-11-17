@@ -43,6 +43,10 @@ jobs:
           cache: gradle
       - name: Test including authentication and CSRF, then build
         working-directory: backend
+        # Verify that the test JVM excludes inherited Compose development settings.
+        env:
+          SPRING_PROFILES_ACTIVE: dev
+          FRONTEND_ORIGIN: http://chronolist-ci.localhost:20000
         run: bash ./gradlew test bootJar --no-daemon
       - name: Verify production Docker build
         run: docker build --target runtime -t chronolist-backend:ci backend

@@ -18,6 +18,9 @@ Dockerを使わない場合はリポジトリルートをVSCodeで開き、Java�
 H2コンソールはdevのみ有効（http://localhost:8080/h2-console）。
 再起動すると開発用スキーマとサンプルデータが再作成される。
 
+複数worktreeでの同時起動は[専用手順](../docs/development/worktrees.md)を参照。
+H2とセッションは各Backendに独立し、FEの専用OriginはComposeから設定する。
+
 CLIではbackendから `sh ./gradlew bootRun --args='--spring.profiles.active=dev'`。
 テストは `sh ./gradlew test`（詳細はsrc/test/README.md）。
 
@@ -260,11 +263,12 @@ docker rm chronolist-image-prod
 
 ## コンテナ内での既存テスト
 
-起動済みの開発用Composeを利用する場合は、dev Profileの環境変数をテストプロセスから外す。
-Profile未指定の動作を検証するテストへの影響を避けるためで、Compose自体の設定は変更しない。
+Gradleの `test` タスクが、開発設定の `SPRING_PROFILES_ACTIVE` と `FRONTEND_ORIGIN` を
+テストJVMから除外する。通常のCompose・worktree環境とも追加の環境変数操作は不要。
+起動済みBackendや `bootRun` の設定は維持する。
 
 ```sh
-docker compose exec -T backend env -u SPRING_PROFILES_ACTIVE sh ./gradlew test
+docker compose exec -T backend sh ./gradlew test
 ```
 
 テストは専用H2を使用する。追加方法と検証範囲は [API統合テスト](src/test/README.md) を参照。
