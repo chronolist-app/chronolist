@@ -175,5 +175,64 @@ class LifecycleTests(unittest.TestCase):
             run.assert_not_called()
 
 
+@unittest.skipUnless(shutil.which('docker'), 'Docker Compose CLI is required for config tests')
+class ComposeConfigurationTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name)
+
+    def checkout(self, parent):
+        root = self.base / parent / 'chronolist'
+        root.mkdir(parents=True)
+        shutil.copyfile(SCRIPT.parent.parent / 'compose.yaml', root / 'compose.yaml')
+        return root
+
+    def render(self, root, config=None):
+        env = {k: v for k, v in os.environ.items()
+               if not k.upper().startswith(('COMPOSE_', 'CHRONOLIST_'))}
+        if config:
+            env.update(config)
+        result = subprocess.run(['docker', 'compose', '--project-directory', str(root),
+                                 '-f', str(root / 'compose.yaml'), 'config', '--format', 'json'],
+                                cwd=root, env=env, capture_output=True, text=True, check=True)
+        return json.loads(result.stdout)
+
+    def test_default_compose_keeps_original_ports_and_urls(self):
+        model = self.render(self.checkout('default'))
+        fe, be = model['services']['frontend'], model['services']['backend']
+        self.assertEqual(fe['ports'][0]['published'], '5173')
+        self.assertEqual(be['ports'][0]['published'], '8080')
+        self.assertEqual(fe['environment']['VITE_API_BASE_URL'], 'http://localhost:8080')
+        self.assertEqual(be['environment'].get('FRONTEND_ORIGIN', 'http://localhost:5173'),
+                         'http://localhost:5173')
+
+    def test_two_worktrees_have_distinct_resources_and_matching_urls(self):
+        models = []
+        for parent, slot in [('a', 0), ('b', 1)]:
+            root = self.checkout(parent)
+            config = dev.initialize(root, slot)
+            # No explicit -p: exercises .env project selection as used by Dev Containers.
+            model = self.render(root)
+            models.append(model)
+            self.assertEqual(model['name'], config['COMPOSE_PROJECT_NAME'])
+            fe, be = model['services']['frontend'], model['services']['backend']
+            self.assertEqual(fe['ports'][0]['published'], str(20000 + 2 * slot))
+            self.assertEqual(be['ports'][0]['published'], str(20001 + 2 * slot))
+            self.assertEqual(fe['ports'][0]['host_ip'], '127.0.0.1')
+            self.assertEqual(be['ports'][0]['host_ip'], '127.0.0.1')
+            self.assertEqual(fe['environment']['VITE_API_BASE_URL'], config['CHRONOLIST_API_BASE_URL'])
+            self.assertEqual(be['environment']['FRONTEND_ORIGIN'], config['CHRONOLIST_FRONTEND_ORIGIN'])
+            self.assertEqual(be['environment']['SPRING_PROFILES_ACTIVE'], 'dev')
+            self.assertEqual(next(v['source'] for v in be['volumes'] if v['type'] == 'bind'),
+                             str(root / 'backend'))
+            self.assertEqual(next(v['source'] for v in model['services']['devcontainer']['volumes']
+                                  if v['type'] == 'bind'), str(root))
+        for kind in ['volumes', 'networks']:
+            names = [{v['name'] for v in model[kind].values()} for model in models]
+            self.assertFalse(names[0] & names[1], kind)
+        self.assertEqual(len(models[0]['volumes']), 5)
+
+
 if __name__ == '__main__':
     unittest.main()

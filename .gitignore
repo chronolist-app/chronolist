@@ -2,6 +2,7 @@
 .vscode/*
 !.vscode/launch.json
 .env
+__pycache__/
 
 # Local Cloud Run configuration containing deployment-specific values.
 /service.yaml
