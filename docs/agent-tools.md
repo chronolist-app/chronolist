@@ -82,3 +82,15 @@ CI は Linux / Windows の Python 3.13 で実行し、UTF-8 モードを無効�
 - [Claude Code memory / AGENTS.md](https://code.claude.com/docs/en/memory#agentsmd)
 - [Claude Code skills](https://code.claude.com/docs/en/skills)
 - GitHub CLI のインストール済みバージョンで `gh pr list --help`、`gh pr create --help`、`gh pr edit --help` を確認する。
+
+## 要求に合わせた操作証跡
+
+操作途中・結果画面の取得には [capture-evidence](../.agents/skills/capture-evidence/SKILL.md) を使う。
+`$capture-evidence`（Codex）/ `/capture-evidence`（Claude Code）に目的・対象・期待状態を渡す。
+共有手順は .agents、Claude の入口は .claude に置き、symlink は不要。
+ユーザー要求のある証跡だけを対象とし、全実装・全 PR での撮影を義務化しない。
+PR 作成時は必要証跡の充足を確認し、有効な既存記録を再利用、不足時だけ capture-evidence を呼ぶ。
+この要求範囲の証跡取得が、create-pr の通常の検証を新規実行しない規則の例外となる。
+
+副作用のない記録・計画・再利用判定は frontend で `npm test` に含めて検証する。
+実ブラウザの例、保存形式、モデル指定と評価はスキル内 references を参照。

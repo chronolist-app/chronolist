@@ -110,3 +110,12 @@ Docker の Playwright イメージで実行する場合は npm の `@playwright/
 通常のコンテナ loopback はホストとは別である。
 API の準備・照合もブラウザ内の `fetch` で行うため、OS の hosts を変更せず、
 Chromium の `*.localhost` 名前解決、実際の Cookie と CORS を通して検証する。
+
+## 操作途中・結果の証跡
+
+テスト終了時 screenshot では不足する指定地点には
+[capture-evidence](../.agents/skills/capture-evidence/SKILL.md) を使う。
+ToDo 入力途中と登録・再読込後は同梱計画と capture-evidence.spec.ts で取得できる。
+EVIDENCE_PLAN を明示しない通常の E2E ではこのテストを skip する。
+結果は既存 resultPath と同じ URL/実行別の evidence/ 配下。取得状態と確認状態は別に記録する。
+要求/コード/環境が現在差分に有効な画像のみ再利用し、trace は共有前に認証情報を確認する。
