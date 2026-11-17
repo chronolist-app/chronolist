@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { test, expect, requestFromBrowser, createAccount, loginThroughUi, seedTask } from './fixtures';
 import { parseEvidencePlan, captureCheckpoint, evidenceIdentity, canReuseEvidence, requireCheckpointSuccess } from './evidence';
 import { resultPath } from './environment';
+import { captureEvidenceImage } from './evidence-images';
 
 test('要求に対応する ToDo の途中・結果を記録する', async ({ page, environment }) => {
     test.skip(!process.env.EVIDENCE_PLAN, '証跡の明示要求がある場合だけ実行する');
@@ -37,8 +38,7 @@ test('要求に対応する ToDo の途中・結果を記録する', async ({ pa
             if (!point) return;
             const result = await captureCheckpoint(point, async () => {
                 const path = resolve(directory, `${id}.png`);
-                await page.screenshot({ path, fullPage: true, animations: 'disabled' });
-                return path;
+                return captureEvidenceImage(page, path);
             }, verify);
             record.checkpoints.push(result);
             requireCheckpointSuccess(result);

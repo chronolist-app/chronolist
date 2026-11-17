@@ -23,6 +23,12 @@ expected は自由文から assertion に変換されない。呼出元が固定
 PNG は fullPage、animations: disabled で有限 CSS animation/transition を完了させて撮影する。
 draft は React Bootstrap の show クラス、opacity: 1、dialog の transform: none も待つ。
 show は entering 中にも付くためクラスだけでは完了と扱わず、固定 sleep は使用しない。
+撮影コールバック内の captureEvidenceImage は、レイアウトに参加する表示対象 img の読込・デコードを待つ。
+未読込で幅0の画像も対象とし、display: none / visibility: hidden などの非表示画像は除外する。
+画像0枚はそのまま撮影する。CSS 背景画像や全 UI の準備判定は対象外。
+固定 sleep は使わず、既定15秒の明示予算で準備待ちと撮影を完了する。破損・decode 拒否・待機超過は
+取得失敗として記録し、先の確認成功/失敗は維持する。後続操作は停止し、未到達地点を未確認に残す。
+エラー記録に画像 URL やレスポンス本文は含めない。
 trace が必要なら --trace on。既定で成功 trace は保持しない。
 使用後は EVIDENCE_PLAN / EVIDENCE_REUSE / URL 環境変数を解除する。
 独立実行では CHRONOLIST_E2E_RUN_ID を解除し新規 ID を生成させる。

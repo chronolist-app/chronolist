@@ -142,3 +142,44 @@ Node.js は `26.13.1` で、プロジェクト指定の 24 と異なる。この
 停止コンテナ、Volume、worktree、`.env`、node_modules、イメージは残っている。
 saved 画像のロゴ欠落は要求範囲外で未調査。停止時の frontend exit 1 の原因も未確認。
 これらの不具合修正や環境の追加片付けは実施していない。
+
+## 表示画像の準備待ちの追加修正
+
+初回追試の saved 画像で確認されたロゴ欠落について、親エージェントの診断では撮影時に
+ロゴ img の complete が false、naturalWidth と表示幅が 0 だった。img.decode() 完了後は
+naturalWidth 911、高さ589、表示サイズ167×108となったため、アプリを変更せず撮影側の準備待ちを追加した。
+診断成果物は Git 除外済み frontend/e2e-results/logo-diagnosis/ に保存している。
+
+captureEvidenceImage を実際の撮影入口で使用し、レイアウトに参加する表示対象 img のデコードを待つ。
+幅0の未読込ロゴも除外しない。非表示画像と画像0枚を扱い、CSS 背景画像の準備判定は範囲外。
+既定15秒の明示予算内で待機し、残予算で screenshot を行う。破損・decode 拒否と待機超過は取得失敗となり、
+先に記録した確認結果を維持して後続操作を停止する。URL/レスポンスを含まない安全なエラーを使う。
+
+回帰はサービス不要の Chromium で実行した。まず新規テストを先に追加し、未実装モジュールによる
+読込失敗を確認した。実装後の初回は3件成功し、非表示画像テストの次の setContent が既定の load 待機で
+未応答画像に阻まれたため、テストの置換操作を domcontentloaded に限定した。最終4件は全て成功（4.2秒）。
+
+- 遅延 PNG: 幅0・高さ108の実画像で decode 開始を待ち、route を明示解放して撮影まで完了。
+  screenshot 呼出直前に実 DOM の complete/naturalWidth を検査するため、準備待ちを除く実装では失敗する。
+- 破損 PNG: デコード失敗を直接観測し、capture failed / verification passed の独立記録と後続停止を確認。
+- 未応答 PNG: 100ms の注入予算で待機超過を直接観測し、破損とは異なる安全なエラーを確認。
+- 非表示画像と画像0枚: 非表示の未応答画像に阻まれず、撮影を完了。
+
+実行コマンドは frontend で両 E2E URL を明示した
+`node node_modules/@playwright/test/cli.js test evidence-images.spec.ts`。
+親エージェントでも新規回帰4件を実行して成功を確認した。Node.js 24 コンテナでの npm test は
+既存76件が成功、lint はエラー0・既存警告11件、build も成功。変更した3つの E2E ファイルの
+明示的な型検査と ESLint、git diff --check も成功した。
+
+実アプリの最初の再取得はログイン入力前に60秒でタイムアウトした。画像待機処理には未到達であり、
+成功扱いにはしていない。この実行中に Vite が e2e-results 内の trace リソース HTML を監視して
+ページを再読み込みしていることをログで観測した。監視設定の変更は範囲外とし、実機再確認では
+`playwright test capture-evidence.spec.ts --trace off --reporter=line` を使い、HTML/trace の生成を抑えた。
+この再確認は28.9秒で成功し、draft / saved の撮影・検証が両方 passed になった。
+親エージェントが PNG 2枚を目視し、どちらもロゴ全体が表示され、要求したタスクの状態を確認できた。
+
+保存先は `frontend/e2e-results/e0d0da6f11ba/2026-11-17T16-37-18-877Z-26590499-25d3-45d1-9d54-f875f7f034d8/evidence/`。
+実行時は基準 SHA `cdc1a17fcb1810b69b8bba8e40d4e468765ef1ea` に本追加修正を加えた状態で、
+記録した dirtyHash は `1c88dbcbe6333219d39ee9055f6c694771a65c590f0a4bc71661976b0be23298`。
+この段落は撮影後に追記した文書であり、撮影後に実装コードは変更していない。
+証跡はローカルに保持し、検証用 Compose project のみ終了する。
