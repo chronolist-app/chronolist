@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { isViteDevelopmentResponse } from './vite-environment';
 
 for (const width of [375, 1280]) {
     test(`SchedulerのTitleが入力・エラー解除・保存と再読込に対応する (${width}px)`, async ({ page, account, environment }) => {
@@ -59,7 +60,17 @@ for (const width of [375, 1280]) {
 
     test(`共通入力の状態とキーボード操作を確認する (${width}px)`, async ({ page }) => {
         await page.setViewportSize({ width, height: 1000 });
-        await page.goto('/e2e/chtextfield.html');
+        const harness = await page.goto('/e2e/chtextfield.html');
+        expect(harness).not.toBeNull();
+        if (harness!.status() !== 404) expect(harness!.ok(), '状態HTMLのサーバー異常をskipしない').toBeTruthy();
+        // Chromiumで名前解決し、document用AcceptによるViteのHTMLフォールバックも避ける。
+        const vite = await page.evaluate(async () => {
+            const response = await fetch('/@vite/client');
+            return { status: response.status, contentType: response.headers.get('content-type') ?? '' };
+        });
+        test.skip(!isViteDevelopmentResponse(vite.status, vite.contentType),
+            '状態一覧は開発用Vite専用です。ビルド済み配信ではScheduler等の実画面テストを実行します。');
+        expect(harness!.ok(), '開発用Viteでは状態HTMLが存在する').toBeTruthy();
         const normal = page.getByRole('textbox', { name: '通常', exact: true });
         await normal.focus();
         await page.keyboard.insertText('日本語を続けて入力');
@@ -94,5 +105,38 @@ for (const width of [375, 1280]) {
             await expect(field).not.toBeFocused();
             await expect(page.getByLabel('確定イベント')).toHaveText(`確定:${tag}:確定する値`);
         }
+        const nativeValues = { date: '2026-11-18', time: '12:30', 'datetime-local': '2026-11-18T12:30', month: '2026-11', week: '2026-W47' };
+        for (const [type, value] of Object.entries(nativeValues)) {
+            const field = page.getByLabel(`空の${type}`, { exact: true });
+            const id = await field.getAttribute('id');
+            const inputLabel = page.locator(`label[for="${id}"]`);
+            await expect(field).toHaveValue('');
+            await expect(inputLabel).toHaveAttribute('data-shrink', 'true');
+            await field.fill(value);
+            await expect(field).toHaveValue(value);
+            await expect(inputLabel).toHaveAttribute('data-shrink', 'true');
+            // 入力時のラベル移動アニメーションを含め、最終表示で入力文字と重ならないことを確認する。
+            await expect.poll(async () => {
+                const labelBox = await inputLabel.boundingBox();
+                const fieldBox = await field.boundingBox();
+                return labelBox!.y < fieldBox!.y;
+            }).toBeTruthy();
+        }
+        const autofill = page.getByLabel('自動入力検証', { exact: true });
+        const autofillId = await autofill.getAttribute('id');
+        const autofillLabel = page.locator(`label[for="${autofillId}"]`);
+        await expect(autofillLabel).toHaveAttribute('data-shrink', 'false');
+        await expect(autofill).toHaveAttribute('aria-invalid', 'false');
+        await autofill.evaluate(element => element.dispatchEvent(new AnimationEvent('animationstart', { animationName: 'mui-auto-fill', bubbles: true })));
+        await expect(autofillLabel).toHaveAttribute('data-shrink', 'true');
+        await expect(page.getByLabel('確定イベント')).not.toHaveText('内部イベントが上書きされた');
+        // rootを持たない文書でも、状態コンポーネントのimportだけでは描画を始めない。
+        const importedWithoutRoot = await page.evaluate(async () => {
+            document.getElementById('root')!.remove();
+            const moduleUrl = '/e2e/CHTextFieldStates.tsx?import-only';
+            const module = await import(moduleUrl);
+            return typeof module.FieldStates === 'function' && document.querySelector('main, input, textarea') === null;
+        });
+        expect(importedWithoutRoot).toBeTruthy();
     });
 }
