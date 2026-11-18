@@ -1,12 +1,14 @@
-import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-
+import { EvidenceError, safeFailure, type EvidenceFailure, type FailureStage } from './evidence-errors.ts';
+export { evidenceIdentity } from './evidence-git.ts';
 export type Checkpoint = { id: string; requirement: string; expected: string };
 export type EvidencePlan = { purpose: string; scenario: 'todo'; title: string; checkpoints: Checkpoint[] };
-type Identity = { sha: string; dirtyHash: string; baseURL: string; apiBaseURL: string; planHash: string };
-const digest = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
-
+export type Identity = { sha: string; dirtyHash: string; baseURL: string; apiBaseURL: string; planHash: string };
+export type CheckpointResult = Checkpoint & { capture: string; verification: string; path: string; sha256: string; failures: EvidenceFailure[] };
+export type EvidenceRecord = {
+    schemaVersion: 2; identity: Identity | null; purpose: string; createdAt: string;
+    checkpoints: CheckpointResult[]; unverified: string[]; reusedFrom: string; reuseRejection: string;
+    failure: EvidenceFailure | null; stage: FailureStage;
+};
 /** 曖昧な計画や代表シナリオで取得できない地点はブラウザ操作前に拒否する。 */
 export function parseEvidencePlan(value: unknown): EvidencePlan {
     const plan = value as EvidencePlan;
@@ -20,43 +22,42 @@ export function parseEvidencePlan(value: unknown): EvidencePlan {
     }
     return plan;
 }
-
+/** 同一性が不明な初期状態を明示し、失敗時に成功値を補わない。 */
+export function createEvidenceRecord(plan: EvidencePlan): EvidenceRecord {
+    return { schemaVersion: 2, identity: null, purpose: plan.purpose, createdAt: new Date().toISOString(),
+        checkpoints: [], unverified: [], reusedFrom: '', reuseRejection: '', failure: null, stage: 'identity' };
+}
+/** 同一性確認も保護範囲に含め、途中失敗と未到達地点を必ず保存する。 */
+export async function runEvidenceRecord(record: EvidenceRecord, plan: EvidencePlan, save: (record: EvidenceRecord) => void, action: () => Promise<void>) {
+    try { await action(); }
+    catch (error) {
+        record.failure = safeFailure(error, record.stage);
+        throw new EvidenceError(record.failure.code);
+    } finally {
+        for (const point of plan.checkpoints) {
+            if (!record.checkpoints.some(result => result.id === point.id)) {
+                record.checkpoints.push({ ...point, capture: 'unverified', verification: 'unverified', path: '', sha256: '', failures: [] });
+            }
+        }
+        record.unverified.push('指定要求以外の画面・本番環境・HTTPS・共有セッション');
+        save(record);
+    }
+}
 /** 確認失敗でも撮影を試み、両方の状態を独立に返す。 */
-export async function captureCheckpoint(point: Checkpoint, capture: () => Promise<string>, verify?: () => Promise<void>) {
-    const result = { ...point, capture: 'unverified', verification: 'unverified', path: '', errors: [] as string[] };
+export async function captureCheckpoint(point: Checkpoint, capture: () => Promise<string>, verify?: () => Promise<void>): Promise<CheckpointResult> {
+    const result: CheckpointResult = { ...point, capture: 'unverified', verification: 'unverified', path: '', sha256: '', failures: [] };
     if (verify) {
         try { await verify(); result.verification = 'passed'; }
-        catch { result.verification = 'failed'; result.errors.push('期待状態の確認に失敗'); }
+        catch (error) { result.verification = 'failed'; result.failures.push(safeFailure(error, 'verification')); }
     }
     try { result.path = await capture(); result.capture = 'passed'; }
-    catch { result.capture = 'failed'; result.errors.push('画像の取得に失敗'); }
+    catch (error) { result.capture = 'failed'; result.failures.push(safeFailure(error, 'capture')); }
     return result;
 }
-
-/** 取得または確認の失敗時は、後続の変更操作へ進ませない。 */
-export function requireCheckpointSuccess(result: { capture: string; verification: string }): void {
-    if (result.capture !== 'passed' || result.verification !== 'passed') throw new Error('証跡取得または期待状態の確認に失敗したため中断します。');
-}
-
-/** Git 管理対象差分と未追跡ファイルの内容をハッシュ化し、秘密を本文へ出さず同一性を記録する。 */
-export function evidenceIdentity(root: string, baseURL: string, apiBaseURL: string, plan: EvidencePlan): Identity {
-    const git = (args: string[]) => execFileSync('git', args, { cwd: root });
-    const changes = createHash('sha256').update(git(['diff', 'HEAD', '--binary']));
-    for (const path of git(['ls-files', '--others', '--exclude-standard', '-z']).toString('utf8').split('\0').filter(Boolean).sort()) {
-        changes.update(path).update(readFileSync(`${root}/${path}`));
+/** 取得または確認の失敗時は、安全な原因説明を添えて後続操作を中断する。 */
+export function requireCheckpointSuccess(result: { capture: string; verification: string; failures?: EvidenceFailure[] }): void {
+    if (result.capture !== 'passed' || result.verification !== 'passed') {
+        const failure = result.failures?.at(-1);
+        throw new EvidenceError(failure?.code ?? 'checkpoint', failure?.stage, true);
     }
-    return { sha: git(['rev-parse', 'HEAD']).toString('utf8').trim(), dirtyHash: changes.digest('hex'),
-        baseURL, apiBaseURL, planHash: digest(JSON.stringify(plan)) };
-}
-
-/** 要求とコード・環境が一致し、全画像が存在して確認も成功した場合だけ再利用を許す。 */
-export function canReuseEvidence(value: unknown, current: Identity, exists: (path: string) => boolean, plan?: EvidencePlan): boolean {
-    if (!value || typeof value !== 'object') return false;
-    const record = value as Identity & { checkpoints?: { id?: string; capture: string; verification: string; path: string }[] };
-    return Object.entries(current).every(([key, value]) => record[key as keyof Identity] === value)
-        && Array.isArray(record.checkpoints) && record.checkpoints.length > 0
-        && (!plan || (record.checkpoints.length === plan.checkpoints.length
-            && plan.checkpoints.every(point => record.checkpoints!.filter(result => result?.id === point.id).length === 1)))
-        && record.checkpoints.every(point => point && point.capture === 'passed' && point.verification === 'passed'
-            && typeof point.path === 'string' && !!point.path && exists(point.path));
 }

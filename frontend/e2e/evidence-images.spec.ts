@@ -46,7 +46,7 @@ test('破損画像は取得失敗となり、確認成功を維持して後続�
         () => captureEvidenceImage(page, testInfo.outputPath('broken.png')), async () => {});
     expect(result.capture).toBe('failed');
     expect(result.verification).toBe('passed');
-    expect(result.errors).toEqual(['画像の取得に失敗']);
+    expect(result.failures).toEqual([{ stage: 'capture', code: 'image-decode', message: '表示画像のデコードに失敗しました。' }]);
     let continued = false;
     expect(() => { requireCheckpointSuccess(result); continued = true; }).toThrow('中断');
     expect(continued).toBe(false);

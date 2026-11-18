@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseEvidencePlan, captureCheckpoint, canReuseEvidence, requireCheckpointSuccess } from '../e2e/evidence.ts';
+import { parseEvidencePlan, captureCheckpoint, requireCheckpointSuccess } from '../e2e/evidence.ts';
 
 const plan = { purpose: '入力と保存を確認', scenario: 'todo', title: '証跡タスク', checkpoints: [
     { id: 'draft', requirement: '入力途中', expected: 'タスク名が入力済み' },
@@ -24,21 +24,6 @@ test('撮影成功と確認成功を独立に記録する', async () => {
     assert.equal(unknown.verification, 'unverified');
 });
 
-test('現在のコード・環境・要求と成功済み成果物が一致する証跡だけ再利用する', () => {
-    const identity = { sha: 'abc', dirtyHash: '123', baseURL: 'http://one.localhost:20000', apiBaseURL: 'http://one.localhost:20001', planHash: '456' };
-    const result = { ...identity, checkpoints: [{ capture: 'passed', verification: 'passed', path: 'draft.png' }] };
-    assert.equal(canReuseEvidence(result, identity, () => true), true);
-    assert.equal(canReuseEvidence(result, { ...identity, dirtyHash: 'changed' }, () => true), false);
-    assert.equal(canReuseEvidence(result, identity, () => false), false);
-    assert.equal(canReuseEvidence({ ...result, checkpoints: [{ capture: 'passed', verification: 'unverified', path: 'draft.png' }] }, identity, () => true), false);
-    assert.equal(canReuseEvidence(null, identity, () => true), false);
-    assert.equal(canReuseEvidence({ ...identity }, identity, () => true), false);
-    assert.equal(canReuseEvidence(result, identity, () => true, parseEvidencePlan(plan)), false);
-    const complete = { ...identity, checkpoints: plan.checkpoints.map(point => ({ ...point, capture: 'passed', verification: 'passed', path: `${point.id}.png` })) };
-    assert.equal(canReuseEvidence(complete, identity, () => true, parseEvidencePlan(plan)), true);
-    assert.equal(canReuseEvidence({ ...complete, checkpoints: [complete.checkpoints[0], complete.checkpoints[0]] }, identity, () => true, parseEvidencePlan(plan)), false);
-});
-
 test('確認失敗後も画像は取得し、後続の変更操作は実行しない', async () => {
     const operations: string[] = [];
     await assert.rejects(async () => {
@@ -50,4 +35,60 @@ test('確認失敗後も画像は取得し、後続の変更操作は実行し�
     }, /中断/);
     assert.deepEqual(operations, ['撮影']);
     assert.throws(() => requireCheckpointSuccess({ capture: 'failed', verification: 'passed' }), /中断/);
+});
+
+test('安全なcause codeを保ち、機微情報を保存せずPlaywright側にも固定説明を返す', async () => {
+    const { EvidenceError } = await import('../e2e/evidence-errors.ts');
+    const failed = await captureCheckpoint(plan.checkpoints[0], async () => { throw new EvidenceError('image-decode'); }, async () => { throw new Error('secret URL password'); });
+    assert.equal(failed.failures[0].code, 'verification');
+    assert.equal(failed.failures[1].code, 'image-decode');
+    assert.doesNotMatch(JSON.stringify(failed), /secret|password/);
+    assert.throws(() => requireCheckpointSuccess(failed), /image-decode/);
+    const timeout = new Error('secret'); timeout.name = 'TimeoutError';
+    const waiting = await captureCheckpoint(plan.checkpoints[0], async () => { throw timeout; });
+    assert.equal(waiting.failures[0].code, 'selector-timeout');
+});
+
+test('identity失敗でも初期recordを保存し未到達地点を残す', async () => {
+    const { createEvidenceRecord, runEvidenceRecord } = await import('../e2e/evidence.ts');
+    const { EvidenceError } = await import('../e2e/evidence-errors.ts');
+    const record = createEvidenceRecord(parseEvidencePlan(plan));
+    let saved: unknown;
+    await assert.rejects(runEvidenceRecord(record, parseEvidencePlan(plan), value => { saved = JSON.parse(JSON.stringify(value)); }, async () => { throw new EvidenceError('identity-git'); }), /Git/);
+    assert.equal(record.identity, null);
+    assert.equal(record.failure?.stage, 'identity');
+    assert.equal(record.failure?.code, 'identity-git');
+    assert.equal(record.checkpoints.length, 2);
+    assert.ok(record.checkpoints.every(point => point.capture === 'unverified'));
+    assert.deepEqual(saved, record);
+});
+
+
+
+test('checkpoint中断の原因は最上位recordと再throwにも保持される', async () => {
+    const { createEvidenceRecord, runEvidenceRecord } = await import('../e2e/evidence.ts');
+    const { EvidenceError } = await import('../e2e/evidence-errors.ts');
+    const record = createEvidenceRecord(parseEvidencePlan(plan));
+    record.stage = 'operation';
+    await assert.rejects(runEvidenceRecord(record, parseEvidencePlan(plan), () => {}, async () => {
+        const result = await captureCheckpoint(plan.checkpoints[0], async () => { throw new EvidenceError('image-timeout'); }, async () => {});
+        record.checkpoints.push(result); requireCheckpointSuccess(result);
+    }), /image-timeout/);
+    assert.equal(record.failure?.code, 'image-timeout');
+    assert.equal(record.failure?.stage, 'capture');
+    assert.equal(record.checkpoints[0].verification, 'passed');
+});
+
+test('assertionと未知の検証処理失敗を区別し本文を保存しない', async () => {
+    const assertion = new Error('private difference'); assertion.name = 'AssertionError';
+    const result = await captureCheckpoint(plan.checkpoints[0], async () => 'draft.png', async () => { throw assertion; });
+    assert.equal(result.failures[0].code, 'assertion');
+    assert.doesNotMatch(JSON.stringify(result), /private/);
+});
+
+test('Playwrightのexpect不一致は機微な差分を捨てassertionとして残す', async () => {
+    const { expect } = await import('@playwright/test');
+    const result = await captureCheckpoint(plan.checkpoints[0], async () => 'draft.png', async () => { expect('private received').toBe('private expected'); });
+    assert.equal(result.failures[0].code, 'assertion');
+    assert.doesNotMatch(JSON.stringify(result), /private/);
 });

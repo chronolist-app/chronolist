@@ -1,8 +1,9 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect, requestFromBrowser, createAccount, loginThroughUi, seedTask } from './fixtures';
-import { parseEvidencePlan, captureCheckpoint, evidenceIdentity, canReuseEvidence, requireCheckpointSuccess } from './evidence';
+import { parseEvidencePlan, captureCheckpoint, evidenceIdentity, requireCheckpointSuccess, createEvidenceRecord, runEvidenceRecord } from './evidence';
+import { reuseEvidence, imageReference } from './evidence-files';
 import { resultPath } from './environment';
 import { captureEvidenceImage } from './evidence-images';
 
@@ -12,16 +13,22 @@ test('要求に対応する ToDo の途中・結果を記録する', async ({ pa
     const root = fileURLToPath(new URL('../../', import.meta.url));
     const directory = resolve(root, 'frontend', resultPath(environment.baseURL, process.env), 'evidence');
     mkdirSync(directory, { recursive: true });
-    const identity = evidenceIdentity(root, environment.baseURL, environment.apiBaseURL, plan);
-    const record = { ...identity, purpose: plan.purpose, createdAt: new Date().toISOString(), worktree: root,
-        environment: { browser: 'chromium', node: process.version, database: '開発用 H2（起動構成は呼出元で確認）' },
-        checkpoints: [] as Awaited<ReturnType<typeof captureCheckpoint>>[], unverified: [] as string[], reusedFrom: '' };
-    try {
+    const recordPath = resolve(directory, 'evidence.json');
+    const resultsRoot = resolve(root, 'frontend/e2e-results');
+    const record = { ...createEvidenceRecord(plan), worktree: root,
+        environment: { browser: 'chromium', node: process.version, database: '開発用 H2（起動構成は呼出元で確認）' } };
+    await runEvidenceRecord(record, plan, value => {
+        writeFileSync(recordPath, JSON.stringify(value, null, 2), 'utf8');
+        console.log(`証跡記録: ${recordPath}`);
+    }, async () => {
+        record.identity = await evidenceIdentity(root, environment.baseURL, environment.apiBaseURL, plan);
+        record.stage = 'operation';
         if (process.env.EVIDENCE_REUSE) {
-            const previous = JSON.parse(readFileSync(process.env.EVIDENCE_REUSE, 'utf8'));
-            if (canReuseEvidence(previous, identity, existsSync, plan)) {
-                record.checkpoints = previous.checkpoints;
-                record.reusedFrom = resolve(process.env.EVIDENCE_REUSE);
+            const reused = reuseEvidence(resolve(process.env.EVIDENCE_REUSE), recordPath, resultsRoot, record.identity, plan);
+            record.reuseRejection = reused.reason;
+            if (reused.checkpoints) {
+                record.checkpoints = reused.checkpoints;
+                record.reusedFrom = relative(directory, resolve(process.env.EVIDENCE_REUSE)).split(sep).join('/');
                 return;
             }
         }
@@ -36,10 +43,14 @@ test('要求に対応する ToDo の途中・結果を記録する', async ({ pa
         const capture = async (id: string, verify: () => Promise<void>) => {
             const point = plan.checkpoints.find(point => point.id === id);
             if (!point) return;
+            let reference = { path: '', sha256: '' };
             const result = await captureCheckpoint(point, async () => {
                 const path = resolve(directory, `${id}.png`);
-                return captureEvidenceImage(page, path);
+                await captureEvidenceImage(page, path);
+                reference = imageReference(path, recordPath, resultsRoot);
+                return reference.path;
             }, verify);
+            result.sha256 = reference.sha256;
             record.checkpoints.push(result);
             requireCheckpointSuccess(result);
         };
@@ -65,14 +76,5 @@ test('要求に対応する ToDo の途中・結果を記録する', async ({ pa
             expect(tasks.body).toEqual(expect.arrayContaining([expect.objectContaining({ title: plan.title })]));
         });
         expect(record.checkpoints.every(point => point.capture === 'passed' && point.verification === 'passed')).toBeTruthy();
-    } finally {
-        for (const point of plan.checkpoints) {
-            if (!record.checkpoints.some(result => result.id === point.id)) {
-                record.checkpoints.push({ ...point, capture: 'unverified', verification: 'unverified', path: '', errors: ['操作中断により未取得'] });
-            }
-        }
-        record.unverified.push('指定要求以外の画面・本番環境・HTTPS・共有セッション');
-        writeFileSync(resolve(directory, 'evidence.json'), JSON.stringify(record, null, 2), 'utf8');
-        console.log(`証跡記録: ${resolve(directory, 'evidence.json')}`);
-    }
+    });
 });

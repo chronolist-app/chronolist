@@ -1,3 +1,4 @@
+import { EvidenceError } from './evidence-errors.ts';
 import type { Page } from '@playwright/test';
 
 /** レイアウトに参加する表示画像を期限内にデコードし、準備完了後の証跡を保存する。 */
@@ -21,10 +22,10 @@ export async function captureEvidenceImage(page: Page, path: string, timeout = 1
             ]);
         } finally { clearTimeout(timer); }
     }, timeout);
-    if (state === 'timeout') throw new Error('表示画像の準備が制限時間内に完了しませんでした。');
-    if (state !== 'ready') throw new Error('表示画像のデコードに失敗しました。');
+    if (state === 'timeout') throw new EvidenceError('image-timeout');
+    if (state !== 'ready') throw new EvidenceError('image-decode');
     const remaining = timeout - (Date.now() - started);
-    if (remaining <= 0) throw new Error('表示画像の準備が制限時間内に完了しませんでした。');
+    if (remaining <= 0) throw new EvidenceError('image-timeout');
     await page.screenshot({ path, fullPage: true, animations: 'disabled', timeout: remaining });
     return path;
 }

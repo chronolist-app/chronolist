@@ -35,15 +35,25 @@ trace が必要なら --trace on。既定で成功 trace は保持しない。
 
 結果は frontend/e2e-results/<URL hash>/<run ID>/evidence/ の draft.png, saved.png,
 evidence.json。results.json/report/artifacts は同じ実行ディレクトリ。
-記録は SHA、管理対象差分と未追跡ファイル内容のハッシュ、要求ハッシュ、両 origin、
-worktree、日時、ブラウザ/Node、各地点の取得・確認状態、未確認事項を含む。
+記録は schemaVersion: 2。identity は SHA、管理対象差分と未追跡ファイル内容のハッシュ、
+要求ハッシュ、両 origin を持つ。worktree、日時、ブラウザ/Node、各地点の取得・確認状態、
+未確認事項はトップレベルの metadata として記録する。
 dirty 差分自体は秘密漏洩を避け記録せず、呼出元が git status / git diff で変更内容を報告する。
 DB の起動構成、実際のサービスが同じコードを実行していることも呼出元が確認する。
 URL/計画不正や準備失敗で記録できない場合は終了コード/ログを取得失敗として報告。
+Git identity の失敗も記録し、identity: null と安全な failure（stage/code/固定説明）を保存して非0終了する。
 操作中断の未到達地点は unverified。保存失敗と期待状態不一致は独立して記録する。
+各地点の failures は画像 decode/timeout、assertion、画面待機 timeout などを区別する。
+元の例外 message/stack や expect の差分は JSON に保存しない。
 
 EVIDENCE_REUSE に既存 evidence.json のパスを指定するとコード/要求/両 origin、
-全地点の成功、画像存在を照合する。不一致なら新規取得。呼出元が事前に画像と網羅性、
+全地点の成功、画像の sha256 を照合する。
+画像 path と reusedFrom は evidence.json 基準の相対パス（/区切り）。
+元 record のディレクトリから画像を解決し、新 record への相対参照に変換するため、ホストとコンテナの mount prefix が異なっても同じ相対配置なら再利用できる。
+画像は frontend/e2e-results 内だけを許し、絶対パス・境界外への参照・外へのリンク・改変・欠損・地点の欠損や重複は拒否する。
+worktree などの metadata は画像解決に使わない。
+旧 schema や hash のない画像は再利用せず新規取得する。
+存在しない record、読取エラー、不正 JSON、非対応 schema も reuseRejection に安全な固定理由を残して新規取得する。呼出元が事前に画像と網羅性、
 依存関係・環境設定・データの変更も確認する。ハッシュ一致だけで別環境への有効性を証明しない。
 コミット後 SHA 変化も自動再利用しない。必要なら内容同一性を説明する。
 ローカル参照は GitHub から見える公開 URL ではない。PR では参照先と共有可否を区別する。
