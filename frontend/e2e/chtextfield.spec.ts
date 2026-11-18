@@ -59,16 +59,7 @@ for (const width of [375, 1280]) {
 
     test(`共通入力の状態とキーボード操作を確認する (${width}px)`, async ({ page }) => {
         await page.setViewportSize({ width, height: 1000 });
-        await page.route('**/__chtextfield-check', route => route.fulfill({ contentType: 'text/html', body:
-            `<!doctype html><html lang="ja"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0"><div id="root"></div>
-<script type="module">
-import RefreshRuntime from '/@react-refresh';
-RefreshRuntime.injectIntoGlobalHook(window);
-window.$RefreshReg$ = () => {};
-window.$RefreshSig$ = () => type => type;
-window.__vite_plugin_react_preamble_installed__ = true;
-</script><script type="module" src="/e2e/chtextfield-harness.tsx"></script></body></html>` }));
-        await page.goto('/__chtextfield-check');
+        await page.goto('/e2e/chtextfield.html');
         const normal = page.getByRole('textbox', { name: '通常', exact: true });
         await normal.focus();
         await page.keyboard.insertText('日本語を続けて入力');
@@ -96,5 +87,12 @@ window.__vite_plugin_react_preamble_installed__ = true;
         await expect(page.getByLabel('パスワード', { exact: true })).toBeFocused();
         await page.getByLabel('複数行', { exact: true }).fill('一行目\n二行目');
         await expect(page.getByLabel('複数行', { exact: true })).toHaveValue('一行目\n二行目');
+        for (const [label, tag] of [['Enterで確定', 'INPUT'], ['複数行のEnterで確定', 'TEXTAREA']]) {
+            const field = page.getByLabel(label, { exact: true });
+            await field.fill('確定する値');
+            await field.press('Enter');
+            await expect(field).not.toBeFocused();
+            await expect(page.getByLabel('確定イベント')).toHaveText(`確定:${tag}:確定する値`);
+        }
     });
 }

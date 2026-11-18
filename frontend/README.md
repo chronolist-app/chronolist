@@ -260,6 +260,9 @@ HOLD・テンプレート・別表からの配置は範囲外を拒否する。�
 Theme に指定がない場合は MUI の標準（outlined / medium / 単一行、必須・無効・エラー・全幅は false）です。
 入力要素用の `className` / `style` / `aria-*` は内部の input または textarea に渡ります。
 イベントの入力要素型は `HTMLInputElement | HTMLTextAreaElement` で、どちらも `event.target.value` を使用できます。
+イベントはネイティブの input / textarea を対象とし、`event.currentTarget` もその入力要素です。
+MUI TextField のルート要素へのイベント指定と異なり、外枠のクリックは対象外です。
+既存の Enter 確定処理を移す場合は、入力要素の `blur()` を呼び、保存処理を `onBlur` にまとめられます。
 
 ```tsx
 import CHTextField from "@/components/CHTextField";
@@ -273,8 +276,15 @@ const [error, setError] = useState(false);
     onChange={event => { setTitle(event.target.value); setError(false); }} />;
 <CHTextField label="パスワード" type="password" name="password"
     autoComplete="current-password" required size="small" />;
+<CHTextField label="Enterで確定" defaultValue={title}
+    onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }}
+    onBlur={event => setTitle(event.currentTarget.value)} />;
 ```
 
 今回の先行導入は Scheduler の予定作成 Title のみです。他入力欄の移行は CHRON-204 で扱います。
-`npm test` で DOM と公開型、`npm run test:e2e -- e2e/chtextfield.spec.ts` で実 API の保存・再読込と
-375px / 1280px の状態・キーボード操作を検証します。e2e の一時 HTML と専用 harness は検証時だけ使用し、製品の画面には登録しません。
+`npm test` で DOM、`npm run build` の `tsc -b` で公開型の正例・負例を検証します。
+型検証専用の `tests/types/chtextfield.type-test.tsx` は実行時のバンドルには含めません。
+`npm run test:e2e -- e2e/chtextfield.spec.ts` で実 API の保存・再読込と
+375px / 1280px の状態・キーボード操作を検証します。状態一覧は開発用 Vite が通常配信する
+`/e2e/chtextfield.html` から専用 harness を読み込みます。検証 HTML は本番ビルドの入力に含めず、
+製品の画面にも登録しません。この状態検証は開発用 Vite を対象とし、ビルド済みフロントエンドや HTTPS 環境への対応は含みません。
