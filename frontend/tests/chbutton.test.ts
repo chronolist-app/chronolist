@@ -1,22 +1,12 @@
-import test, { after } from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { pathToFileURL, fileURLToPath } from "node:url";
-import ts from "typescript";
+import { loadTsx } from "./helpers/load-tsx.ts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import type { CHButtonProps } from "../src/components/CHButton.tsx";
 
-// Node標準ランナーでTSXを実行するため、既存のTypeScriptだけで一時変換する。
-const DIRECTORY = await mkdtemp(fileURLToPath(new URL(".chbutton-", import.meta.url)));
-after(() => rm(DIRECTORY, { recursive: true, force: true }));
-const SOURCE = await readFile(new URL("../src/components/CHButton.tsx", import.meta.url), "utf8");
-const MODULE_PATH = `${DIRECTORY}/CHButton.mjs`;
-await writeFile(MODULE_PATH, ts.transpileModule(SOURCE, {
-    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-}).outputText);
-const { default: CHButton } = await import(pathToFileURL(MODULE_PATH).href);
+const { default: CHButton } = await loadTsx<typeof import("../src/components/CHButton.tsx")>(new URL("../src/components/CHButton.tsx", import.meta.url));
 const render = (props: CHButtonProps) => renderToStaticMarkup(createElement(CHButton, props));
 
 test("リンクは遷移先を持つアンカーとして描画し、buttonの属性を付けない", () => {

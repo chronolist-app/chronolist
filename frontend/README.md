@@ -240,3 +240,59 @@ HOLD・テンプレート・別表からの配置は範囲外を拒否する。�
 幅と配置境界の両方が不正な既存ブロックは、詳細の「00:00・スロット分数に修正」を明示的に押すことで同時修正できる。API保存成功後に表示へ反映する。
 
 ブロックの子タスクは専用APIの成功後だけ一覧とリポジトリに反映する。幅や配置時刻が不正な既存ブロックでも子タスクは編集でき、ブロック全体の更新APIは呼ばない。処理中の重複操作を抑止し、失敗時は保存済みの内容とエラーを表示する。選択を切り替えた後の完了は元ブロックのタスクだけに反映する。
+## 共通入力欄 CHTextField
+
+`src/components/CHTextField.tsx` は内部に MUI TextField を使用する共通入力欄です。
+呼出側は React 標準の入力属性と `CHTextFieldProps` を使用します。MUI の型、`sx`、`slotProps` は公開しません。
+
+| Props | 用途・既定値 |
+| --- | --- |
+| `label`, `helperText` | ラベル・補助文（ReactNode）。省略時は表示しません。 |
+| `error` | エラー表示。補助文と併用します。 |
+| `required`, `disabled`, `readOnly` | 必須・無効・読み取り専用を入力要素へ渡します。 |
+| `size` | `"small"` / `"medium"`。HTML の文字幅指定とは異なります。 |
+| `fullWidth` | 親要素の幅に合わせます。 |
+| `multiline`, `rows` | 複数行入力・行数。通常は単一行です。 |
+| `type`, `name`, `value`, `defaultValue`, `onChange` など | React 標準の input 属性。`password`、`number`、`min` / `max` / `step`、`autoComplete`、`onBlur` / `onKeyDown`、`aria-*` も使用できます。 |
+| `id`, `aria-describedby` | ID 省略時はインスタンス固有の ID を生成します。ラベル・補助文を自動で関連付け、外部の説明 ID も保持します。 |
+
+外観・サイズ・全幅・状態を省略した場合は既存の Theme の既定値を使用します。
+Theme に指定がない場合は MUI の標準（outlined / medium / 単一行、必須・無効・エラー・全幅は false）です。
+入力要素用の `className` / `style` / `aria-*` は内部の input または textarea に渡ります。
+イベントの入力要素型は `HTMLInputElement | HTMLTextAreaElement` で、どちらも `event.target.value` を使用できます。
+イベントはネイティブの input / textarea を対象とし、`event.currentTarget` もその入力要素です。
+`onAnimationStart` と `aria-invalid` は内部管理のため公開しません。前者はMUIの自動入力検知、後者は `error` を正本とする状態通知に使用します。
+JavaScript等から指定されても内部管理を上書きしません。その他の標準入力イベントは使用できます。
+`id=""` もID省略時と同様に生成IDを使います。
+ネイティブの `date` / `time` / `datetime-local` / `month` / `week` は、空値でも入力表示と重ならないようラベルを縮小します（`multiline` は対象外）。
+MUI TextField のルート要素へのイベント指定と異なり、外枠のクリックは対象外です。
+既存の Enter 確定処理を移す場合は、入力要素の `blur()` を呼び、保存処理を `onBlur` にまとめられます。
+
+```tsx
+import CHTextField from "@/components/CHTextField";
+
+// 呼出元のコンポーネント内で状態を管理する。
+const [title, setTitle] = useState("");
+const [error, setError] = useState(false);
+
+<CHTextField label="タイトル" value={title} fullWidth
+    error={error} helperText={error ? "タイトルを入力してください" : undefined}
+    onChange={event => { setTitle(event.target.value); setError(false); }} />;
+<CHTextField label="パスワード" type="password" name="password"
+    autoComplete="current-password" required size="small" />;
+<CHTextField label="Enterで確定" defaultValue={title}
+    onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }}
+    onBlur={event => setTitle(event.currentTarget.value)} />;
+```
+
+今回の先行導入は Scheduler の予定作成 Title のみです。他入力欄の移行は CHRON-204 で扱います。
+`npm test` で DOM、`npm run build` の `tsc -b` で公開型の正例・負例を検証します。
+型検証専用の `tests/types/chtextfield.type-test.tsx` は実行時のバンドルには含めません。
+`npm run test:e2e -- e2e/chtextfield.spec.ts` で実 API の保存・再読込と
+375px / 1280px の状態・キーボード操作を検証します。状態一覧は開発用 Vite が通常配信する
+`/e2e/chtextfield.html` から専用 harness を読み込みます。実アプリと同じBootstrap CSSを先に読み込み、
+状態コンポーネントと描画entryは分離しています。検証 HTML は本番ビルドの入力に含めず、
+製品の画面にも登録しません。この状態検証は開発用 Vite を対象とし、ビルド済みフロントエンドや HTTPS 環境への対応は含みません。
+状態テストは `/@vite/client` のJavaScript応答で開発用Viteを確認します。404やビルド済みSPAのHTML応答なら、理由を表示して状態テストだけをskipします。
+Scheduler等の実画面テストは継続します。通信障害・5xx・開発用Viteでのharness不具合は失敗として扱います。
+自動入力検知の検証は `mui-auto-fill` のAnimationEventによるMUI内部処理の確認で、実際のパスワードマネージャーの動作確認ではありません。
