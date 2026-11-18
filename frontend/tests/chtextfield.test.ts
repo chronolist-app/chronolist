@@ -1,30 +1,39 @@
-import test, { after } from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { pathToFileURL, fileURLToPath } from "node:url";
-import ts from "typescript";
+import { loadTsx } from "./helpers/load-tsx.ts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import type { CHTextFieldProps } from "../src/components/CHTextField.tsx";
 
-// 中断した一時モジュールもgit・lintへ混入させず、依存のbare importを解決できる場所を使う。
-const TEMP_ROOT = fileURLToPath(new URL("../node_modules/.tmp/", import.meta.url));
-await mkdir(TEMP_ROOT, { recursive: true });
-const DIRECTORY = await mkdtemp(`${TEMP_ROOT}/chtextfield-`);
-after(() => rm(DIRECTORY, { recursive: true, force: true }));
-const SOURCE = await readFile(new URL("../src/components/CHTextField.tsx", import.meta.url), "utf8");
-const MODULE_PATH = `${DIRECTORY}/CHTextField.mjs`;
-await writeFile(MODULE_PATH, ts.transpileModule(SOURCE, {
-    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-}).outputText);
-const { default: CHTextField } = await import(pathToFileURL(MODULE_PATH).href);
+const { default: CHTextField } = await loadTsx<typeof import("../src/components/CHTextField.tsx")>(new URL("../src/components/CHTextField.tsx", import.meta.url));
 const render = (props: CHTextFieldProps) => renderToStaticMarkup(createElement(CHTextField, props));
 const inputTag = (html: string) => {
     const tag = html.match(/<input\b[^>]*>/)?.[0];
     assert.ok(tag);
     return tag;
 };
+
+test("空の日時入力はラベルを縮小し、multilineは対象外とする", () => {
+    for (const type of ["date", "time", "datetime-local", "month", "week"]) {
+        assert.match(render({ label: "日時", type, defaultValue: "" }), /data-shrink="true"/);
+        assert.match(render({ label: "複数行", type, multiline: true }), /data-shrink="false"/);
+    }
+});
+
+test("空文字IDを生成IDへ置き換え、ラベルと補助文を関連付ける", () => {
+    const html = render({ id: "", label: "入力", helperText: "説明" });
+    const id = inputTag(html).match(/\sid="([^"]+)"/)?.[1];
+    assert.ok(id);
+    assert.ok(html.includes(`for="${id}"`));
+    assert.ok(html.includes(`id="${id}-helper-text"`));
+    assert.ok(inputTag(html).includes(`aria-describedby="${id}-helper-text"`));
+});
+
+test("未サポートのaria-invalidがJavaScriptから渡されてもerrorを上書きしない", () => {
+    const unsupported = { "aria-invalid": true };
+    assert.match(inputTag(render({ ...unsupported, error: false })), /aria-invalid="false"/);
+});
 
 test("ラベルと補助文が明示IDに紐づき、エラーが入力に伝わる", () => {
     const html = render({ id: "title", label: "タイトル", helperText: "入力してください", error: true });
