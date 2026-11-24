@@ -93,4 +93,6 @@ PR 作成時は必要証跡の充足を確認し、有効な既存記録を再�
 この要求範囲の証跡取得が、create-pr の通常の検証を新規実行しない規則の例外となる。
 
 副作用のない記録・計画・再利用判定は frontend で `npm test` に含めて検証する。
-実ブラウザの例、保存形式、モデル指定と評価はスキル内 references を参照。
+画像helperの実ブラウザ回帰は `frontend/` の `npm run test:browser`。独立設定を使い、`.env`・E2E URL・アプリ起動は不要。準備と保証範囲は [ブラウザ検証手順](browser-verification.md) を参照。
+アプリ操作の例、保存形式、モデル指定と評価方法はスキル内 references を参照。
+個別の実施結果は [CHRON-220 開発メモ](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/7176193/CHRON-220) に記録する。

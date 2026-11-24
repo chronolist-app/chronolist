@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { test, expect, requestFromBrowser, createAccount, loginThroughUi, seedTask } from './fixtures';
+import { test, prepareAccount, fillTodoDraft, verifyTodoDraft, submitTodoDraft, verifySavedTodo } from './fixtures';
 import { parseEvidencePlan, captureCheckpoint, evidenceIdentity, requireCheckpointSuccess, createEvidenceRecord, runEvidenceRecord } from './evidence';
 import { reuseEvidence, imageReference } from './evidence-files';
 import { resultPath } from './environment';
@@ -32,14 +32,8 @@ test('要求に対応する ToDo の途中・結果を記録する', async ({ pa
                 return;
             }
         }
-        await page.goto(`${environment.baseURL}/login`);
-        const account = await createAccount(page, environment.apiBaseURL);
-        await loginThroughUi(page, environment.baseURL, environment.apiBaseURL, account);
-        await seedTask(page, environment.apiBaseURL, account.seedTitle);
-        await page.goto('/todolist');
-        await expect(page.getByText(account.seedTitle, { exact: true })).toBeVisible();
-        await page.getByRole('button', { name: '新規作成', exact: true }).click();
-        await page.getByLabel('タスク名', { exact: true }).fill(plan.title);
+        const account = await prepareAccount(page, environment);
+        await fillTodoDraft(page, account.seedTitle, plan.title);
         const capture = async (id: string, verify: () => Promise<void>) => {
             const point = plan.checkpoints.find(point => point.id === id);
             if (!point) return;
@@ -54,27 +48,9 @@ test('要求に対応する ToDo の途中・結果を記録する', async ({ pa
             record.checkpoints.push(result);
             requireCheckpointSuccess(result);
         };
-        await capture('draft', async () => {
-            await expect(page.getByLabel('タスク名', { exact: true })).toHaveValue(plan.title);
-            // React Bootstrap の show クラス反映とフェード・位置遷移の完了を確認する。
-            await expect(page.getByRole('dialog')).toHaveClass(/\bshow\b/);
-            await expect(page.getByRole('dialog')).toHaveCSS('opacity', '1');
-            await expect(page.locator('.modal.show .modal-dialog')).toHaveCSS('transform', 'none');
-        });
-        if (!plan.checkpoints.some(point => point.id === 'saved')) {
-            expect(record.checkpoints.every(point => point.capture === 'passed' && point.verification === 'passed')).toBeTruthy();
-            return;
-        }
-        const saved = page.waitForResponse(response => response.url() === `${environment.apiBaseURL}/api/todolist/register` && response.request().method() === 'POST');
-        await page.getByRole('button', { name: '登録', exact: true }).click();
-        expect((await saved).ok()).toBeTruthy();
-        await page.reload();
-        await capture('saved', async () => {
-            await expect(page.getByText(plan.title, { exact: true })).toBeVisible();
-            const tasks = await requestFromBrowser(page, environment.apiBaseURL, '/todolist/getAll');
-            expect(tasks.ok).toBeTruthy();
-            expect(tasks.body).toEqual(expect.arrayContaining([expect.objectContaining({ title: plan.title })]));
-        });
-        expect(record.checkpoints.every(point => point.capture === 'passed' && point.verification === 'passed')).toBeTruthy();
+        await capture('draft', () => verifyTodoDraft(page, plan.title));
+        if (!plan.checkpoints.some(point => point.id === 'saved')) return;
+        await submitTodoDraft(page, environment.apiBaseURL);
+        await capture('saved', () => verifySavedTodo(page, environment.apiBaseURL, plan.title));
     });
 });

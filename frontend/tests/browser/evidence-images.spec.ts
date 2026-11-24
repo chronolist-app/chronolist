@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { captureEvidenceImage } from './evidence-images';
-import { captureCheckpoint, requireCheckpointSuccess } from './evidence';
+import { captureEvidenceImage } from '../../e2e/evidence-images';
+import { captureCheckpoint, requireCheckpointSuccess } from '../../e2e/evidence';
 
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64');
 
@@ -61,7 +61,64 @@ test('応答未完了も明示予算で取得処理に戻り、機微をエラ�
 test('非表示の未応答画像は除外し、画像0枚でも撮影できる', async ({ page }, testInfo) => {
     await page.route('http://images.localhost/hidden.png', () => {});
     await page.setContent('<div style="display:none"><img src="http://images.localhost/hidden.png"></div><img style="visibility:hidden" src="http://images.localhost/hidden.png">', { waitUntil: 'domcontentloaded' });
-    await captureEvidenceImage(page, testInfo.outputPath('hidden.png'), 1000);
+    await captureEvidenceImage(page, testInfo.outputPath('hidden.png'));
     await page.setContent('<p>画像なし</p>', { waitUntil: 'domcontentloaded' });
-    await captureEvidenceImage(page, testInfo.outputPath('empty.png'), 1000);
+    await captureEvidenceImage(page, testInfo.outputPath('empty.png'));
 });
+
+test('画面外のlazy画像もfullPage撮影前に取得しloading属性を復元する', async ({ page }, testInfo) => {
+    await page.route('http://images.localhost/lazy.png', route => route.fulfill({ contentType: 'image/png', body: pixel }));
+    await page.setContent('<div style="height:20000px"></div><img loading="lazy" src="http://images.localhost/lazy.png" style="height:108px;width:auto">', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('img')).toHaveJSProperty('complete', false);
+    const screenshot = page.screenshot.bind(page);
+    page.screenshot = async options => {
+        expect(await page.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(1);
+        return screenshot(options);
+    };
+    await captureEvidenceImage(page, testInfo.outputPath('lazy.png'));
+    await expect(page.locator('img')).toHaveAttribute('loading', 'lazy');
+});
+
+test('画像候補のないplaceholderはdecodeせず除外する', async ({ page }, testInfo) => {
+    await page.setContent('<img style="height:108px"><img src="" srcset=" " style="height:108px"><picture><source srcset=""><img style="height:108px"></picture>');
+    await page.locator('img').evaluateAll(images => images.forEach(image => {
+        (image as HTMLImageElement).decode = () => { throw new Error('placeholderをdecodeしない'); };
+    }));
+    await captureEvidenceImage(page, testInfo.outputPath('placeholder.png'));
+    await expect(page.locator('img[loading]')).toHaveCount(0);
+});
+
+for (const kind of ['srcset', 'picture'] as const) {
+    test(`currentSrcが空でも読込途中の${kind}候補を待つ`, async ({ page }, testInfo) => {
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        await page.route('http://images.localhost/candidate.png', async route => { await gate; await route.fulfill({ contentType: 'image/png', body: pixel }); });
+        const image = '<img style="height:108px"' + (kind === 'srcset' ? ' srcset="http://images.localhost/candidate.png 1x">' : '>');
+        await page.setContent(kind === 'picture' ? `<picture><source srcset="http://images.localhost/candidate.png 1x">${image}</picture>` : image, { waitUntil: 'domcontentloaded' });
+        await page.locator('img').evaluate(element => {
+            const image = element as HTMLImageElement;
+            const decode = image.decode.bind(image);
+            image.decode = () => { image.dataset.decodeStarted = 'true'; return decode(); };
+        });
+        let captured = false;
+        const capture = captureEvidenceImage(page, testInfo.outputPath(`${kind}.png`)).then(() => { captured = true; });
+        void capture.catch(() => {});
+        try {
+            await expect(page.locator('img')).toHaveAttribute('data-decode-started', 'true');
+            expect(captured).toBe(false);
+        } finally { release(); }
+        await capture;
+        await expect(page.locator('img')).toHaveJSProperty('naturalWidth', 1);
+        await expect(page.locator('img')).not.toHaveAttribute('loading');
+    });
+}
+
+for (const failure of ['broken', 'timeout'] as const) {
+    test(`${failure}でもlazy属性を復元する`, async ({ page }, testInfo) => {
+        await page.route('http://images.localhost/failure.png', failure === 'broken'
+            ? route => route.fulfill({ contentType: 'image/png', body: 'broken' }) : () => {});
+        await page.setContent('<div style="height:20000px"></div><img loading="lazy" src="http://images.localhost/failure.png" style="height:108px;width:auto">', { waitUntil: 'domcontentloaded' });
+        await expect(captureEvidenceImage(page, testInfo.outputPath(`${failure}-lazy.png`), failure === 'timeout' ? 100 : undefined)).rejects.toThrow(failure === 'broken' ? 'image-decode' : 'image-timeout');
+        await expect(page.locator('img')).toHaveAttribute('loading', 'lazy');
+    });
+}

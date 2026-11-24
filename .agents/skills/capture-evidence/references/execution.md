@@ -25,6 +25,8 @@ draft は React Bootstrap の show クラス、opacity: 1、dialog の transform
 show は entering 中にも付くためクラスだけでは完了と扱わず、固定 sleep は使用しない。
 撮影コールバック内の captureEvidenceImage は、レイアウトに参加する表示対象 img の読込・デコードを待つ。
 未読込で幅0の画像も対象とし、display: none / visibility: hidden などの非表示画像は除外する。
+画面外の lazy 画像は loading を一時的に eager として取得し、成功・失敗・timeout のいずれでも元属性へ戻す。
+src/currentSrc/srcset/picture source の候補がない placeholder は除外する。候補のある読込途中画像は待つ。
 画像0枚はそのまま撮影する。CSS 背景画像や全 UI の準備判定は対象外。
 固定 sleep は使わず、既定15秒の明示予算で準備待ちと撮影を完了する。破損・decode 拒否・待機超過は
 取得失敗として記録し、先の確認成功/失敗は維持する。後続操作は停止し、未到達地点を未確認に残す。
@@ -54,7 +56,7 @@ EVIDENCE_REUSE に既存 evidence.json のパスを指定するとコード/要�
 worktree などの metadata は画像解決に使わない。
 旧 schema や hash のない画像は再利用せず新規取得する。
 存在しない record、読取エラー、不正 JSON、非対応 schema も reuseRejection に安全な固定理由を残して新規取得する。呼出元が事前に画像と網羅性、
-依存関係・環境設定・データの変更も確認する。ハッシュ一致だけで別環境への有効性を証明しない。
+依存関係・環境設定・データの変更も確認する。symlink の指紋は参照先文字列だけを含み、外部 target の内容は辿らないため、その変更は呼出元が別に照合する。ハッシュ一致だけで別環境への有効性を証明しない。
 コミット後 SHA 変化も自動再利用しない。必要なら内容同一性を説明する。
 ローカル参照は GitHub から見える公開 URL ではない。PR では参照先と共有可否を区別する。
 

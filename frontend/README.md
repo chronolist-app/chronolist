@@ -1,6 +1,7 @@
 # Chronolist Frontend
 
-worktree 別のヘッドレス E2E は [ブラウザ検証手順](../docs/browser-verification.md) を参照する。
+アプリ起動を伴わない画像helperの実 Chromium 回帰は、Node.js 24 で `npm ci`、`npx playwright install chromium`、`npm run test:browser` を実行する。`.env` や E2E URL は不要。Linux でシステム依存も必要なら `install --with-deps chromium` を使う。
+worktree 別のヘッドレス E2E と画像回帰の保証範囲は [ブラウザ検証手順](../docs/browser-verification.md) を参照する。
 
 React / TypeScript / Viteで構築したSPA。開発時はVite、本番はNginxで静的ファイルを配信する。
 以下のDockerコマンドはリポジトリルートで実行する。

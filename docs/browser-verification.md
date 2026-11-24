@@ -3,6 +3,28 @@
 CHRON-217 / CHRON-219 の検証入口。Playwright Test のヘッドレス Chromium で、
 実際の画面・API・H2 を通して確認する。モックや保存済みのログイン状態は使用しない。
 
+## アプリ起動を伴わない画像helperの回帰
+
+Node.js 24 と Chromium を用意し、`frontend/` で実行する。
+このコマンドは独立した `playwright.browser.config.ts` を使用する。
+`.env`・E2E URL・Compose・Frontend/Backend の起動は不要で、アプリ用の設定を読み込まない。
+
+```sh
+npm ci
+npx playwright install --with-deps chromium
+npm run test:browser
+```
+
+Windows では `npx playwright install chromium` でよい。
+実 DOM とテスト用画像応答を使い、画像の decode、画面外 lazy 画像、候補のない placeholder、
+srcset/picture の読込待機、失敗・timeout 時の属性復元を検証する。
+アプリの認証・API・保存や CSS 背景画像の準備を保証するものではない。
+Node.js 24 の Frontend CI でも同じコマンドを実行する。
+
+結果は `frontend/e2e-results/browser/<実行ID>/` の `results.json`、`report/`、`artifacts/`。
+実行IDを worker に引き継ぎ、同じ実行の成果物をまとめる。各実行は別ディレクトリとなる。
+この生成先も Git と Docker build context から除外される。
+
 ## セットアップと起動
 
 Git、Python 3.10 以降、Docker Compose、Node.js 24 をホストに用意する。
@@ -119,3 +141,6 @@ ToDo 入力途中と登録・再読込後は同梱計画と capture-evidence.spe
 EVIDENCE_PLAN を明示しない通常の E2E ではこのテストを skip する。
 結果は既存 resultPath と同じ URL/実行別の evidence/ 配下。取得状態と確認状態は別に記録する。
 要求/コード/環境が現在差分に有効な画像のみ再利用し、trace は共有前に認証情報を確認する。
+
+個別の検証結果・消費評価・クライアント実機確認は
+[CHRON-220 開発メモ](https://magu.atlassian.net/wiki/spaces/Chronolist/pages/7176193/CHRON-220) を参照する。
