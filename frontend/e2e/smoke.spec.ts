@@ -1,20 +1,11 @@
-import { test, expect, requestFromBrowser } from './fixtures';
+import { test, expect, fillTodoDraft, verifyTodoDraft, submitTodoDraft, verifySavedTodo } from './fixtures';
 
 test('ログイン後に主要画面を表示し、作成した ToDo をリロード後も取得できる', async ({ page, account, environment }) => {
-    await page.goto('/todolist');
-    await expect(page.getByText(account.seedTitle, { exact: true })).toBeVisible();
-
     const title = `ブラウザ作成${account.loginId}`;
-    await page.getByRole('button', { name: '新規作成', exact: true }).click();
-    await page.getByLabel('タスク名', { exact: true }).fill(title);
-    const saved = page.waitForResponse(response => response.url() === `${environment.apiBaseURL}/api/todolist/register` && response.request().method() === 'POST');
-    await page.getByRole('button', { name: '登録', exact: true }).click();
-    expect((await saved).ok()).toBeTruthy();
-    await page.reload();
-    await expect(page.getByText(title, { exact: true })).toBeVisible();
-    const tasks = await requestFromBrowser(page, environment.apiBaseURL, '/todolist/getAll');
-    expect(tasks.ok).toBeTruthy();
-    expect(tasks.body).toEqual(expect.arrayContaining([expect.objectContaining({ title })]));
+    await fillTodoDraft(page, account.seedTitle, title);
+    await verifyTodoDraft(page, title);
+    await submitTodoDraft(page, environment.apiBaseURL);
+    await verifySavedTodo(page, environment.apiBaseURL, title);
 
     const scheduleLoaded = page.waitForResponse(response => response.url().includes('/api/scheduler/getEvents/') && response.ok());
     await page.goto('/scheduler');

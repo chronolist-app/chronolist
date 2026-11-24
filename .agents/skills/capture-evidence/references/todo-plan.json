@@ -1,0 +1,9 @@
+{
+  "purpose": "ToDo の入力途中と登録後の永続化を確認する",
+  "scenario": "todo",
+  "title": "証跡確認タスク",
+  "checkpoints": [
+    { "id": "draft", "requirement": "入力途中の画面", "expected": "タスク名欄に指定タイトルが入力されている" },
+    { "id": "saved", "requirement": "登録結果の画面", "expected": "リロード後の一覧と取得 API に指定タイトルが存在する" }
+  ]
+}
