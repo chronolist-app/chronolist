@@ -3,6 +3,7 @@ import { createBrowserRouter, createRoutesFromElements, Route } from "react-rout
 import ToDoListTestPage from "@/feature/tester/components/toDoListIndex";
 import TesterPage from "@/feature/tester";
 import SchedulerTestPage from "@/feature/tester/components/schedulerIndex";
+import SnackbarTestPage from "@/feature/tester/components/SnackbarTestPage";
 import ToDoListPage from "@/feature/todolist";
 import SchedulerPage from "@/feature/schesuler";
 import HomePage from "@/feature/home";
@@ -27,6 +28,7 @@ const routesBasic = createBrowserRouter(
                     <SchedulerTestPage />
                 </AppLayout>
             } />
+            <Route path="/test/snackbar" element={<SnackbarTestPage />} />
             <Route path="/todolist" element={
                 <AppLayout>
                     <ToDoListPage />

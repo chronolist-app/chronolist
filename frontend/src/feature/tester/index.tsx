@@ -11,6 +11,7 @@ const TesterPage = () => {
             <h1>Tester Page</h1>
             <Button className="m-2" onClick={() => {nav("/test/todolist")}}>ToDoリスト</Button>
             <Button className="m-2" onClick={() => {nav("/test/scheduler")}}>スケジューラ</Button>
+            <Button className="m-2" onClick={() => {nav("/test/snackbar")}}>Snackbar</Button>
         </>
     )
 }
