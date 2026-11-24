@@ -2,7 +2,7 @@ import { useSnackbar, type VariantType } from "notistack";
 import { useState } from "react";
 import { Button } from "react-bootstrap";
 
-import { actionSnackbarOptions } from "@/components/snackbarActionOptions";
+import { actionSnackbarOptions } from "@/components/snackbar-action-options";
 
 const VARIANTS: { variant: VariantType, label: string }[] = [
     { variant: "default", label: "通常" },
