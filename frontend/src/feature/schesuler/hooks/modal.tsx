@@ -14,6 +14,7 @@ import CheckBox from "@/components/checkbox";
 import registerEvent from "../api/register";
 import CalendarEventsContext from "../components/contexts/calendar-events-context";
 import SelectedCalendarEventContext from "../components/contexts/selected-event";
+import CHTextField from "@/components/CHTextField";
 
 
 const useRegisterEventModal = () => {
@@ -111,9 +112,8 @@ const useRegisterEventModal = () => {
 
     const renderModalBody = () => (
         <Stack direction={"column"} alignItems={"center"} spacing={2}>
-            <TextField
+            <CHTextField
                 label="Title"
-                variant="outlined"
                 value={values.title}
                 onChange={(e) => {
                     setValues((v) => ({ ...v, title: e.target.value }));
