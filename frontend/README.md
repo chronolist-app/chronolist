@@ -286,12 +286,19 @@ const [error, setError] = useState(false);
     onBlur={event => setTitle(event.currentTarget.value)} />;
 ```
 
-Scheduler の予定作成 Title に加え、CHRON-204 で予定作成 Memo とサイドパネルのメモを移行済みです。
-Scheduler 以外の入力欄は引き続き CHRON-204 の移行対象です。
+Scheduler の予定作成 Title の先行導入に加え、CHRON-204 の対象15箇所を移行済みです。
+対象は Scheduler のメモ2箇所、TimeBlocking 作成フォーム4箇所と詳細の幅・From・To、
+ToDo の新規タスク名と詳細メモ、Login・Signup の各ID・パスワードです。
+日付・時刻の専用入力（DatePicker・DateTimePicker・ネイティブの date/time）、
+NumberField・BlockWidthField、EditableText、選択・チェックボックス類は今回の移行対象外です。
+TimeBlocking 詳細の From・To は狭幅で縦並び、600px以上で横並びにしています。
+ToDo の既存の左右配置は変更しておらず、375pxでは詳細メモへの横スクロールが必要です。
+入力幅の検証では通常のスクロールで対象を表示してから確認します。
 `npm test` で DOM、`npm run build` の `tsc -b` で公開型の正例・負例を検証します。
 型検証専用の `tests/types/chtextfield.type-test.tsx` は実行時のバンドルには含めません。
-`npm run test:e2e -- e2e/chtextfield.spec.ts` で実 API の保存・再読込と
-375px / 1280px の状態・キーボード操作を検証します。状態一覧は開発用 Vite が通常配信する
+`npm run test:e2e -- e2e/chtextfield.spec.ts e2e/chtextfield-migration.spec.ts` で実 API の保存・再読込と
+375px / 1280px の状態・キーボード操作、移行対象の入力・検証・保存タイミングと認証を検証します。
+状態一覧は開発用 Vite が通常配信する
 `/e2e/chtextfield.html` から専用 harness を読み込みます。実アプリと同じBootstrap CSSを先に読み込み、
 状態コンポーネントと描画entryは分離しています。検証 HTML は本番ビルドの入力に含めず、
 製品の画面にも登録しません。この状態検証は開発用 Vite を対象とし、ビルド済みフロントエンドや HTTPS 環境への対応は含みません。

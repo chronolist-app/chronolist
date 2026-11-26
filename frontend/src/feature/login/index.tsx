@@ -1,4 +1,5 @@
 import CHButton from "@/components/CHButton";
+import CHTextField from "@/components/CHTextField";
 import { customizedFetch } from "@/utils/fetch";
 import axios from "axios";
 import { useState } from "react";
@@ -59,12 +60,10 @@ const LoginPage = () => {
 
             <form>
                 <div>
-                    <label>ログインID</label>
-                    <input type="text" name="login_id" value={loginId} required onChange={(e) => setLoginId(e.target.value)} />
+                    <CHTextField label="ログインID" type="text" name="login_id" value={loginId} required onChange={(e) => setLoginId(e.target.value)} />
                 </div>
                 <div>
-                    <label>パスワード</label>
-                    <input type="password" name="password" value={password} required onChange={(e) => setPassword(e.target.value)} />
+                    <CHTextField label="パスワード" type="password" name="password" value={password} required onChange={(e) => setPassword(e.target.value)} />
                 </div>
                 <CHButton onClick={handleLogin} label="APIログイン" />
             </form>

@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { test, expect, requestFromBrowser, fillTodoDraft, submitTodoDraft, verifySavedTodo } from './fixtures';
 
 /** ブラウザの認証情報とCSRFトークンを使い、検証データを実APIへ登録する。 */
@@ -338,6 +339,90 @@ test.describe('ToDo入力', () => {
             await expectFieldFits(memo, width);
             await row(titles[1]).click();
             await expect(memo).toHaveValue(initialMemos[1]);
+        });
+    }
+});
+
+test.describe('認証入力', () => {
+    for (const width of [375, 1280]) {
+        test(`Signup・Loginの成功と失敗時の入力状態を維持する (${width}px)`, async ({ page, environment }) => {
+            await page.setViewportSize({ width, height: 1000 });
+            const loginId = `e2e${randomUUID().replaceAll('-', '').slice(0, 20)}`;
+            const password = `E2e${randomUUID().replaceAll('-', '')}`;
+            await page.goto('/signup');
+            const signupId = page.getByRole('textbox', { name: 'ログインID', exact: true });
+            const signupPassword = page.getByLabel('パスワード', { exact: true });
+            await signupId.fill(loginId);
+            await signupId.press('Tab');
+            await expect(signupPassword).toBeFocused();
+            await signupPassword.fill(password);
+            // 入力後に縮小したラベルをクリックし、inputに覆われない状態で関連付けを確認する。
+            for (const field of [signupId, signupPassword]) {
+                const id = await field.getAttribute('id');
+                expect(id).toBeTruthy();
+                await page.locator(`label[for="${id}"]`).click();
+                await expect(field).toBeFocused();
+            }
+            await expect(signupId).toHaveJSProperty('required', false);
+            await expect(signupPassword).toHaveJSProperty('required', false);
+            await expect(signupPassword).toHaveAttribute('type', 'password');
+            await expectFieldFits(signupId, width);
+            await expectFieldFits(signupPassword, width);
+            await signupPassword.press('Tab');
+            await expect(page.getByRole('button', { name: 'サインアップ', exact: true })).toBeFocused();
+            const signedUp = page.waitForResponse(response => response.url() === `${environment.apiBaseURL}/api/signup` && response.request().method() === 'POST');
+            await page.getByRole('button', { name: 'サインアップ', exact: true }).click();
+            expect((await signedUp).ok()).toBeTruthy();
+            await expect(page).toHaveURL(`${environment.baseURL}/`);
+            const loggedOut = page.waitForResponse(response => response.url() === `${environment.apiBaseURL}/api/logout` && response.request().method() === 'POST');
+            await page.getByRole('button', { name: 'ログアウト', exact: true }).click();
+            expect((await loggedOut).ok()).toBeTruthy();
+            await expect(page).toHaveURL(`${environment.baseURL}/login?logout`);
+
+            await page.goto('/signup');
+            await signupId.fill(loginId);
+            await signupPassword.fill(password);
+            const duplicate = page.waitForResponse(response => response.url() === `${environment.apiBaseURL}/api/signup` && response.request().method() === 'POST');
+            await page.getByRole('button', { name: 'サインアップ', exact: true }).click();
+            expect((await duplicate).ok()).toBeFalsy();
+            await expect(page.getByText(/Some error happened! status:/)).toBeVisible();
+            await expect(signupId).toHaveValue(loginId);
+            expect(await signupPassword.inputValue() === password).toBeTruthy();
+
+            await page.goto('/login');
+            const login = page.locator('input[name="login_id"]');
+            const loginPassword = page.locator('input[name="password"]');
+            await expect(login).toHaveJSProperty('required', true);
+            await expect(loginPassword).toHaveJSProperty('required', true);
+            await expect(loginPassword).toHaveAttribute('type', 'password');
+            await login.fill(loginId);
+            await login.press('Tab');
+            await expect(loginPassword).toBeFocused();
+            const wrongPassword = `Wrong${randomUUID().replaceAll('-', '')}`;
+            await loginPassword.fill(wrongPassword);
+            for (const [field, label] of [[login, 'ログインID'], [loginPassword, 'パスワード']] as const) {
+                const id = await field.getAttribute('id');
+                expect(id).toBeTruthy();
+                const inputLabel = page.locator(`label[for="${id}"]`);
+                await expect(inputLabel).toContainText(label);
+                await inputLabel.click();
+                await expect(field).toBeFocused();
+            }
+            await expectFieldFits(login, width);
+            await expectFieldFits(loginPassword, width);
+            await loginPassword.press('Tab');
+            await expect(page.getByRole('button', { name: 'APIログイン', exact: true })).toBeFocused();
+            const failed = page.waitForResponse(response => response.url() === `${environment.apiBaseURL}/api/login` && response.request().method() === 'POST');
+            await page.getByRole('button', { name: 'APIログイン', exact: true }).click();
+            expect((await failed).status()).toBe(401);
+            await expect(page.getByRole('alert').filter({ hasText: 'ログインIDまたはパスワードが違います' })).toBeVisible();
+            await expect(login).toHaveValue(loginId);
+            expect(await loginPassword.inputValue() === wrongPassword).toBeTruthy();
+            await loginPassword.fill(password);
+            const succeeded = page.waitForResponse(response => response.url() === `${environment.apiBaseURL}/api/login` && response.request().method() === 'POST');
+            await page.getByRole('button', { name: 'APIログイン', exact: true }).click();
+            expect((await succeeded).ok()).toBeTruthy();
+            await expect(page).toHaveURL(`${environment.baseURL}/`);
         });
     }
 });
