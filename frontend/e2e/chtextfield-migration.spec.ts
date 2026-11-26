@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, requestFromBrowser } from './fixtures';
+import { test, expect, requestFromBrowser, fillTodoDraft, submitTodoDraft, verifySavedTodo } from './fixtures';
 
 /** ブラウザの認証情報とCSRFトークンを使い、検証データを実APIへ登録する。 */
 async function putBlock(page: Page, apiBaseURL: string, data: unknown) {
@@ -246,6 +246,98 @@ test.describe('TimeBlocking幅時刻', () => {
             });
             expect(helperMetrics.scrollWidth, JSON.stringify(helperMetrics)).toBeLessThanOrEqual(helperMetrics.clientWidth);
             await expectFieldFits(helper, width);
+        });
+    }
+});
+
+test.describe('ToDo入力', () => {
+    for (const width of [375, 1280]) {
+        test(`タスク名をtrimして保存・再読込する (${width}px)`, async ({ page, account, environment }) => {
+            await page.setViewportSize({ width, height: 1000 });
+            await fillTodoDraft(page, account.seedTitle, '  タスクA  ');
+            const title = page.getByRole('dialog').getByRole('textbox', { name: 'タスク名', exact: true });
+            await expect(title).toHaveValue('タスクA');
+            const id = await title.getAttribute('id');
+            expect(id).toBeTruthy();
+            await page.getByRole('dialog').locator(`label[for="${id}"]`).click();
+            await expect(title).toBeFocused();
+            await expectFieldFits(title, width);
+            const registered = page.waitForResponse(response => response.url() === `${environment.apiBaseURL}/api/todolist/register` && response.request().method() === 'POST');
+            await submitTodoDraft(page, environment.apiBaseURL);
+            expect((await registered).request().postDataJSON()).toEqual(expect.objectContaining({ title: 'タスクA' }));
+            await verifySavedTodo(page, environment.apiBaseURL, 'タスクA');
+        });
+
+        test(`メモの入力・blur保存・同値の更新抑止・選択同期を維持する (${width}px)`, async ({ page, account, environment }) => {
+            void account;
+            await page.setViewportSize({ width, height: 1000 });
+            const titles = ['メモ確認A', 'メモ確認B'];
+            const initialMemos = ['最初のメモ', '別タスクのメモ'];
+            for (const [index, title] of titles.entries()) {
+                const seeded = await requestFromBrowser(page, environment.apiBaseURL, '/todolist/register', {
+                    title, memo: initialMemos[index], dueKind: 'NONE', dueDate: null, dueTime: null, priority: 'HIGH', isCompleted: false,
+                });
+                expect(seeded.ok).toBeTruthy();
+            }
+            await page.goto('/todolist');
+            const memo = page.getByRole('textbox', { name: 'メモ', exact: true });
+            await expect(memo).toHaveJSProperty('readOnly', true);
+            await expect(memo).toHaveAttribute('placeholder', 'メモを入力...');
+            await memo.scrollIntoViewIfNeeded();
+            await expectFieldFits(memo, width);
+            const row = (title: string) => page.locator('.todolabel').getByText(title, { exact: true });
+            await row(titles[0]).click();
+            await expect(memo).toHaveValue(initialMemos[0]);
+            await expect(memo).toHaveJSProperty('readOnly', false);
+            const id = await memo.getAttribute('id');
+            expect(id).toBeTruthy();
+            await page.locator(`label[for="${id}"]`).click();
+            await expect(memo).toBeFocused();
+            const updateURL = `${environment.apiBaseURL}/api/todolist/update`;
+            let updates = 0;
+            page.on('request', request => {
+                if (request.url() === updateURL && request.method() === 'PUT') updates++;
+            });
+            const draft = '  一行目\n二行目  ';
+            await memo.fill('');
+            for (const character of draft) {
+                if (character === '\n') await page.keyboard.press('Enter');
+                else await page.keyboard.insertText(character);
+                await expect(memo).toBeFocused();
+            }
+            await expect(memo).toHaveValue(draft);
+            expect(updates).toBe(0);
+            const saved = page.waitForResponse(response => response.url() === updateURL && response.request().method() === 'PUT');
+            await memo.press('Tab');
+            const response = await saved;
+            expect(response.ok()).toBeTruthy();
+            expect(response.request().postDataJSON()).toEqual(expect.objectContaining({ title: titles[0], memo: draft.trim() }));
+            await expect(memo).not.toBeFocused();
+            await expect(memo).toHaveValue(draft.trim());
+            expect(updates).toBe(1);
+            await memo.focus();
+            await memo.press('Tab');
+            await expect(memo).not.toBeFocused();
+            expect(updates).toBe(1);
+            await row(titles[1]).click();
+            await expect(memo).toHaveValue(initialMemos[1]);
+            await row(titles[0]).click();
+            await expect(memo).toHaveValue(draft.trim());
+            expect(updates).toBe(1);
+
+            await page.reload();
+            const stored = await requestFromBrowser(page, environment.apiBaseURL, '/todolist/getAll');
+            expect(stored.ok).toBeTruthy();
+            expect(stored.body).toEqual(expect.arrayContaining([
+                expect.objectContaining({ title: titles[0], memo: draft.trim() }),
+                expect.objectContaining({ title: titles[1], memo: initialMemos[1] }),
+            ]));
+            await row(titles[0]).click();
+            await expect(memo).toHaveValue(draft.trim());
+            await memo.scrollIntoViewIfNeeded();
+            await expectFieldFits(memo, width);
+            await row(titles[1]).click();
+            await expect(memo).toHaveValue(initialMemos[1]);
         });
     }
 });
