@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import { isViteDevelopmentResponse } from './vite-environment';
 
 for (const width of [375, 1280]) {
-    test(`SchedulerのTitleが入力・エラー解除・保存と再読込に対応する (${width}px)`, async ({ page, account, environment }) => {
+    test(`SchedulerのTitleとメモが入力・エラー解除・保存と再読込に対応する (${width}px)`, async ({ page, account, environment }) => {
         await page.setViewportSize({ width, height: 1000 });
         const loaded = page.waitForResponse(response => response.url().includes('/api/scheduler/getEvents/') && response.ok());
         await page.goto('/scheduler');
@@ -51,11 +51,47 @@ for (const width of [375, 1280]) {
         expect(box).not.toBeNull();
         expect(box!.x).toBeGreaterThanOrEqual(0);
         expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+        const memo = dialog.getByRole('textbox', { name: 'Memo', exact: true });
+        const savedMemo = '一行目\n二行目';
+        await memo.focus();
+        for (const character of savedMemo) {
+            if (character === '\n') await page.keyboard.press('Enter');
+            else await page.keyboard.insertText(character);
+            await expect(memo).toBeFocused();
+        }
+        await expect(memo).toHaveValue(savedMemo);
+        await expect(memo).toHaveAttribute('rows', '3');
+        const memoBox = await memo.boundingBox();
+        expect(memoBox!.x).toBeGreaterThanOrEqual(0);
+        expect(memoBox!.x + memoBox!.width).toBeLessThanOrEqual(width);
         const saved = page.waitForResponse(response => response.url() === `${environment.apiBaseURL}/api/scheduler/register` && response.request().method() === 'POST');
         await dialog.getByRole('button', { name: 'Create', exact: true }).click();
         expect((await saved).ok()).toBeTruthy();
         await page.reload();
         await expect(page.locator('.fc').getByText(savedTitle, { exact: true })).toBeVisible();
+        await page.locator('.fc').getByText(savedTitle, { exact: true }).click();
+        const sideMemo = page.getByRole('textbox', { name: 'メモ', exact: true });
+        await expect(sideMemo).toHaveValue(savedMemo);
+        await expect(sideMemo).toHaveAttribute('rows', '4');
+        await sideMemo.scrollIntoViewIfNeeded();
+        const sideMemoId = await sideMemo.getAttribute('id');
+        expect(sideMemoId).toBeTruthy();
+        const sideMemoLabel = page.locator(`label[for="${sideMemoId}"]`);
+        await expect(sideMemoLabel).toHaveText('メモ');
+        await sideMemoLabel.click();
+        await expect(sideMemo).toBeFocused();
+        const sideBox = await sideMemo.boundingBox();
+        expect(sideBox!.x).toBeGreaterThanOrEqual(0);
+        expect(sideBox!.x + sideBox!.width).toBeLessThanOrEqual(width);
+        const editedMemo = '編集した一行目\n編集した二行目';
+        const updated = page.waitForResponse(response => response.url() === `${environment.apiBaseURL}/api/scheduler/update`
+            && response.request().method() === 'PUT' && response.request().postDataJSON().memo === editedMemo);
+        await sideMemo.fill(editedMemo);
+        await expect(sideMemo).toBeFocused();
+        expect((await updated).ok()).toBeTruthy();
+        await page.reload();
+        await page.locator('.fc').getByText(savedTitle, { exact: true }).click();
+        await expect(sideMemo).toHaveValue(editedMemo);
     });
 
     test(`共通入力の状態とキーボード操作を確認する (${width}px)`, async ({ page }) => {

@@ -286,7 +286,8 @@ const [error, setError] = useState(false);
     onBlur={event => setTitle(event.currentTarget.value)} />;
 ```
 
-今回の先行導入は Scheduler の予定作成 Title のみです。他入力欄の移行は CHRON-204 で扱います。
+Scheduler の予定作成 Title に加え、CHRON-204 で予定作成 Memo とサイドパネルのメモを移行済みです。
+Scheduler 以外の入力欄は引き続き CHRON-204 の移行対象です。
 `npm test` で DOM、`npm run build` の `tsc -b` で公開型の正例・負例を検証します。
 型検証専用の `tests/types/chtextfield.type-test.tsx` は実行時のバンドルには含めません。
 `npm run test:e2e -- e2e/chtextfield.spec.ts` で実 API の保存・再読込と
