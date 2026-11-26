@@ -1,4 +1,5 @@
 import CHButton from "@/components/CHButton";
+import CHTextField from "@/components/CHTextField";
 import { isValidUiBlockWidth } from "../utils/blockValidation";
 import { useCallback, useContext, useRef, useState, type FC } from "react"
 
@@ -6,7 +7,7 @@ import BlockRepositories from "../contexts/BlockRepositories"
 import TimeTableConfigure from "../contexts/TimeTableConfigure";
 import type { TemplateBlockInput } from "../types/blockSourceTypes";
 import { register } from "../api/templateBlockApi";
-import { Alert, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
+import { Alert, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from "@mui/material";
 import BlockWidthField from "@/components/BlockWidthField";
 
 
@@ -34,7 +35,7 @@ const CreateTemplateBlockDialog: FC<CreateTemplateBlockDialogProps> = ({ open, s
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState(false);
 
-    const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setTitle(e.target.value.trim());
         setTitleHasError(false);
     };
@@ -42,7 +43,7 @@ const CreateTemplateBlockDialog: FC<CreateTemplateBlockDialogProps> = ({ open, s
         setWidth(width);
         setWidthHasError(false);
     };
-    const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleColorChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setColor(e.target.value.trim());
     };
 
@@ -98,7 +99,7 @@ const CreateTemplateBlockDialog: FC<CreateTemplateBlockDialogProps> = ({ open, s
                     <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0 }}>
                     <Stack spacing={3} sx={{padding: 1}}>
                         {saveError && <Alert severity="error">テンプレートブロックを作成できませんでした。</Alert>}
-                        <TextField
+                        <CHTextField
                             disabled={saving}
                             label="タイトル"
                             value={title}
@@ -113,7 +114,7 @@ const CreateTemplateBlockDialog: FC<CreateTemplateBlockDialogProps> = ({ open, s
                             helperText={widthHasError ? "幅は1〜1440分でスロットの倍数にしてください" : ""}
                             label={"幅"}
                         />
-                        <TextField
+                        <CHTextField
                             disabled={saving}
                             label="色"
                             value={color}
