@@ -1,6 +1,7 @@
 import { useContext } from "react";
 import TimeTableConfigure from "../../contexts/TimeTableConfigure";
-import { Divider, Stack, TextField } from "@mui/material";
+import { Divider, Stack } from "@mui/material";
+import CHTextField from "@/components/CHTextField";
 import { useEffect, useState, type FC } from "react";
 import { isValidUiBlockWidth } from "../../utils/blockValidation";
 type WidthProps = { width: number; setWidth: (width: number) => void };
@@ -25,7 +26,7 @@ const Width: FC<WidthProps> = ({ width, setWidth }) => {
     return (
         <Stack>
             <Divider textAlign="left">ブロック幅</Divider>
-            <TextField
+            <CHTextField
                 label="幅（分）"
                 type="number"
                 value={draft}
@@ -34,9 +35,11 @@ const Width: FC<WidthProps> = ({ width, setWidth }) => {
                 onChange={event => setDraft(event.target.value)}
                 onBlur={finish}
                 onKeyDown={event => {
-                    if (event.key === "Enter") event.currentTarget.querySelector("input")?.blur();
+                    if (event.key === "Enter") event.currentTarget.blur();
                 }}
-                slotProps={{ htmlInput: { min: 1, max: 1440, step: slotMinutes } }}
+                min={1}
+                max={1440}
+                step={slotMinutes}
             />
         </Stack>
     );
