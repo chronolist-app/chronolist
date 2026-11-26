@@ -1,7 +1,7 @@
 import { useCallback, useContext, useState } from "react";
 import dayjs, { Dayjs } from 'dayjs';
 import type { ScheduleKind } from "../types/statics";
-import { Stack, TextField, Typography } from "@mui/material";
+import { Stack, Typography } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
@@ -139,9 +139,8 @@ const useRegisterEventModal = () => {
                 onChange={(color) => setValues((v) => ({ ...v, color }))}
                 defaultValue={values.color}
             />
-            <TextField
+            <CHTextField
                 label="Memo"
-                variant="outlined"
                 value={values.memo}
                 multiline
                 rows={3}

@@ -11,6 +11,7 @@ import AllToDoTasksContext from "../all-todotasks-context";
 import { resiterTask } from "@/feature/todolist/api/register-api";
 import PullDown from "@/components/pulldown";
 import { convertDueKindToDisplayText, convertPriorityToDisplayText } from "../../utils/to-display-text";
+import CHTextField from "@/components/CHTextField";
 
 const RegisterModal: FC<{show: boolean, setShow: (show: boolean) => void}> = ({show, setShow}) => {
 
@@ -58,8 +59,7 @@ const RegisterModal: FC<{show: boolean, setShow: (show: boolean) => void}> = ({s
             onClose={() => setShow(false)}
         >
             <div className={classNames("d-flex", "flex-column")}>
-                <label htmlFor={`title-${formId}`}>タスク名</label>
-                <input type="text" id={`title-${formId}`} value={title} onChange={(e) => setTitle(e.target.value.trim())}/>
+                <CHTextField label="タスク名" type="text" id={`title-${formId}`} value={title} onChange={(e) => setTitle(e.target.value.trim())}/>
 
                 <label htmlFor={`kind-${formId}`}>期日</label>
                 <PullDown

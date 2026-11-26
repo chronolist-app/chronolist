@@ -1,5 +1,6 @@
 import { Time } from "@/utils/time";
-import { Divider, Stack, TextField } from "@mui/material";
+import { Divider, Stack } from "@mui/material";
+import CHTextField from "@/components/CHTextField";
 import { useEffect, useState, type FC } from "react";
 import { getBlockValidationError } from "../../utils/blockValidation";
 type TimeRangeProps = { width?: number; startAt?: Time; setStartAt: (start: Time) => void };
@@ -28,25 +29,25 @@ const TimeRange: FC<TimeRangeProps> = ({ width = 0, startAt = new Time(), setSta
     return (
         <Stack>
             <Divider textAlign="left">時刻</Divider>
-            <Stack spacing={3} direction="row">
-                <TextField
+            <Stack spacing={3} direction={{ xs: "column", sm: "row" }}>
+                <CHTextField
                     label="From"
                     value={from}
                     error={!!error}
                     helperText={error}
                     onChange={e => setFrom(e.target.value)}
                     onKeyDown={e => {
-                        if (e.key === "Enter") e.currentTarget.querySelector("input")?.blur();
+                        if (e.key === "Enter") e.currentTarget.blur();
                     }}
                     onBlur={() => finish(false)}
                 />
-                <TextField
+                <CHTextField
                     label="To"
                     value={to}
                     error={!!error}
                     onChange={e => setTo(e.target.value)}
                     onKeyDown={e => {
-                        if (e.key === "Enter") e.currentTarget.querySelector("input")?.blur();
+                        if (e.key === "Enter") e.currentTarget.blur();
                     }}
                     onBlur={() => finish(true)}
                 />

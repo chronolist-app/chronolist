@@ -1,5 +1,6 @@
-import { Stack, TextField } from "@mui/material";
+import { Stack } from "@mui/material";
 import type { FC } from "react";
+import CHTextField from "@/components/CHTextField";
 
 
 type MemoProps = {
@@ -11,8 +12,8 @@ const Memo: FC<MemoProps> = ({ memo, onChange }) => {
     return (
         <>
             <Stack direction={"column"}>
-                <label>メモ</label>
-                <TextField
+                <CHTextField
+                    label="メモ"
                     multiline
                     rows={4}
                     value={memo}

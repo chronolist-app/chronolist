@@ -1,4 +1,5 @@
 import CHButton from "@/components/CHButton";
+import CHTextField from "@/components/CHTextField";
 import myAxios from "@/utils/axios";
 import axios from "axios";
 import { useState } from "react";
@@ -47,12 +48,10 @@ const SingnUpPage= () => {
             {errorMsg && <p style={{color: "red"}}>{errorMsg}</p>}
 
             <div>
-                <label>ログインID</label>
-                <input type="text" value={loginId} onChange={(e) => setLoginId(e.target.value)} />
+                <CHTextField label="ログインID" type="text" value={loginId} onChange={(e) => setLoginId(e.target.value)} />
             </div>
             <div>
-                <label>パスワード</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <CHTextField label="パスワード" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             <CHButton onClick={handleSignUp} label="サインアップ" />
         </>
